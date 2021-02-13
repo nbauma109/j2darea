@@ -23,11 +23,12 @@ import java.util.Map.Entry;
 
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
-import javax.swing.JMenu;
 import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
@@ -36,6 +37,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class J2DArea extends JFrame {
+
+    private static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
     private static final long serialVersionUID = 1L;
 
@@ -52,6 +55,9 @@ public class J2DArea extends JFrame {
     private boolean editingParallelogram;
     private List<Polygon> parallelograms = new ArrayList<>();
 
+    private int backgroundWidth = 5120;
+    private int backgroundheight = 3840;
+
     public J2DArea() {
         super("J2DArea");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -66,12 +72,7 @@ public class J2DArea extends JFrame {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                if (buildBackgroundImage != null) {
-                    g.drawImage(buildBackgroundImage, 0, 0, null);
-                }
-                for (Entry<BufferedImage, Point> pastedObjectEntry : pastedObjects) {
-                    g.drawImage(pastedObjectEntry.getKey(), (int) pastedObjectEntry.getValue().getX(), (int) pastedObjectEntry.getValue().getY(), null);
-                }
+                paintObjects(g);
                 g.setColor(Color.GREEN);
                 for (Polygon parallelogram : parallelograms) {
                     if (parallelogram.npoints < 3) {
@@ -92,7 +93,7 @@ public class J2DArea extends JFrame {
                 if (buildBackgroundImage != null) {
                     return new Dimension(buildBackgroundImage.getWidth(), buildBackgroundImage.getHeight());
                 }
-                return new Dimension(300, 200);
+                return new Dimension(backgroundWidth, backgroundheight);
             }
         };
 
@@ -117,41 +118,45 @@ public class J2DArea extends JFrame {
                 if (extractionBackgroundImage != null) {
                     return new Dimension(extractionBackgroundImage.getWidth(), extractionBackgroundImage.getHeight());
                 }
-                return new Dimension(300, 200);
+                return new Dimension(backgroundWidth, backgroundheight);
             }
         };
 
         extractPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (SwingUtilities.isRightMouseButton(e)) {
-                    JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
-                    int returnVal = chooser.showSaveDialog(null);
-                    if (returnVal == JFileChooser.APPROVE_OPTION) {
-                        Rectangle rect = polygon.getBounds();
-                        int width = (int) Math.round(rect.getWidth());
-                        int height = (int) Math.round(rect.getHeight());
-                        BufferedImage imageFromSelection = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-                        for (int x = 0; x < width; x++) {
-                            for (int y = 0; y < height; y++) {
-                                if (polygon.contains(rect.getMinX() + x, rect.getMinY() + y)) {
-                                    imageFromSelection.setRGB(x, y, extractionBackgroundImage.getRGB((int) Math.round(rect.getMinX() + x), (int) Math.round(rect.getMinY() + y)));
-                                } else {
-                                    imageFromSelection.setRGB(x, y, 0);
+                if (extractionBackgroundImage != null) {
+                    if (SwingUtilities.isRightMouseButton(e)) {
+                        JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
+                        int returnVal = chooser.showSaveDialog(null);
+                        if (returnVal == JFileChooser.APPROVE_OPTION) {
+                            Rectangle rect = polygon.getBounds();
+                            int width = (int) Math.round(rect.getWidth());
+                            int height = (int) Math.round(rect.getHeight());
+                            BufferedImage imageFromSelection = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+                            for (int x = 0; x < width; x++) {
+                                for (int y = 0; y < height; y++) {
+                                    double xx = rect.getMinX() + x;
+                                    double yy = rect.getMinY() + y;
+                                    if (polygon.contains(xx, yy)) {
+                                        imageFromSelection.setRGB(x, y, extractionBackgroundImage.getRGB((int) Math.round(xx), (int) Math.round(yy)));
+                                    } else {
+                                        imageFromSelection.setRGB(x, y, 0);
+                                    }
                                 }
                             }
+                            try {
+                                ImageIO.write(imageFromSelection, "png", chooser.getSelectedFile());
+                            } catch (IOException ex) {
+                                ex.printStackTrace();
+                            }
                         }
-                        try {
-                            ImageIO.write(imageFromSelection, "png", chooser.getSelectedFile());
-                        } catch (IOException ex) {
-                            ex.printStackTrace();
-                        }
+                        polygon.reset();
+                    } else {
+                        polygon.addPoint(e.getX(), e.getY());
                     }
-                    polygon.reset();
-                } else {
-                    polygon.addPoint(e.getX(), e.getY());
+                    extractPanel.repaint();
                 }
-                extractPanel.repaint();
             }
         });
         buildPanel.addMouseListener(new MouseAdapter() {
@@ -259,7 +264,7 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (objectToMove != null) {
-                    if (objectToMoveIdx < pastedObjects.size() - 1) {
+                    if (objectToMoveIdx >= 0 && objectToMoveIdx < pastedObjects.size() - 1) {
                         Entry<BufferedImage, Point> tmp = pastedObjects.get(objectToMoveIdx + 1);
                         pastedObjects.set(objectToMoveIdx + 1, objectToMove);
                         pastedObjects.set(objectToMoveIdx, tmp);
@@ -275,7 +280,7 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (objectToMove != null) {
-                    if (objectToMoveIdx > 0) {
+                    if (objectToMoveIdx > 0 && objectToMoveIdx < pastedObjects.size()) {
                         Entry<BufferedImage, Point> tmp = pastedObjects.get(objectToMoveIdx - 1);
                         pastedObjects.set(objectToMoveIdx - 1, objectToMove);
                         pastedObjects.set(objectToMoveIdx, tmp);
@@ -305,9 +310,33 @@ public class J2DArea extends JFrame {
 
         JMenuBar menubar = new JMenuBar();
         setJMenuBar(menubar);
-        JMenu fileMenu = new JMenu("File");
-        menubar.add(fileMenu);
-        fileMenu.add(new JMenuItem(new AbstractAction("Open") {
+        JButton newButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/new.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String inputSize = JOptionPane.showInputDialog("Enter size: ", "5120x3840");
+                if (inputSize != null && inputSize.matches("\\d+x\\d+")) {
+                    String[] tokens = inputSize.split("x");
+                    backgroundWidth = Integer.parseInt(tokens[0]);
+                    backgroundheight = Integer.parseInt(tokens[1]);
+                    pastedObjects.clear();
+                    objectToMove = null;
+                    objectToMoveIdx = -1;
+                    rectangle = null;
+                    polygon.reset();
+                    J2DArea.this.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    J2DArea.this.repaint();
+                } else {
+                    JOptionPane.showMessageDialog(null, "Bad input", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+        newButton.setMaximumSize(BUTTON_SIZE);
+        newButton.setToolTipText("Create a new area");
+        menubar.add(newButton);
+        JButton openButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open.png"))) {
 
             private static final long serialVersionUID = 1L;
 
@@ -323,10 +352,35 @@ public class J2DArea extends JFrame {
                 J2DArea.this.setExtendedState(JFrame.MAXIMIZED_BOTH);
                 J2DArea.this.repaint();
             }
-        }));
-        JMenu editMenu = new JMenu("Edit");
-        menubar.add(editMenu);
-        editMenu.add(new JMenuItem(new AbstractAction("Paste From") {
+        });
+        openButton.setMaximumSize(BUTTON_SIZE);
+        openButton.setToolTipText("Open a background image file");
+        menubar.add(openButton);
+        
+        JButton saveButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
+                int returnVal = chooser.showSaveDialog(null);
+                if (returnVal == JFileChooser.APPROVE_OPTION) {
+                    BufferedImage imageToSave = new BufferedImage(buildPanel.getWidth(), buildPanel.getHeight(), BufferedImage.TYPE_INT_RGB);
+                    paintObjects(imageToSave.getGraphics());
+                    try {
+                        ImageIO.write(imageToSave, "png", chooser.getSelectedFile());
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        });
+        saveButton.setMaximumSize(BUTTON_SIZE);
+        saveButton.setToolTipText("Save build area to file");
+        menubar.add(saveButton);
+        
+        JButton pasteFromButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/paste-from.png"))) {
 
             private static final long serialVersionUID = 1L;
 
@@ -335,8 +389,12 @@ public class J2DArea extends JFrame {
                 pastedObjects.add(new SimpleEntry<>(chooseImageFile(), new Point(0, 0)));
                 J2DArea.this.repaint();
             }
-        }));
-        editMenu.add(new JMenuItem(new AbstractAction("Parallelogram") {
+        });
+        menubar.add(pasteFromButton);
+        pasteFromButton.setMaximumSize(BUTTON_SIZE);
+        pasteFromButton.setToolTipText("Paste from an image file");
+
+        JButton parallelogramButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/parallelogram.png"))) {
 
             private static final long serialVersionUID = 1L;
 
@@ -344,11 +402,15 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 editingParallelogram = true;
             }
-        }));
+        });
+        parallelogramButton.setMaximumSize(BUTTON_SIZE);
+        parallelogramButton.setToolTipText("Draw and fill a new parallelogram");
+        menubar.add(parallelogramButton);
 
         getContentPane().setLayout(new BorderLayout());
         getContentPane().add(tabPane, BorderLayout.CENTER);
         setSize(500, 500);
+        setMinimumSize(new Dimension(300, 300));
         setVisible(true);
     }
 
@@ -368,6 +430,15 @@ public class J2DArea extends JFrame {
             }
         }
         return null;
+    }
+
+    private void paintObjects(Graphics g) {
+        if (buildBackgroundImage != null) {
+            g.drawImage(buildBackgroundImage, 0, 0, null);
+        }
+        for (Entry<BufferedImage, Point> pastedObjectEntry : pastedObjects) {
+            g.drawImage(pastedObjectEntry.getKey(), (int) pastedObjectEntry.getValue().getX(), (int) pastedObjectEntry.getValue().getY(), null);
+        }
     }
 
     public static void main(String[] args) {
