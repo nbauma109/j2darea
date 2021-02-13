@@ -9,6 +9,7 @@ import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
@@ -30,6 +31,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
@@ -44,6 +46,7 @@ public class J2DArea extends JFrame {
     private int mouseY;
     private List<Entry<BufferedImage, Point>> pastedObjects = new ArrayList<>();
     private Entry<BufferedImage, Point> objectToMove;
+    private int objectToMoveIdx = -1;
     private int deltaX, deltaY;
 
     private boolean editingParallelogram;
@@ -154,7 +157,6 @@ public class J2DArea extends JFrame {
         buildPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-
                 if (editingParallelogram) {
                     if (parallelograms.isEmpty() || parallelograms.get(parallelograms.size() - 1).npoints == 4) {
                         Polygon parallelogram = new Polygon();
@@ -175,7 +177,7 @@ public class J2DArea extends JFrame {
                                         if (textureImage != null) {
                                             floorImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
                                         } else {
-                                            floorImage.setRGB(x, y, new Color(0, 0, 0, 255).getRGB());
+                                            floorImage.setRGB(x, y, Color.BLACK.getRGB());
                                         }
                                     } else {
                                         floorImage.setRGB(x, y, 0);
@@ -192,15 +194,22 @@ public class J2DArea extends JFrame {
                     }
                 } else {
                     if (objectToMove == null) {
+                        int idx = 0;
                         for (Entry<BufferedImage, Point> pastedObjectEntry : pastedObjects) {
                             Rectangle rect = new Rectangle((int) pastedObjectEntry.getValue().getX(), (int) pastedObjectEntry.getValue().getY(),
                                     pastedObjectEntry.getKey().getWidth(), pastedObjectEntry.getKey().getHeight());
                             if (rect.contains(e.getX(), e.getY())) {
                                 rectangle = rect;
                                 objectToMove = pastedObjectEntry;
+                                objectToMoveIdx = idx;
                                 deltaX = (int) (e.getX() - objectToMove.getValue().getX());
                                 deltaY = (int) (e.getY() - objectToMove.getValue().getY());
                             }
+                            idx++;
+                        }
+                        if (e.isControlDown()) {
+                            objectToMove = new SimpleEntry<>(objectToMove.getKey(), objectToMove.getValue());
+                            pastedObjects.add(objectToMove);
                         }
                     } else {
                         objectToMove = null;
@@ -223,6 +232,59 @@ public class J2DArea extends JFrame {
                 buildPanel.repaint();
             }
         });
+
+        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), "Delete");
+        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, 0), "Plus");
+        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, KeyEvent.SHIFT_DOWN_MASK), "Plus");
+        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_SUBTRACT, 0), "Minus");
+        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_6, 0), "Minus");
+        buildPanel.getActionMap().put("Delete", new AbstractAction() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (objectToMove != null) {
+                    pastedObjects.remove(objectToMove);
+                    rectangle = null;
+                    objectToMove = null;
+                    buildPanel.repaint();
+                }
+            }
+        });
+        buildPanel.getActionMap().put("Plus", new AbstractAction() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (objectToMove != null) {
+                    if (objectToMoveIdx < pastedObjects.size() - 1) {
+                        Entry<BufferedImage, Point> tmp = pastedObjects.get(objectToMoveIdx + 1);
+                        pastedObjects.set(objectToMoveIdx + 1, objectToMove);
+                        pastedObjects.set(objectToMoveIdx, tmp);
+                    }
+                    buildPanel.repaint();
+                }
+            }
+        });
+        buildPanel.getActionMap().put("Minus", new AbstractAction() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (objectToMove != null) {
+                    if (objectToMoveIdx > 0) {
+                        Entry<BufferedImage, Point> tmp = pastedObjects.get(objectToMoveIdx - 1);
+                        pastedObjects.set(objectToMoveIdx - 1, objectToMove);
+                        pastedObjects.set(objectToMoveIdx, tmp);
+                    }
+                    buildPanel.repaint();
+                }
+            }
+        });
+
         extractPanel.addMouseMotionListener(new MouseMotionAdapter() {
 
             @Override
