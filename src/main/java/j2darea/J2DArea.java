@@ -89,7 +89,7 @@ public class J2DArea extends JFrame {
                     }
                 }
                 if (rectangle != null) {
-                    g.drawRect((int) rectangle.getLocation().getX(), (int) rectangle.getLocation().getY(), (int) rectangle.getWidth(), (int) rectangle.getHeight());
+                    g.drawRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
                 }
             }
 
@@ -136,24 +136,30 @@ public class J2DArea extends JFrame {
                         int returnVal = chooser.showSaveDialog(null);
                         if (returnVal == JFileChooser.APPROVE_OPTION) {
                             Rectangle rect = polygon.getBounds();
-                            int width = (int) Math.round(rect.getWidth());
-                            int height = (int) Math.round(rect.getHeight());
-                            BufferedImage imageFromSelection = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-                            for (int x = 0; x < width; x++) {
-                                for (int y = 0; y < height; y++) {
-                                    double xx = rect.getMinX() + x;
-                                    double yy = rect.getMinY() + y;
+                            BufferedImage imageFromSelection = new BufferedImage(rect.width, rect.height, BufferedImage.TYPE_INT_ARGB);
+                            for (int x = 0; x < rect.width; x++) {
+                                for (int y = 0; y < rect.height; y++) {
+                                    int xx = rect.x + x;
+                                    int yy = rect.y + y;
                                     if (polygon.contains(xx, yy)) {
-                                        imageFromSelection.setRGB(x, y, extractionBackgroundImage.getRGB((int) Math.round(xx), (int) Math.round(yy)));
+                                        imageFromSelection.setRGB(x, y, extractionBackgroundImage.getRGB(xx, yy));
                                     } else {
                                         imageFromSelection.setRGB(x, y, 0);
                                     }
                                 }
                             }
+                            boolean success;
                             try {
                                 ImageIO.write(imageFromSelection, "png", chooser.getSelectedFile());
+                                success = true;
                             } catch (IOException ex) {
                                 ex.printStackTrace();
+                                success = false;
+                            }
+                            if (success) {
+                                JOptionPane.showMessageDialog(null, "Image saved.");
+                            } else {
+                                JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
                             }
                         }
                         polygon.reset();
@@ -180,7 +186,7 @@ public class J2DArea extends JFrame {
                             editingParallelogram = false;
                             buildPanel.repaint();
                             BufferedImage textureImage = chooseImageFile();
-                            BufferedImage floorImage = new BufferedImage((int) p.getBounds().getWidth(), (int) p.getBounds().getHeight(), BufferedImage.TYPE_INT_ARGB);
+                            BufferedImage floorImage = new BufferedImage(p.getBounds().width, p.getBounds().height, BufferedImage.TYPE_INT_ARGB);
                             for (int x = 0; x < floorImage.getWidth(); x++) {
                                 for (int y = 0; y < floorImage.getHeight(); y++) {
                                     if (p.contains(p.getBounds().getMinX() + x, p.getBounds().getMinY() + y)) {
@@ -323,19 +329,21 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String inputSize = JOptionPane.showInputDialog("Enter size: ", "5120x3840");
-                if (inputSize != null && inputSize.matches("\\d+x\\d+")) {
-                    String[] tokens = inputSize.split("x");
-                    backgroundWidth = Integer.parseInt(tokens[0]);
-                    backgroundheight = Integer.parseInt(tokens[1]);
-                    pastedObjects.clear();
-                    objectToMove = null;
-                    objectToMoveIdx = -1;
-                    rectangle = null;
-                    polygon.reset();
-                    J2DArea.this.setExtendedState(JFrame.MAXIMIZED_BOTH);
-                    J2DArea.this.repaint();
-                } else {
-                    JOptionPane.showMessageDialog(null, "Bad input", "Error", JOptionPane.ERROR_MESSAGE);
+                if (inputSize != null) {
+                    if (inputSize.matches("\\d+x\\d+")) {
+                        String[] tokens = inputSize.split("x");
+                        backgroundWidth = Integer.parseInt(tokens[0]);
+                        backgroundheight = Integer.parseInt(tokens[1]);
+                        pastedObjects.clear();
+                        objectToMove = null;
+                        objectToMoveIdx = -1;
+                        rectangle = null;
+                        polygon.reset();
+                        J2DArea.this.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                        J2DArea.this.repaint();
+                    } else {
+                        JOptionPane.showMessageDialog(null, "Bad input", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
                 }
             }
         });
@@ -354,6 +362,7 @@ public class J2DArea extends JFrame {
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showOpenDialog(null);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
+                    boolean success;
                     try (FileInputStream fileInputStream = new FileInputStream(chooser.getSelectedFile())) {
                         try (GZIPInputStream gzipInputStream = new GZIPInputStream(fileInputStream)) {
                             try (ObjectInputStream objectInputStream = new ObjectInputStream(gzipInputStream)) {
@@ -365,10 +374,16 @@ public class J2DArea extends JFrame {
                                 J2DArea.this.repaint();
                             } catch (ClassNotFoundException ex) {
                                 ex.printStackTrace();
+                                success = false;
                             }
                         }
+                        success = true;
                     } catch (IOException ex) {
                         ex.printStackTrace();
+                        success = false;
+                    }
+                    if (!success) {
+                        JOptionPane.showMessageDialog(null, "Error opening file.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -412,6 +427,7 @@ public class J2DArea extends JFrame {
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showSaveDialog(null);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
+                    boolean success;
                     ExportableArea exportableArea = new ExportableArea(new ExportableImage(buildBackgroundImage), pastedObjects);
                     try (FileOutputStream fileOutputStream = new FileOutputStream(chooser.getSelectedFile())) {
                         try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(fileOutputStream)) {
@@ -419,8 +435,15 @@ public class J2DArea extends JFrame {
                                 exportableArea.writeExternal(objectOutputStream);
                             }
                         }
+                        success = true;
                     } catch (IOException ex) {
                         ex.printStackTrace();
+                        success = false;
+                    }
+                    if (success) {
+                        JOptionPane.showMessageDialog(null, "Project saved.");
+                    } else {
+                        JOptionPane.showMessageDialog(null, "Project save failed.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -436,14 +459,24 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
+                FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
+                chooser.setFileFilter(filter);
                 int returnVal = chooser.showSaveDialog(null);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
                     BufferedImage imageToexport = new BufferedImage(buildPanel.getWidth(), buildPanel.getHeight(), BufferedImage.TYPE_INT_RGB);
                     paintObjects(imageToexport.getGraphics());
+                    boolean success;
                     try {
                         ImageIO.write(imageToexport, "png", chooser.getSelectedFile());
+                        success = true;
                     } catch (IOException ex) {
                         ex.printStackTrace();
+                        success = false;
+                    }
+                    if (success) {
+                        JOptionPane.showMessageDialog(null, "Image saved.");
+                    } else {
+                        JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -495,10 +528,17 @@ public class J2DArea extends JFrame {
         chooser.setFileFilter(filter);
         int returnVal = chooser.showOpenDialog(null);
         if (returnVal == JFileChooser.APPROVE_OPTION) {
+            boolean success;
             try {
-                return ImageIO.read(chooser.getSelectedFile());
+                BufferedImage img = ImageIO.read(chooser.getSelectedFile());
+                success = true;
+                return img;
             } catch (IOException ex) {
                 ex.printStackTrace();
+                success = false;
+            }
+            if (!success) {
+                JOptionPane.showMessageDialog(null, "Error opening image.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
         return null;
