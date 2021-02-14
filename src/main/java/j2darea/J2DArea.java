@@ -332,6 +332,7 @@ public class J2DArea extends JFrame {
                 if (inputSize != null) {
                     if (inputSize.matches("\\d+x\\d+")) {
                         String[] tokens = inputSize.split("x");
+                        buildBackgroundImage = null;
                         backgroundWidth = Integer.parseInt(tokens[0]);
                         backgroundheight = Integer.parseInt(tokens[1]);
                         pastedObjects.clear();
