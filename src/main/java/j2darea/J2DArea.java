@@ -44,8 +44,11 @@ public class J2DArea extends JFrame {
     private static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
     private static final long serialVersionUID = 1L;
-
-    private BufferedImage buildBackgroundImage, extractionBackgroundImage;
+    
+    private int backgroundWidth = 5120;
+    private int backgroundheight = 3840;
+    private BufferedImage buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
+    private BufferedImage extractionBackgroundImage;
     private Polygon polygon = new Polygon();
     private Rectangle rectangle;
     private Point mousePosition = new Point();
@@ -53,12 +56,9 @@ public class J2DArea extends JFrame {
     private PastedObject objectToMove;
     private int objectToMoveIdx = -1;
     private int deltaX, deltaY;
-
     private boolean editingParallelogram;
     private List<Polygon> parallelograms = new ArrayList<>();
 
-    private int backgroundWidth = 5120;
-    private int backgroundheight = 3840;
 
     public J2DArea() {
         super("J2DArea");
@@ -332,9 +332,9 @@ public class J2DArea extends JFrame {
                 if (inputSize != null) {
                     if (inputSize.matches("\\d+x\\d+")) {
                         String[] tokens = inputSize.split("x");
-                        buildBackgroundImage = null;
                         backgroundWidth = Integer.parseInt(tokens[0]);
                         backgroundheight = Integer.parseInt(tokens[1]);
+                        buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
                         pastedObjects.clear();
                         objectToMove = null;
                         objectToMoveIdx = -1;
