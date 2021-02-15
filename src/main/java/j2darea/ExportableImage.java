@@ -1,5 +1,7 @@
 package j2darea;
 
+import java.awt.Color;
+import java.awt.Transparency;
 import java.awt.image.BufferedImage;
 import java.io.Externalizable;
 import java.io.IOException;
@@ -56,6 +58,10 @@ public class ExportableImage implements Externalizable {
 
     public int getHeight() {
         return image.getHeight();
+    }
+
+    public boolean isOpaque(int x, int y) {
+        return new Color(image.getRGB(x, y), true).getTransparency() == Transparency.OPAQUE;
     }
 
 }

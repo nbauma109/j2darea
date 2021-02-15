@@ -69,4 +69,8 @@ public class PastedObject implements Externalizable {
         g.drawImage(image.getImage(), getX(), getY(), null);
     }
 
+    public boolean isOpaque(int x, int y) {
+        return image.isOpaque(x, y);
+    }
+
 }

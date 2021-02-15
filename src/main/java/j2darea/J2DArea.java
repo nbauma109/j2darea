@@ -44,7 +44,7 @@ public class J2DArea extends JFrame {
     private static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
     private static final long serialVersionUID = 1L;
-    
+
     private int backgroundWidth = 5120;
     private int backgroundheight = 3840;
     private BufferedImage buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
@@ -58,7 +58,6 @@ public class J2DArea extends JFrame {
     private int deltaX, deltaY;
     private boolean editingParallelogram;
     private List<Polygon> parallelograms = new ArrayList<>();
-
 
     public J2DArea() {
         super("J2DArea");
@@ -213,7 +212,7 @@ public class J2DArea extends JFrame {
                         int idx = 0;
                         for (PastedObject pastedObject : pastedObjects) {
                             Rectangle rect = new Rectangle(pastedObject.getX(), pastedObject.getY(), pastedObject.getWidth(), pastedObject.getHeight());
-                            if (rect.contains(e.getX(), e.getY())) {
+                            if (rect.contains(e.getX(), e.getY()) && pastedObject.isOpaque(e.getX() - rect.x, e.getY() - rect.y)) {
                                 rectangle = rect;
                                 objectToMove = pastedObject;
                                 objectToMoveIdx = idx;
