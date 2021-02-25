@@ -1,6 +1,7 @@
 package j2darea;
 
 import java.awt.Graphics;
+import java.awt.Point;
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -21,14 +22,16 @@ public class PastedObject implements Externalizable {
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
-        location.writeExternal(out);
+        out.writeInt(location.x);
+        out.writeInt(location.y);
         image.writeExternal(out);
     }
 
     @Override
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        location = new Point();
-        location.readExternal(in);
+        int x = in.readInt();
+        int y = in.readInt();
+        location = new Point(x, y);
         image = new ExportableImage();
         image.readExternal(in);
     }
@@ -50,11 +53,11 @@ public class PastedObject implements Externalizable {
     }
 
     public int getX() {
-        return location.getX();
+        return location.x;
     }
 
     public int getY() {
-        return location.getY();
+        return location.y;
     }
 
     public int getWidth() {

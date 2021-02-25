@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GridLayout;
+import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
@@ -41,7 +42,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class J2DArea extends JFrame {
 
-    private static final Dimension BUTTON_SIZE = new Dimension(25, 25);
+    public static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
     private static final long serialVersionUID = 1L;
 
@@ -50,7 +51,8 @@ public class J2DArea extends JFrame {
     private BufferedImage buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
     private BufferedImage extractionBackgroundImage;
     private Polygon polygon = new Polygon();
-    private Rectangle rectangle;
+    private Rectangle movingRectangle;
+    private Tile tile = new Tile();
     private Point mousePosition = new Point();
     private List<PastedObject> pastedObjects = new ArrayList<>();
     private PastedObject objectToMove;
@@ -78,7 +80,7 @@ public class J2DArea extends JFrame {
                 for (Polygon parallelogram : parallelograms) {
                     if (parallelogram.npoints < 3) {
                         Polygon newPolygon = new Polygon(parallelogram.xpoints, parallelogram.ypoints, parallelogram.npoints);
-                        newPolygon.addPoint(mousePosition.getX(), mousePosition.getY());
+                        newPolygon.addPoint(mousePosition.x, mousePosition.y);
                         g.drawPolygon(newPolygon);
                     } else {
                         g.setColor(Color.BLACK);
@@ -87,8 +89,8 @@ public class J2DArea extends JFrame {
                         g.drawPolygon(parallelogram);
                     }
                 }
-                if (rectangle != null) {
-                    g.drawRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+                if (movingRectangle != null) {
+                    g.drawRect(movingRectangle.x, movingRectangle.y, movingRectangle.width, movingRectangle.height);
                 }
             }
 
@@ -113,8 +115,11 @@ public class J2DArea extends JFrame {
                 }
                 g.setColor(Color.GREEN);
                 Polygon newPolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
-                newPolygon.addPoint(mousePosition.getX(), mousePosition.getY());
+                newPolygon.addPoint(mousePosition.x, mousePosition.y);
                 g.drawPolygon(newPolygon);
+                if (isValidTileSetup()) {
+                    tile.draw(g);
+                }
             }
 
             @Override
@@ -126,39 +131,111 @@ public class J2DArea extends JFrame {
             }
         };
 
+        extractPanel.addMouseMotionListener(new MouseMotionAdapter() {
+
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                tile.getEndPoint().move(e.getX(), e.getY());
+                extractPanel.repaint();
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                mousePosition.move(e.getX(), e.getY());
+                extractPanel.repaint();
+            }
+        });
+
         extractPanel.addMouseListener(new MouseAdapter() {
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                tile.getStartPoint().move(e.getX(), e.getY());
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                tile.getEndPoint().move(e.getX(), e.getY());
+                if (isValidTileSetup()) {
+                    extractPanel.repaint();
+                    JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
+                    FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
+                    chooser.setFileFilter(filter);
+                    int returnVal = chooser.showSaveDialog(null);
+                    if (returnVal == JFileChooser.APPROVE_OPTION) {
+                        BufferedImage imageFromSelection = new BufferedImage(tile.getWidth(), tile.getHeight(), BufferedImage.TYPE_INT_RGB);
+                        for (int x = 0; x < tile.getWidth(); x++) {
+                            for (int y = 0; y < tile.getHeight(); y++) {
+                                imageFromSelection.setRGB(x, y, extractionBackgroundImage.getRGB(x + tile.getX(), y + tile.getY()));
+                            }
+                        }
+                        boolean success;
+                        try {
+                            ImageIO.write(TileSeamless.createSeamlessTile(imageFromSelection), "png", chooser.getSelectedFile());
+                            success = true;
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                            success = false;
+                        } finally {
+                            tile.reset();
+                            extractPanel.repaint();
+                        }
+                        if (success) {
+                            JOptionPane.showMessageDialog(null, "Image saved.");
+                        } else {
+                            JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
+                        }
+
+                    } else {
+                        tile.reset();
+                        extractPanel.repaint();
+                    }
+                }
+            }
+
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (extractionBackgroundImage != null) {
                     if (SwingUtilities.isRightMouseButton(e)) {
-                        JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
-                        int returnVal = chooser.showSaveDialog(null);
-                        if (returnVal == JFileChooser.APPROVE_OPTION) {
-                            Rectangle rect = polygon.getBounds();
-                            BufferedImage imageFromSelection = new BufferedImage(rect.width, rect.height, BufferedImage.TYPE_INT_ARGB);
-                            for (int x = 0; x < rect.width; x++) {
-                                for (int y = 0; y < rect.height; y++) {
-                                    int xx = rect.x + x;
-                                    int yy = rect.y + y;
-                                    if (polygon.contains(xx, yy)) {
-                                        imageFromSelection.setRGB(x, y, extractionBackgroundImage.getRGB(xx, yy));
-                                    } else {
-                                        imageFromSelection.setRGB(x, y, 0);
+                        int choice = JOptionPane.showOptionDialog(null, "Remove background", "Remove the remaining background inside the polygon ?", JOptionPane.DEFAULT_OPTION,
+                                JOptionPane.QUESTION_MESSAGE, null, new Object[] { "Yes", "No" }, "No");
+                        if (choice == 0) {
+                            Rectangle r = polygon.getBounds();
+                            Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
+                            relativePolygon.translate(-r.x, -r.y);
+                            new BGSubtracterPreview(extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height), relativePolygon);
+                        } else {
+                            JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
+                            FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
+                            chooser.setFileFilter(filter);
+                            int returnVal = chooser.showSaveDialog(null);
+                            if (returnVal == JFileChooser.APPROVE_OPTION) {
+                                Rectangle rect = polygon.getBounds();
+                                BufferedImage imageFromSelection = new BufferedImage(rect.width, rect.height, BufferedImage.TYPE_INT_ARGB);
+                                for (int x = 0; x < rect.width; x++) {
+                                    for (int y = 0; y < rect.height; y++) {
+                                        int xx = rect.x + x;
+                                        int yy = rect.y + y;
+                                        if (polygon.contains(xx, yy)) {
+                                            imageFromSelection.setRGB(x, y, extractionBackgroundImage.getRGB(xx, yy));
+                                        } else {
+                                            imageFromSelection.setRGB(x, y, 0);
+                                        }
                                     }
                                 }
-                            }
-                            boolean success;
-                            try {
-                                ImageIO.write(imageFromSelection, "png", chooser.getSelectedFile());
-                                success = true;
-                            } catch (IOException ex) {
-                                ex.printStackTrace();
-                                success = false;
-                            }
-                            if (success) {
-                                JOptionPane.showMessageDialog(null, "Image saved.");
-                            } else {
-                                JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
+                                boolean success;
+                                try {
+                                    ImageIO.write(imageFromSelection, "png", chooser.getSelectedFile());
+                                    success = true;
+                                } catch (IOException ex) {
+                                    ex.printStackTrace();
+                                    success = false;
+                                }
+                                if (success) {
+                                    JOptionPane.showMessageDialog(null, "Image saved.");
+                                } else {
+                                    JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
+                                }
                             }
                         }
                         polygon.reset();
@@ -169,6 +246,7 @@ public class J2DArea extends JFrame {
                 }
             }
         });
+
         buildPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -213,7 +291,7 @@ public class J2DArea extends JFrame {
                         for (PastedObject pastedObject : pastedObjects) {
                             Rectangle rect = new Rectangle(pastedObject.getX(), pastedObject.getY(), pastedObject.getWidth(), pastedObject.getHeight());
                             if (rect.contains(e.getX(), e.getY()) && pastedObject.isOpaque(e.getX() - rect.x, e.getY() - rect.y)) {
-                                rectangle = rect;
+                                movingRectangle = rect;
                                 objectToMove = pastedObject;
                                 objectToMoveIdx = idx;
                                 deltaX = e.getX() - objectToMove.getX();
@@ -227,7 +305,7 @@ public class J2DArea extends JFrame {
                         }
                     } else {
                         objectToMove = null;
-                        rectangle = null;
+                        movingRectangle = null;
                     }
                 }
                 buildPanel.repaint();
@@ -237,11 +315,10 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mouseMoved(MouseEvent e) {
-                mousePosition.setX(e.getX());
-                mousePosition.setY(e.getY());
+                mousePosition.move(e.getX(), e.getY());
                 if (objectToMove != null) {
                     objectToMove.setLocation(new Point(e.getX() - deltaX, e.getY() - deltaY));
-                    rectangle = new Rectangle(e.getX() - deltaX, e.getY() - deltaY, objectToMove.getWidth(), objectToMove.getHeight());
+                    movingRectangle = new Rectangle(e.getX() - deltaX, e.getY() - deltaY, objectToMove.getWidth(), objectToMove.getHeight());
                 }
                 buildPanel.repaint();
             }
@@ -260,7 +337,7 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 if (objectToMove != null) {
                     pastedObjects.remove(objectToMove);
-                    rectangle = null;
+                    movingRectangle = null;
                     objectToMove = null;
                     buildPanel.repaint();
                 }
@@ -301,15 +378,6 @@ public class J2DArea extends JFrame {
             }
         });
 
-        extractPanel.addMouseMotionListener(new MouseMotionAdapter() {
-
-            @Override
-            public void mouseMoved(MouseEvent e) {
-                mousePosition.setX(e.getX());
-                mousePosition.setY(e.getY());
-                extractPanel.repaint();
-            }
-        });
         buildPanel.setLayout(new GridLayout());
         buildPanel.setBackground(Color.BLACK);
         JScrollPane buildScrollPane = new JScrollPane(buildPanel);
@@ -337,10 +405,10 @@ public class J2DArea extends JFrame {
                         pastedObjects.clear();
                         objectToMove = null;
                         objectToMoveIdx = -1;
-                        rectangle = null;
+                        movingRectangle = null;
                         polygon.reset();
-                        J2DArea.this.setExtendedState(JFrame.MAXIMIZED_BOTH);
-                        J2DArea.this.repaint();
+                        setExtendedState(JFrame.MAXIMIZED_BOTH);
+                        repaint();
                     } else {
                         JOptionPane.showMessageDialog(null, "Bad input", "Error", JOptionPane.ERROR_MESSAGE);
                     }
@@ -350,6 +418,27 @@ public class J2DArea extends JFrame {
         newButton.setMaximumSize(BUTTON_SIZE);
         newButton.setToolTipText("Create a new area");
         menubar.add(newButton);
+
+        JButton fillButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/stone.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                BufferedImage textureImage = chooseImageFile();
+                if (textureImage != null) {
+                    for (int x = 0; x < buildBackgroundImage.getWidth(); x++) {
+                        for (int y = 0; y < buildBackgroundImage.getHeight(); y++) {
+                            buildBackgroundImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
+                        }
+                    }
+                }
+                repaint();
+            }
+        });
+        fillButton.setMaximumSize(BUTTON_SIZE);
+        fillButton.setToolTipText("Fill background with a seamless pattern image");
+        menubar.add(fillButton);
 
         JButton openButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open.png"))) {
 
@@ -370,8 +459,8 @@ public class J2DArea extends JFrame {
                                 exportableArea.readExternal(objectInputStream);
                                 buildBackgroundImage = exportableArea.getBackgroundImage().getImage();
                                 pastedObjects = exportableArea.getPastedObjects();
-                                J2DArea.this.setExtendedState(JFrame.MAXIMIZED_BOTH);
-                                J2DArea.this.repaint();
+                                setExtendedState(JFrame.MAXIMIZED_BOTH);
+                                repaint();
                             } catch (ClassNotFoundException ex) {
                                 ex.printStackTrace();
                                 success = false;
@@ -407,8 +496,8 @@ public class J2DArea extends JFrame {
                         extractionBackgroundImage = chosenImageFile;
                         polygon.reset();
                     }
-                    J2DArea.this.setExtendedState(JFrame.MAXIMIZED_BOTH);
-                    J2DArea.this.repaint();
+                    setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    repaint();
                 }
             }
         });
@@ -491,8 +580,11 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                pastedObjects.add(new PastedObject(new Point(0, 0), new ExportableImage(chooseImageFile())));
-                J2DArea.this.repaint();
+                BufferedImage choice = chooseImageFile();
+                if (choice != null) {
+                    pastedObjects.add(new PastedObject(new Point(0, 0), new ExportableImage(choice)));
+                    repaint();
+                }
             }
         });
         menubar.add(pasteFromButton);
@@ -551,6 +643,10 @@ public class J2DArea extends JFrame {
         for (PastedObject pastedObject : pastedObjects) {
             pastedObject.drawImage(g);
         }
+    }
+
+    private boolean isValidTileSetup() {
+        return extractionBackgroundImage != null && polygon.npoints == 0 && !tile.isEmpty();
     }
 
     public static void main(String[] args) {
