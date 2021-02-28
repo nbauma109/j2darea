@@ -16,10 +16,14 @@ public class BGSubstracter {
         this.polygon = polygon;
     }
 
+    public BGSubstracter(BufferedImage image) {
+        this(image, null);
+    }
+
     public void substractBackground(double hueLimit, double satLimit, boolean hueMin, boolean satMax) {
         for (int x = 0; x < previewImage.getWidth(); x++) {
             for (int y = 0; y < previewImage.getHeight(); y++) {
-                if (!polygon.contains(x, y)) {
+                if (polygon != null && !polygon.contains(x, y)) {
                     previewImage.setRGB(x, y, 0);
                 } else {
                     Color color = new Color(originalImage.getRGB(x, y));

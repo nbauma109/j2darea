@@ -2,6 +2,7 @@ package j2darea;
 
 import java.awt.Graphics;
 import java.awt.Point;
+import java.awt.image.BufferedImage;
 
 public class Tile {
 
@@ -37,6 +38,10 @@ public class Tile {
         if (!isEmpty()) {
             g.drawRect(getX(), getY(), getWidth(), getHeight());
         }
+    }
+
+    public BufferedImage getSubImage(BufferedImage image) {
+        return image.getSubimage(getX(), getY(), getWidth(), getHeight());
     }
 
     public void reset() {

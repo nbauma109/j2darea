@@ -46,7 +46,12 @@ public class BGSubtracterPreview extends JFrame {
     private int width, height;
     private int eraserSize;
 
+    public BGSubtracterPreview(BufferedImage image) {
+        this(image, null);
+    }
+
     public BGSubtracterPreview(BufferedImage image, Polygon polygon) {
+        setTitle("Background substracter preview");
         eraserSize = 8;
         width = image.getWidth();
         height = image.getHeight();

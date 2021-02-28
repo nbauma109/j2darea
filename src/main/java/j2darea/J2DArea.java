@@ -13,6 +13,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
+import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
@@ -42,6 +43,8 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class J2DArea extends JFrame {
 
+    private static final Dimension MIN_SIZE = new Dimension(800, 800);
+
     public static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
     private static final long serialVersionUID = 1L;
@@ -60,6 +63,14 @@ public class J2DArea extends JFrame {
     private int deltaX, deltaY;
     private boolean editingParallelogram;
     private List<Polygon> parallelograms = new ArrayList<>();
+
+    private boolean editingPolygon;
+
+    private boolean painting;
+
+    private int brushRadius = 30;
+    private BufferedImage brushTexture;
+    private BufferedImage brushPreview;
 
     public J2DArea() {
         super("J2DArea");
@@ -112,11 +123,19 @@ public class J2DArea extends JFrame {
                 super.paintComponent(g);
                 if (extractionBackgroundImage != null) {
                     g.drawImage(extractionBackgroundImage, 0, 0, null);
+                    g.setColor(Color.LIGHT_GRAY);
+                    g.drawLine(mousePosition.x, 0, mousePosition.x, getHeight());
+                    g.drawLine(0, mousePosition.y, getWidth(), mousePosition.y);
                 }
-                g.setColor(Color.GREEN);
                 Polygon newPolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
                 newPolygon.addPoint(mousePosition.x, mousePosition.y);
-                g.drawPolygon(newPolygon);
+                if (polygon.npoints > 0 && distance(mousePosition.x, mousePosition.y, polygon.xpoints[0], polygon.ypoints[0]) <= 3) {
+                    g.setColor(Color.YELLOW);
+                    g.drawPolygon(newPolygon);
+                } else {
+                    g.setColor(Color.GREEN);
+                    g.drawPolyline(newPolygon.xpoints, newPolygon.ypoints, newPolygon.npoints);
+                }
                 if (isValidTileSetup()) {
                     tile.draw(g);
                 }
@@ -156,88 +175,18 @@ public class J2DArea extends JFrame {
             @Override
             public void mouseReleased(MouseEvent e) {
                 tile.getEndPoint().move(e.getX(), e.getY());
-                if (isValidTileSetup()) {
-                    extractPanel.repaint();
-                    JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
-                    FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
-                    chooser.setFileFilter(filter);
-                    int returnVal = chooser.showSaveDialog(null);
-                    if (returnVal == JFileChooser.APPROVE_OPTION) {
-                        BufferedImage imageFromSelection = new BufferedImage(tile.getWidth(), tile.getHeight(), BufferedImage.TYPE_INT_RGB);
-                        for (int x = 0; x < tile.getWidth(); x++) {
-                            for (int y = 0; y < tile.getHeight(); y++) {
-                                imageFromSelection.setRGB(x, y, extractionBackgroundImage.getRGB(x + tile.getX(), y + tile.getY()));
-                            }
-                        }
-                        boolean success;
-                        try {
-                            ImageIO.write(TileSeamless.createSeamlessTile(imageFromSelection), "png", chooser.getSelectedFile());
-                            success = true;
-                        } catch (IOException ex) {
-                            ex.printStackTrace();
-                            success = false;
-                        } finally {
-                            tile.reset();
-                            extractPanel.repaint();
-                        }
-                        if (success) {
-                            JOptionPane.showMessageDialog(null, "Image saved.");
-                        } else {
-                            JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
-                        }
-
-                    } else {
-                        tile.reset();
-                        extractPanel.repaint();
-                    }
-                }
             }
 
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (extractionBackgroundImage != null) {
-                    if (SwingUtilities.isRightMouseButton(e)) {
-                        int choice = JOptionPane.showOptionDialog(null, "Remove background", "Remove the remaining background inside the polygon ?", JOptionPane.DEFAULT_OPTION,
-                                JOptionPane.QUESTION_MESSAGE, null, new Object[] { "Yes", "No" }, "No");
-                        if (choice == 0) {
-                            Rectangle r = polygon.getBounds();
-                            Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
-                            relativePolygon.translate(-r.x, -r.y);
-                            new BGSubtracterPreview(extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height), relativePolygon);
-                        } else {
-                            JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
-                            FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
-                            chooser.setFileFilter(filter);
-                            int returnVal = chooser.showSaveDialog(null);
-                            if (returnVal == JFileChooser.APPROVE_OPTION) {
-                                Rectangle rect = polygon.getBounds();
-                                BufferedImage imageFromSelection = new BufferedImage(rect.width, rect.height, BufferedImage.TYPE_INT_ARGB);
-                                for (int x = 0; x < rect.width; x++) {
-                                    for (int y = 0; y < rect.height; y++) {
-                                        int xx = rect.x + x;
-                                        int yy = rect.y + y;
-                                        if (polygon.contains(xx, yy)) {
-                                            imageFromSelection.setRGB(x, y, extractionBackgroundImage.getRGB(xx, yy));
-                                        } else {
-                                            imageFromSelection.setRGB(x, y, 0);
-                                        }
-                                    }
-                                }
-                                boolean success;
-                                try {
-                                    ImageIO.write(imageFromSelection, "png", chooser.getSelectedFile());
-                                    success = true;
-                                } catch (IOException ex) {
-                                    ex.printStackTrace();
-                                    success = false;
-                                }
-                                if (success) {
-                                    JOptionPane.showMessageDialog(null, "Image saved.");
-                                } else {
-                                    JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
-                                }
-                            }
-                        }
+                if (extractionBackgroundImage != null && editingPolygon) {
+                    if (polygon.npoints > 0 && (SwingUtilities.isRightMouseButton(e) || distance(e.getX(), e.getY(), polygon.xpoints[0], polygon.ypoints[0]) <= 3)) {
+                        editingPolygon = false;
+                        Rectangle r = polygon.getBounds();
+                        Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
+                        relativePolygon.translate(-r.x, -r.y);
+                        BGSubtracterPreview bgSubtracterPreview = new BGSubtracterPreview(extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height), relativePolygon);
+                        bgSubtracterPreview.setLocation(r.x + r.width, r.y);
                         polygon.reset();
                     } else {
                         polygon.addPoint(e.getX(), e.getY());
@@ -247,7 +196,27 @@ public class J2DArea extends JFrame {
             }
         });
 
-        buildPanel.addMouseListener(new MouseAdapter() {
+        MouseAdapter buildPanelMouseAdapter = new MouseAdapter() {
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (painting) {
+                    updateBrushStroke(e);
+                    repaint();
+                }
+            }
+
+            public void updateBrushStroke(MouseEvent e) {
+                for (int x = e.getX() - brushRadius; x < e.getX() + brushRadius; x++) {
+                    for (int y = e.getY() - brushRadius; y < e.getY() + brushRadius; y++) {
+                        double dist = distance(x, y, e.getX(), e.getY());
+                        if (dist < brushRadius && x >= 0 && y >= 0 && x < buildBackgroundImage.getWidth() && y < buildBackgroundImage.getHeight()) {
+                            buildBackgroundImage.setRGB(x, y, brushTexture.getRGB(x % brushTexture.getWidth(), y % brushTexture.getHeight()));
+                        }
+                    }
+                }
+            }
+
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (editingParallelogram) {
@@ -310,8 +279,6 @@ public class J2DArea extends JFrame {
                 }
                 buildPanel.repaint();
             }
-        });
-        buildPanel.addMouseMotionListener(new MouseMotionAdapter() {
 
             @Override
             public void mouseMoved(MouseEvent e) {
@@ -322,7 +289,28 @@ public class J2DArea extends JFrame {
                 }
                 buildPanel.repaint();
             }
-        });
+
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (painting) {
+                    updateBrushStroke(e);
+                    repaint();
+                }
+            }
+
+            @Override
+            public void mouseWheelMoved(MouseWheelEvent e) {
+                brushRadius += e.getWheelRotation();
+                buildBrushPreview();
+                repaint();
+            }
+
+        };
+        buildPanel.addMouseListener(buildPanelMouseAdapter);
+
+        buildPanel.addMouseMotionListener(buildPanelMouseAdapter);
+
+        buildPanel.addMouseWheelListener(buildPanelMouseAdapter);
 
         buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), "Delete");
         buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, 0), "Plus");
@@ -419,7 +407,7 @@ public class J2DArea extends JFrame {
         newButton.setToolTipText("Create a new area");
         menubar.add(newButton);
 
-        JButton fillButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/stone.png"))) {
+        JButton fillButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/background.png"))) {
 
             private static final long serialVersionUID = 1L;
 
@@ -505,6 +493,20 @@ public class J2DArea extends JFrame {
         openBackgroundButton.setToolTipText("Open a background image file");
         menubar.add(openBackgroundButton);
 
+        JButton openBrushTextureButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open-texture.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                brushTexture = chooseImageFile();
+                buildBrushPreview();
+            }
+        });
+        openBrushTextureButton.setMaximumSize(BUTTON_SIZE);
+        openBrushTextureButton.setToolTipText("Choose texture for brush");
+        menubar.add(openBrushTextureButton);
+
         JButton saveButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save.png"))) {
 
             private static final long serialVersionUID = 1L;
@@ -574,6 +576,47 @@ public class J2DArea extends JFrame {
         exportButton.setToolTipText("Export build area to a PNG image");
         menubar.add(exportButton);
 
+        JButton tileSeamlessButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-texture.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isValidTileSetup()) {
+                    extractPanel.repaint();
+                    JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
+                    FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
+                    chooser.setFileFilter(filter);
+                    int returnVal = chooser.showSaveDialog(null);
+                    if (returnVal == JFileChooser.APPROVE_OPTION) {
+                        boolean success;
+                        try {
+                            ImageIO.write(TileSeamless.createSeamlessTile(tile.getSubImage(extractionBackgroundImage)), "png", chooser.getSelectedFile());
+                            success = true;
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                            success = false;
+                        } finally {
+                            tile.reset();
+                            extractPanel.repaint();
+                        }
+                        if (success) {
+                            JOptionPane.showMessageDialog(null, "Image saved.");
+                        } else {
+                            JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
+                        }
+
+                    } else {
+                        tile.reset();
+                        extractPanel.repaint();
+                    }
+                }
+            }
+        });
+        tileSeamlessButton.setMaximumSize(BUTTON_SIZE);
+        tileSeamlessButton.setToolTipText("Create and export seamless tile from selection to PNG image");
+        menubar.add(tileSeamlessButton);
+
         JButton pasteFromButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/paste-from.png"))) {
 
             private static final long serialVersionUID = 1L;
@@ -604,10 +647,90 @@ public class J2DArea extends JFrame {
         parallelogramButton.setToolTipText("Draw and fill a new parallelogram");
         menubar.add(parallelogramButton);
 
+        JButton polygonButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/polygon.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                editingPolygon = true;
+                if (tabPane.getSelectedComponent() == buildScrollPane) {
+                    tabPane.setSelectedComponent(extractScrollPane);
+                }
+            }
+        });
+        polygonButton.setMaximumSize(BUTTON_SIZE);
+        polygonButton.setToolTipText("Polygon selection");
+        menubar.add(polygonButton);
+
+        JButton brushButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/pencil.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                painting = true;
+            }
+        });
+        brushButton.setMaximumSize(BUTTON_SIZE);
+        brushButton.setToolTipText("Use texture brush");
+        menubar.add(brushButton);
+
+        JButton cursorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/cursor.png"))) {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                painting = false;
+            }
+        });
+        cursorButton.setMaximumSize(BUTTON_SIZE);
+        cursorButton.setToolTipText("Select objects");
+        menubar.add(cursorButton);
+        
+        JButton paint3dButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/paint3d.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isValidTileSetup()) {
+                    try {
+                        File tempFile = File.createTempFile("j2darea", ".png");
+                        ImageIO.write(tile.getSubImage(extractionBackgroundImage), "png", tempFile);
+                        ProcessBuilder processBuilder = new ProcessBuilder("mspaint", "\"" + tempFile.getAbsolutePath() + "\"", "/ForceBootstrapPaint3D");
+                        processBuilder.start();
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        });
+        paint3dButton.setMaximumSize(BUTTON_SIZE);
+        paint3dButton.setToolTipText("Edit selection in Paint 3D");
+        menubar.add(paint3dButton);
+
+        JButton subtractBackgroundButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/remove-bg.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isValidTileSetup()) {
+                    BGSubtracterPreview bgSubtracterPreview = new BGSubtracterPreview(tile.getSubImage(extractionBackgroundImage));
+                    bgSubtracterPreview.setLocation(tile.getX() + tile.getWidth(), tile.getY());
+                }
+            }
+        });
+        subtractBackgroundButton.setMaximumSize(BUTTON_SIZE);
+        subtractBackgroundButton.setToolTipText("Subtract background from selection");
+        menubar.add(subtractBackgroundButton);
+
         getContentPane().setLayout(new BorderLayout());
         getContentPane().add(tabPane, BorderLayout.CENTER);
-        setSize(500, 500);
-        setMinimumSize(new Dimension(300, 300));
+        setSize(MIN_SIZE);
+        setMinimumSize(MIN_SIZE);
         setVisible(true);
     }
 
@@ -640,6 +763,9 @@ public class J2DArea extends JFrame {
         if (buildBackgroundImage != null) {
             g.drawImage(buildBackgroundImage, 0, 0, null);
         }
+        if (painting && brushPreview != null) {
+            g.drawImage(brushPreview, mousePosition.x - brushRadius, mousePosition.y - brushRadius, null);
+        }
         for (PastedObject pastedObject : pastedObjects) {
             pastedObject.drawImage(g);
         }
@@ -647,6 +773,27 @@ public class J2DArea extends JFrame {
 
     private boolean isValidTileSetup() {
         return extractionBackgroundImage != null && polygon.npoints == 0 && !tile.isEmpty();
+    }
+
+    public void buildBrushPreview() {
+        int diameter = 2 * brushRadius;
+        brushPreview = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
+        for (int x = 0; x < diameter; x++) {
+            for (int y = 0; y < diameter; y++) {
+                double dist = distance(x, y, brushRadius, brushRadius);
+                if (dist < brushRadius) {
+                    brushPreview.setRGB(x, y, brushTexture.getRGB(x % brushTexture.getWidth(), y % brushTexture.getHeight()));
+                } else {
+                    brushPreview.setRGB(x, y, 0);
+                }
+            }
+        }
+    }
+
+    private static double distance(int x1, int y1, int x2, int y2) {
+        double distanceX = x1 - x2;
+        double distanceY = y1 - y2;
+        return Math.sqrt(distanceX * distanceX + distanceY * distanceY);
     }
 
     public static void main(String[] args) {
