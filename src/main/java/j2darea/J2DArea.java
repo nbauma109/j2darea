@@ -154,7 +154,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                tile.getEndPoint().move(e.getX(), e.getY());
+                tile.moveEndPoint(e);
                 extractPanel.repaint();
             }
 
@@ -169,12 +169,12 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mousePressed(MouseEvent e) {
-                tile.getStartPoint().move(e.getX(), e.getY());
+                tile.moveStartPoint(e);
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                tile.getEndPoint().move(e.getX(), e.getY());
+                tile.moveEndPoint(e);
             }
 
             @Override
@@ -186,7 +186,7 @@ public class J2DArea extends JFrame {
                         Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
                         relativePolygon.translate(-r.x, -r.y);
                         BGSubtracterPreview bgSubtracterPreview = new BGSubtracterPreview(extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height), relativePolygon);
-                        bgSubtracterPreview.setLocation(r.x + r.width, r.y);
+                        bgSubtracterPreview.setLocation(r.x, r.y);
                         polygon.reset();
                     } else {
                         polygon.addPoint(e.getX(), e.getY());
@@ -625,7 +625,10 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 BufferedImage choice = chooseImageFile();
                 if (choice != null) {
-                    pastedObjects.add(new PastedObject(new Point(0, 0), new ExportableImage(choice)));
+                    PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice));
+                    pastedObjects.add(pastedObject);
+                    objectToMove = pastedObject;
+                    painting = false;
                     repaint();
                 }
             }
@@ -677,9 +680,9 @@ public class J2DArea extends JFrame {
         menubar.add(brushButton);
 
         JButton cursorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/cursor.png"))) {
-            
+
             private static final long serialVersionUID = 1L;
-            
+
             @Override
             public void actionPerformed(ActionEvent e) {
                 painting = false;
@@ -688,7 +691,7 @@ public class J2DArea extends JFrame {
         cursorButton.setMaximumSize(BUTTON_SIZE);
         cursorButton.setToolTipText("Select objects");
         menubar.add(cursorButton);
-        
+
         JButton paint3dButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/paint3d.png"))) {
 
             private static final long serialVersionUID = 1L;
@@ -719,7 +722,7 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 if (isValidTileSetup()) {
                     BGSubtracterPreview bgSubtracterPreview = new BGSubtracterPreview(tile.getSubImage(extractionBackgroundImage));
-                    bgSubtracterPreview.setLocation(tile.getX() + tile.getWidth(), tile.getY());
+                    bgSubtracterPreview.setLocation(tile.getXOnScreen(), tile.getYOnScreen());
                 }
             }
         });
@@ -776,15 +779,17 @@ public class J2DArea extends JFrame {
     }
 
     public void buildBrushPreview() {
-        int diameter = 2 * brushRadius;
-        brushPreview = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
-        for (int x = 0; x < diameter; x++) {
-            for (int y = 0; y < diameter; y++) {
-                double dist = distance(x, y, brushRadius, brushRadius);
-                if (dist < brushRadius) {
-                    brushPreview.setRGB(x, y, brushTexture.getRGB(x % brushTexture.getWidth(), y % brushTexture.getHeight()));
-                } else {
-                    brushPreview.setRGB(x, y, 0);
+        if (brushTexture != null) {
+            int diameter = 2 * brushRadius;
+            brushPreview = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
+            for (int x = 0; x < diameter; x++) {
+                for (int y = 0; y < diameter; y++) {
+                    double dist = distance(x, y, brushRadius, brushRadius);
+                    if (dist < brushRadius) {
+                        brushPreview.setRGB(x, y, brushTexture.getRGB(x % brushTexture.getWidth(), y % brushTexture.getHeight()));
+                    } else {
+                        brushPreview.setRGB(x, y, 0);
+                    }
                 }
             }
         }

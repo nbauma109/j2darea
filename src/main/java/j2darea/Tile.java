@@ -2,16 +2,21 @@ package j2darea;
 
 import java.awt.Graphics;
 import java.awt.Point;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 
 public class Tile {
 
     private Point startPoint;
     private Point endPoint;
+    private Point startPointOnScreen;
+    private Point endPointOnScreen;
 
     public Tile() {
         startPoint = new Point();
         endPoint = new Point();
+        startPointOnScreen = new Point();
+        endPointOnScreen = new Point();
     }
 
     public boolean isEmpty() {
@@ -34,6 +39,14 @@ public class Tile {
         return Math.min(startPoint.x, endPoint.x);
     }
 
+    public int getYOnScreen() {
+        return Math.min(startPointOnScreen.y, endPointOnScreen.y);
+    }
+
+    public int getXOnScreen() {
+        return Math.min(startPointOnScreen.x, endPointOnScreen.x);
+    }
+
     public void draw(Graphics g) {
         if (!isEmpty()) {
             g.drawRect(getX(), getY(), getWidth(), getHeight());
@@ -47,22 +60,18 @@ public class Tile {
     public void reset() {
         startPoint.move(0, 0);
         endPoint.move(0, 0);
+        startPointOnScreen.move(0, 0);
+        endPointOnScreen.move(0, 0);
     }
 
-    public Point getStartPoint() {
-        return startPoint;
+    public void moveStartPoint(MouseEvent e) {
+        startPoint.move(e.getX(), e.getY());
+        startPointOnScreen.move(e.getXOnScreen(), e.getYOnScreen());
     }
 
-    public void setStartPoint(Point startPoint) {
-        this.startPoint = startPoint;
-    }
-
-    public Point getEndPoint() {
-        return endPoint;
-    }
-
-    public void setEndPoint(Point endPoint) {
-        this.endPoint = endPoint;
+    public void moveEndPoint(MouseEvent e) {
+        endPoint.move(e.getX(), e.getY());
+        endPointOnScreen.move(e.getXOnScreen(), e.getYOnScreen());
     }
 
 }
