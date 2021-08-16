@@ -202,7 +202,7 @@ public class J2DArea extends JFrame {
                         Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
                         relativePolygon.translate(-r.x, -r.y);
                         BGSubtracterPreview bgSubtracterPreview = new BGSubtracterPreview(extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height), relativePolygon);
-                        bgSubtracterPreview.setLocation(r.x, r.y);
+                        bgSubtracterPreview.setLocation(e.getXOnScreen(), e.getYOnScreen());
                         polygon.reset();
                     } else {
                         polygon.addPoint(e.getX(), e.getY());
