@@ -1,4 +1,4 @@
-package j2darea;
+package com.github.nbauma109.j2darea;
 
 import java.awt.Color;
 import java.awt.Transparency;
@@ -10,7 +10,7 @@ import java.io.ObjectOutput;
 
 public class ExportableImage implements Externalizable {
 
-    private BufferedImage image;
+    private transient BufferedImage image;
 
     public ExportableImage() {
     }

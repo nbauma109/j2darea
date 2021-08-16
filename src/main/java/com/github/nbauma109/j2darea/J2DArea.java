@@ -1,19 +1,22 @@
-package j2darea;
+package com.github.nbauma109.j2darea;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
+import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,6 +33,7 @@ import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JMenuBar;
@@ -38,10 +42,21 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.KeyStroke;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class J2DArea extends JFrame {
+
+    private static final String ERROR = "Error";
+
+    private static final String PLUS = "Plus";
+
+    private static final String MINUS = "Minus";
+
+    private static final String PICTURES = "Pictures";
+
+    private static final String USER_HOME = "user.home";
 
     private static final Dimension MIN_SIZE = new Dimension(800, 800);
 
@@ -51,16 +66,17 @@ public class J2DArea extends JFrame {
 
     private int backgroundWidth = 5120;
     private int backgroundheight = 3840;
-    private BufferedImage buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
-    private BufferedImage extractionBackgroundImage;
+    private transient BufferedImage buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
+    private transient BufferedImage extractionBackgroundImage;
     private Polygon polygon = new Polygon();
     private Rectangle movingRectangle;
-    private Tile tile = new Tile();
+    private transient Tile tile = new Tile();
     private Point mousePosition = new Point();
     private List<PastedObject> pastedObjects = new ArrayList<>();
     private PastedObject objectToMove;
     private int objectToMoveIdx = -1;
-    private int deltaX, deltaY;
+    private int deltaX;
+    private int deltaY;
     private boolean editingParallelogram;
     private List<Polygon> parallelograms = new ArrayList<>();
 
@@ -69,14 +85,14 @@ public class J2DArea extends JFrame {
     private boolean painting;
 
     private int brushRadius = 30;
-    private BufferedImage brushTexture;
-    private BufferedImage brushPreview;
+    private transient BufferedImage brushTexture;
+    private transient BufferedImage brushPreview;
 
     public J2DArea() {
         super("J2DArea");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
-        JTabbedPane tabPane = new JTabbedPane(JTabbedPane.BOTTOM);
+        JTabbedPane tabPane = new JTabbedPane(SwingConstants.BOTTOM);
         tabPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
 
         JPanel buildPanel = new JPanel(false) {
@@ -129,7 +145,7 @@ public class J2DArea extends JFrame {
                 }
                 Polygon newPolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
                 newPolygon.addPoint(mousePosition.x, mousePosition.y);
-                if (polygon.npoints > 0 && distance(mousePosition.x, mousePosition.y, polygon.xpoints[0], polygon.ypoints[0]) <= 3) {
+                if (polygon.npoints > 0 && Point2D.distance(mousePosition.x, mousePosition.y, polygon.xpoints[0], polygon.ypoints[0]) <= 3) {
                     g.setColor(Color.YELLOW);
                     g.drawPolygon(newPolygon);
                 } else {
@@ -180,7 +196,7 @@ public class J2DArea extends JFrame {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (extractionBackgroundImage != null && editingPolygon) {
-                    if (polygon.npoints > 0 && (SwingUtilities.isRightMouseButton(e) || distance(e.getX(), e.getY(), polygon.xpoints[0], polygon.ypoints[0]) <= 3)) {
+                    if (polygon.npoints > 0 && (SwingUtilities.isRightMouseButton(e) || Point2D.distance(e.getX(), e.getY(), polygon.xpoints[0], polygon.ypoints[0]) <= 3)) {
                         editingPolygon = false;
                         Rectangle r = polygon.getBounds();
                         Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
@@ -209,7 +225,7 @@ public class J2DArea extends JFrame {
             public void updateBrushStroke(MouseEvent e) {
                 for (int x = e.getX() - brushRadius; x < e.getX() + brushRadius; x++) {
                     for (int y = e.getY() - brushRadius; y < e.getY() + brushRadius; y++) {
-                        double dist = distance(x, y, e.getX(), e.getY());
+                        double dist = Point2D.distance(x, y, e.getX(), e.getY());
                         if (dist < brushRadius && x >= 0 && y >= 0 && x < buildBackgroundImage.getWidth() && y < buildBackgroundImage.getHeight()) {
                             buildBackgroundImage.setRGB(x, y, brushTexture.getRGB(x % brushTexture.getWidth(), y % brushTexture.getHeight()));
                         }
@@ -268,7 +284,7 @@ public class J2DArea extends JFrame {
                             }
                             idx++;
                         }
-                        if (e.isControlDown()) {
+                        if (e.isControlDown() && objectToMove != null) {
                             objectToMove = new PastedObject(objectToMove.getLocation(), objectToMove.getImage());
                             pastedObjects.add(objectToMove);
                         }
@@ -312,11 +328,11 @@ public class J2DArea extends JFrame {
 
         buildPanel.addMouseWheelListener(buildPanelMouseAdapter);
 
-        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), "Delete");
-        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, 0), "Plus");
-        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, KeyEvent.SHIFT_DOWN_MASK), "Plus");
-        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_SUBTRACT, 0), "Minus");
-        buildPanel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_6, 0), "Minus");
+        buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), "Delete");
+        buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, 0), PLUS);
+        buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, InputEvent.SHIFT_DOWN_MASK), PLUS);
+        buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_SUBTRACT, 0), MINUS);
+        buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_6, 0), MINUS);
         buildPanel.getActionMap().put("Delete", new AbstractAction() {
 
             private static final long serialVersionUID = 1L;
@@ -331,7 +347,7 @@ public class J2DArea extends JFrame {
                 }
             }
         });
-        buildPanel.getActionMap().put("Plus", new AbstractAction() {
+        buildPanel.getActionMap().put(PLUS, new AbstractAction() {
 
             private static final long serialVersionUID = 1L;
 
@@ -348,7 +364,7 @@ public class J2DArea extends JFrame {
                 }
             }
         });
-        buildPanel.getActionMap().put("Minus", new AbstractAction() {
+        buildPanel.getActionMap().put(MINUS, new AbstractAction() {
 
             private static final long serialVersionUID = 1L;
 
@@ -395,10 +411,10 @@ public class J2DArea extends JFrame {
                         objectToMoveIdx = -1;
                         movingRectangle = null;
                         polygon.reset();
-                        setExtendedState(JFrame.MAXIMIZED_BOTH);
+                        setExtendedState(Frame.MAXIMIZED_BOTH);
                         repaint();
                     } else {
-                        JOptionPane.showMessageDialog(null, "Bad input", "Error", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(null, "Bad input", ERROR, JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -434,33 +450,23 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home")));
+                JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
                 FileNameExtensionFilter filter = new FileNameExtensionFilter("J2DArea project files", "j2da");
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showOpenDialog(null);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
-                    boolean success;
-                    try (FileInputStream fileInputStream = new FileInputStream(chooser.getSelectedFile())) {
-                        try (GZIPInputStream gzipInputStream = new GZIPInputStream(fileInputStream)) {
-                            try (ObjectInputStream objectInputStream = new ObjectInputStream(gzipInputStream)) {
-                                ExportableArea exportableArea = new ExportableArea();
-                                exportableArea.readExternal(objectInputStream);
-                                buildBackgroundImage = exportableArea.getBackgroundImage().getImage();
-                                pastedObjects = exportableArea.getPastedObjects();
-                                setExtendedState(JFrame.MAXIMIZED_BOTH);
-                                repaint();
-                            } catch (ClassNotFoundException ex) {
-                                ex.printStackTrace();
-                                success = false;
-                            }
-                        }
-                        success = true;
-                    } catch (IOException ex) {
+                    try (FileInputStream fileInputStream = new FileInputStream(chooser.getSelectedFile());
+                            GZIPInputStream gzipInputStream = new GZIPInputStream(fileInputStream);
+                            ObjectInputStream objectInputStream = new ObjectInputStream(gzipInputStream)) {
+                        ExportableArea exportableArea = new ExportableArea();
+                        exportableArea.readExternal(objectInputStream);
+                        buildBackgroundImage = exportableArea.getBackgroundImage().getImage();
+                        pastedObjects = exportableArea.getPastedObjects();
+                        setExtendedState(Frame.MAXIMIZED_BOTH);
+                        repaint();
+                    } catch (IOException | ClassNotFoundException ex) {
                         ex.printStackTrace();
-                        success = false;
-                    }
-                    if (!success) {
-                        JOptionPane.showMessageDialog(null, "Error opening file.", "Error", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(null, "Error opening file.", ERROR, JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -484,7 +490,7 @@ public class J2DArea extends JFrame {
                         extractionBackgroundImage = chosenImageFile;
                         polygon.reset();
                     }
-                    setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    setExtendedState(Frame.MAXIMIZED_BOTH);
                     repaint();
                 }
             }
@@ -513,7 +519,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home")));
+                JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
                 FileNameExtensionFilter filter = new FileNameExtensionFilter("J2DArea project files", "j2da");
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showSaveDialog(null);
@@ -534,7 +540,7 @@ public class J2DArea extends JFrame {
                     if (success) {
                         JOptionPane.showMessageDialog(null, "Project saved.");
                     } else {
-                        JOptionPane.showMessageDialog(null, "Project save failed.", "Error", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(null, "Project save failed.", ERROR, JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -549,7 +555,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
+                JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME), PICTURES));
                 FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showSaveDialog(null);
@@ -567,7 +573,7 @@ public class J2DArea extends JFrame {
                     if (success) {
                         JOptionPane.showMessageDialog(null, "Image saved.");
                     } else {
-                        JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(null, "Image save failed.", ERROR, JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -584,7 +590,7 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 if (isValidTileSetup()) {
                     extractPanel.repaint();
-                    JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
+                    JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME), PICTURES));
                     FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
                     chooser.setFileFilter(filter);
                     int returnVal = chooser.showSaveDialog(null);
@@ -603,7 +609,7 @@ public class J2DArea extends JFrame {
                         if (success) {
                             JOptionPane.showMessageDialog(null, "Image saved.");
                         } else {
-                            JOptionPane.showMessageDialog(null, "Image save failed.", "Error", JOptionPane.ERROR_MESSAGE);
+                            JOptionPane.showMessageDialog(null, "Image save failed.", ERROR, JOptionPane.ERROR_MESSAGE);
                         }
 
                     } else {
@@ -738,7 +744,7 @@ public class J2DArea extends JFrame {
     }
 
     private BufferedImage chooseImageFile() {
-        JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
+        JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME), PICTURES));
         PreviewPanel previewPanel = new PreviewPanel();
         chooser.setAccessory(previewPanel);
         chooser.addPropertyChangeListener(previewPanel);
@@ -746,17 +752,11 @@ public class J2DArea extends JFrame {
         chooser.setFileFilter(filter);
         int returnVal = chooser.showOpenDialog(null);
         if (returnVal == JFileChooser.APPROVE_OPTION) {
-            boolean success;
             try {
-                BufferedImage img = ImageIO.read(chooser.getSelectedFile());
-                success = true;
-                return img;
+                return ImageIO.read(chooser.getSelectedFile());
             } catch (IOException ex) {
                 ex.printStackTrace();
-                success = false;
-            }
-            if (!success) {
-                JOptionPane.showMessageDialog(null, "Error opening image.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(null, "Error opening image.", ERROR, JOptionPane.ERROR_MESSAGE);
             }
         }
         return null;
@@ -784,7 +784,7 @@ public class J2DArea extends JFrame {
             brushPreview = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
             for (int x = 0; x < diameter; x++) {
                 for (int y = 0; y < diameter; y++) {
-                    double dist = distance(x, y, brushRadius, brushRadius);
+                    double dist = Point2D.distance(x, y, brushRadius, brushRadius);
                     if (dist < brushRadius) {
                         brushPreview.setRGB(x, y, brushTexture.getRGB(x % brushTexture.getWidth(), y % brushTexture.getHeight()));
                     } else {
@@ -795,16 +795,8 @@ public class J2DArea extends JFrame {
         }
     }
 
-    private static double distance(int x1, int y1, int x2, int y2) {
-        double distanceX = x1 - x2;
-        double distanceY = y1 - y2;
-        return Math.sqrt(distanceX * distanceX + distanceY * distanceY);
-    }
-
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new J2DArea();
-        });
+        SwingUtilities.invokeLater(J2DArea::new);
     }
 
 }

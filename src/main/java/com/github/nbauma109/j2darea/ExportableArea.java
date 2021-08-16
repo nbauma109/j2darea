@@ -1,4 +1,4 @@
-package j2darea;
+package com.github.nbauma109.j2darea;
 
 import java.io.Externalizable;
 import java.io.IOException;

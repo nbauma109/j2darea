@@ -1,4 +1,6 @@
-package j2darea;
+package com.github.nbauma109.j2darea;
+
+import static com.github.nbauma109.j2darea.J2DArea.BUTTON_SIZE;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -7,7 +9,6 @@ import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Polygon;
 import java.awt.event.ActionEvent;
-import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -29,10 +30,9 @@ import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
-import javax.swing.event.ChangeEvent;
+import javax.swing.SwingConstants;
 import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
-import static j2darea.J2DArea.BUTTON_SIZE;
 
 public class BGSubtracterPreview extends JFrame {
 
@@ -41,9 +41,11 @@ public class BGSubtracterPreview extends JFrame {
     private static final int ERASER_MAX_SIZE = 16;
     private static final int ERASER_MIN_SIZE = 2;
 
-    private BGSubstracter bgSubstracter;
-    private int mouseX, mouseY;
-    private int width, height;
+    private transient BGSubstracter bgSubstracter;
+    private int mouseX;
+    private int mouseY;
+    private int previewWidth;
+    private int previewHeight;
     private int eraserSize;
 
     public BGSubtracterPreview(BufferedImage image) {
@@ -53,8 +55,8 @@ public class BGSubtracterPreview extends JFrame {
     public BGSubtracterPreview(BufferedImage image, Polygon polygon) {
         setTitle("Background substracter preview");
         eraserSize = 8;
-        width = image.getWidth();
-        height = image.getHeight();
+        previewWidth = image.getWidth();
+        previewHeight = image.getHeight();
         bgSubstracter = new BGSubstracter(image, polygon);
         bgSubstracter.substractBackground(1, 0, false, false);
         JPanel previewPanel = new JPanel() {
@@ -68,7 +70,7 @@ public class BGSubtracterPreview extends JFrame {
 
             @Override
             public Dimension getPreferredSize() {
-                return new Dimension(width, height);
+                return new Dimension(previewWidth, previewHeight);
             }
         };
 
@@ -101,21 +103,13 @@ public class BGSubtracterPreview extends JFrame {
         JCheckBox hueCheckbox = new JCheckBox("Invert");
         JCheckBox satCheckbox = new JCheckBox("Invert");
 
-        ItemListener itemListener = new ItemListener() {
-
-            @Override
-            public void itemStateChanged(ItemEvent e) {
-                onChange(hueLimitSlider, satLimitSlider, hueCheckbox, satCheckbox);
-                repaint();
-            }
+        ItemListener itemListener = e -> {
+            onChange(hueLimitSlider, satLimitSlider, hueCheckbox, satCheckbox);
+            repaint();
         };
-        ChangeListener changeListener = new ChangeListener() {
-
-            @Override
-            public void stateChanged(ChangeEvent e) {
-                onChange(hueLimitSlider, satLimitSlider, hueCheckbox, satCheckbox);
-                repaint();
-            }
+        ChangeListener changeListener = e -> {
+            onChange(hueLimitSlider, satLimitSlider, hueCheckbox, satCheckbox);
+            repaint();
         };
 
         hueCheckbox.addItemListener(itemListener);
@@ -211,7 +205,7 @@ public class BGSubtracterPreview extends JFrame {
     }
 
     public JSlider newSlider(int intialValue) {
-        JSlider slider = new JSlider(JSlider.VERTICAL, 0, 100, intialValue);
+        JSlider slider = new JSlider(SwingConstants.VERTICAL, 0, 100, intialValue);
         slider.setMajorTickSpacing(10);
         slider.setMinorTickSpacing(1);
         slider.setPaintTicks(true);
@@ -228,7 +222,7 @@ public class BGSubtracterPreview extends JFrame {
         mouseY = e.getY();
         for (int x = mouseX - eraserSize / 2; x < mouseX + eraserSize / 2; x++) {
             for (int y = mouseY - eraserSize / 2; y < mouseY + eraserSize / 2; y++) {
-                if (x > 0 && y > 0 && x < width && y < height) {
+                if (x > 0 && y > 0 && x < previewWidth && y < previewHeight) {
                     bgSubstracter.getPreviewImage().setRGB(x, y, 0);
                 }
             }

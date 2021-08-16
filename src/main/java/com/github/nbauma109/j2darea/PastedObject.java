@@ -1,4 +1,4 @@
-package j2darea;
+package com.github.nbauma109.j2darea;
 
 import java.awt.Graphics;
 import java.awt.Point;

@@ -1,4 +1,4 @@
-package j2darea;
+package com.github.nbauma109.j2darea;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -55,17 +55,16 @@ public class PreviewPanel extends JPanel implements PropertyChangeListener {
 
         if (e.getPropertyName().equals(JFileChooser.SELECTED_FILE_CHANGED_PROPERTY)) {
             File f = (File) e.getNewValue();
-            if (f != null) {
-                if (f.isFile()) {
-                    String s = f.getPath(), suffix = null;
-                    int i = s.lastIndexOf('.');
+            if (f != null && f.isFile()) {
+                String s = f.getPath();
+                String suffix = null;
+                int i = s.lastIndexOf('.');
 
-                    if (i > 0 && i < s.length() - 1) {
-                        suffix = s.substring(i + 1).toLowerCase();
+                if (i > 0 && i < s.length() - 1) {
+                    suffix = s.substring(i + 1).toLowerCase();
 
-                        if (suffix.equals("gif") || suffix.equals("png") || suffix.equals("jpg")) {
-                            getImagePreviewer().configure(f);
-                        }
+                    if (suffix.equals("gif") || suffix.equals("png") || suffix.equals("jpg")) {
+                        getImagePreviewer().configure(f);
                     }
                 }
             }
