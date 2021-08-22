@@ -197,13 +197,13 @@ public class J2DArea extends JFrame {
             public void mouseClicked(MouseEvent e) {
                 if (extractionBackgroundImage != null && editingPolygon) {
                     if (polygon.npoints > 0 && (SwingUtilities.isRightMouseButton(e) || Point2D.distance(e.getX(), e.getY(), polygon.xpoints[0], polygon.ypoints[0]) <= 3)) {
-                        logPolygon();
                         editingPolygon = false;
                         Rectangle r = polygon.getBounds();
                         Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
                         relativePolygon.translate(-r.x, -r.y);
-                        BGSubtracterPreview bgSubtracterPreview = new BGSubtracterPreview(extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height), relativePolygon);
-                        bgSubtracterPreview.setLocation(e.getXOnScreen(), e.getYOnScreen());
+                        BufferedImage subimage = extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height);
+                        PolygonSelectionView polygonSelectionView = new PolygonSelectionView(subimage, relativePolygon, r.getLocation());
+                        polygonSelectionView.setLocation(e.getXOnScreen(), e.getYOnScreen());
                         polygon.reset();
                     } else {
                         polygon.addPoint(e.getX(), e.getY());
@@ -557,7 +557,7 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME), PICTURES));
-                FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
+                FileNameExtensionFilter filter = new FileNameExtensionFilter("BMP Images", "bmp");
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showSaveDialog(null);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
@@ -565,7 +565,7 @@ public class J2DArea extends JFrame {
                     paintObjects(imageToexport.getGraphics());
                     boolean success;
                     try {
-                        ImageIO.write(imageToexport, "png", chooser.getSelectedFile());
+                        ImageIO.write(imageToexport, "bmp", chooser.getSelectedFile());
                         success = true;
                     } catch (IOException ex) {
                         ex.printStackTrace();
@@ -580,7 +580,7 @@ public class J2DArea extends JFrame {
             }
         });
         exportButton.setMaximumSize(BUTTON_SIZE);
-        exportButton.setToolTipText("Export build area to a PNG image");
+        exportButton.setToolTipText("Export build area to a BMP image");
         menubar.add(exportButton);
 
         JButton tileSeamlessButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-texture.png"))) {
@@ -742,32 +742,6 @@ public class J2DArea extends JFrame {
         setSize(MIN_SIZE);
         setMinimumSize(MIN_SIZE);
         setVisible(true);
-    }
-
-    protected void logPolygon() {
-        Rectangle r = polygon.getBounds();
-        System.out.print("fj_box_left = ");
-        System.out.print(r.x);
-        System.out.println();
-        System.out.print("fj_box_top = ");
-        System.out.print(r.y);
-        System.out.println();
-        System.out.print("fj_box_right = ");
-        System.out.print(r.x + r.width);
-        System.out.println();
-        System.out.print("fj_box_bottom = ");
-        System.out.print(r.y + r.height);
-        System.out.println();
-        for (int i = 0; i < polygon.npoints; i++) {
-            System.out.print("fj_vertex_");
-            System.out.print(i);
-            System.out.print(" = ");
-            System.out.print(polygon.xpoints[i]);
-            System.out.print(" + (");
-            System.out.print(polygon.ypoints[i]);
-            System.out.print(" << 16)");
-            System.out.println();
-        }
     }
 
     private BufferedImage chooseImageFile() {
