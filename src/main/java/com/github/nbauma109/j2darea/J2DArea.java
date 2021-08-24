@@ -54,6 +54,10 @@ public class J2DArea extends JFrame {
 
     private static final String MINUS = "Minus";
 
+    private static final String UP = "Up";
+    
+    private static final String DOWN = "Down";
+    
     private static final String PICTURES = "Pictures";
 
     private static final String USER_HOME = "user.home";
@@ -334,6 +338,8 @@ public class J2DArea extends JFrame {
         buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, InputEvent.SHIFT_DOWN_MASK), PLUS);
         buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_SUBTRACT, 0), MINUS);
         buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_6, 0), MINUS);
+        buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), UP);
+        buildPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), DOWN);
         buildPanel.getActionMap().put("Delete", new AbstractAction() {
 
             private static final long serialVersionUID = 1L;
@@ -377,6 +383,34 @@ public class J2DArea extends JFrame {
                         pastedObjects.set(objectToMoveIdx - 1, objectToMove);
                         pastedObjects.set(objectToMoveIdx, tmp);
                         objectToMoveIdx--;
+                    }
+                    buildPanel.repaint();
+                }
+            }
+        });
+        buildPanel.getActionMap().put(UP, new AbstractAction() {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (objectToMove != null) {
+                    if (objectToMoveIdx > 0 && objectToMoveIdx < pastedObjects.size()) {
+                        pastedObjects.get(objectToMoveIdx).adjustUpwards();
+                    }
+                    buildPanel.repaint();
+                }
+            }
+        });
+        buildPanel.getActionMap().put(DOWN, new AbstractAction() {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (objectToMove != null) {
+                    if (objectToMoveIdx > 0 && objectToMoveIdx < pastedObjects.size()) {
+                        pastedObjects.get(objectToMoveIdx).adjustDownwards();
                     }
                     buildPanel.repaint();
                 }

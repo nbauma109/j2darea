@@ -11,6 +11,9 @@ public class PastedObject implements Externalizable {
 
     private Point location;
     private ExportableImage image;
+    private int correctionIndex;
+    private int[][] original;
+    private int[][] transformed;
 
     public PastedObject() {
     }
@@ -18,6 +21,7 @@ public class PastedObject implements Externalizable {
     public PastedObject(Point location, ExportableImage image) {
         this.location = location;
         this.image = image;
+        initBuffers();
     }
 
     @Override
@@ -34,6 +38,17 @@ public class PastedObject implements Externalizable {
         location = new Point(x, y);
         image = new ExportableImage();
         image.readExternal(in);
+        initBuffers();
+    }
+
+    public void initBuffers() {
+        original = new int[getWidth()][getHeight()];
+        for (int x = 0; x < getWidth(); x++) {
+            for (int y = 0; y < getHeight(); y++) {
+                original[x][y] = image.getImage().getRGB(x, y);
+            }
+        }
+        transformed = new int[getWidth()][getHeight()];
     }
 
     public Point getLocation() {
@@ -76,4 +91,50 @@ public class PastedObject implements Externalizable {
         return image.isOpaque(x, y);
     }
 
+    public void adjustUpwards() {
+        adjust(true);
+    }
+
+    public void adjustDownwards() {
+        adjust(false);
+    }
+
+    public void adjust(boolean upwards) {
+        if (upwards) {
+            correctionIndex--;
+        } else {
+            correctionIndex++;
+        }
+        clearBuffer();
+        recalculateBuffer();
+        adjustImage();
+    }
+
+    public void clearBuffer() {
+        for (int x = 0; x < getWidth(); x++) {
+            for (int y = 0; y < getHeight(); y++) {
+                transformed[x][y] = 0;
+            }
+        }
+    }
+
+    public void recalculateBuffer() {
+        for (int x = 0; x < getWidth(); x++) {
+            for (int y = 0; y < getHeight(); y++) {
+                int rgb = original[x][y];
+                int newY = (int) Math.round(correctionIndex * 0.001 * x + y);
+                if (newY > 0 && newY < getHeight()) {
+                    transformed[x][newY] = rgb;
+                }
+            }
+        }
+    }
+
+    public void adjustImage() {
+        for (int x = 0; x < getWidth(); x++) {
+            for (int y = 0; y < getHeight(); y++) {
+                image.getImage().setRGB(x, y, transformed[x][y]);
+            }
+        }
+    }
 }
