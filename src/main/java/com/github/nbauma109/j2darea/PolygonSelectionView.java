@@ -33,7 +33,7 @@ public class PolygonSelectionView extends JFrame {
 
     private static final long serialVersionUID = 1L;
 
-    private transient BGSubstracter bgSubstracter;
+    private transient BGSubtracter bgSubtracter;
     private int previewWidth;
     private int previewHeight;
 
@@ -41,14 +41,14 @@ public class PolygonSelectionView extends JFrame {
         setTitle("Polygon selection view");
         previewWidth = image.getWidth();
         previewHeight = image.getHeight();
-        bgSubstracter = new BGSubstracter(image, relativePolygon);
-        bgSubstracter.substractBackground(1, 0, false, false);
+        bgSubtracter = new BGSubtracter(image, relativePolygon);
+        bgSubtracter.subtractBackground(1, 0, false, false);
         JPanel previewPanel = new JPanel() {
             private static final long serialVersionUID = 1L;
 
             @Override
             protected void paintComponent(Graphics g) {
-                g.drawImage(bgSubstracter.getPreviewImage(), 0, 0, null);
+                g.drawImage(bgSubtracter.getPreviewImage(), 0, 0, null);
             }
 
             @Override
@@ -93,7 +93,7 @@ public class PolygonSelectionView extends JFrame {
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
                     boolean success;
                     try {
-                        ImageIO.write(bgSubstracter.getPreviewImage(), "png", chooser.getSelectedFile());
+                        ImageIO.write(bgSubtracter.getPreviewImage(), "png", chooser.getSelectedFile());
                         success = true;
                     } catch (IOException ex) {
                         ex.printStackTrace();
@@ -115,7 +115,7 @@ public class PolygonSelectionView extends JFrame {
         setVisible(true);
     }
     
-    private void logPolygon(Polygon polygon, Point location, PrintWriter out) {
+    private static void logPolygon(Polygon polygon, Point location, PrintWriter out) {
         Rectangle r = polygon.getBounds();
         out.printf("  LPF fj_are_structure%n");
         out.printf("    INT_VAR%n");
@@ -139,7 +139,7 @@ public class PolygonSelectionView extends JFrame {
 
     }
 
-    private void logPoint(MouseEvent e, Point location, PrintWriter out) {
+    private static void logPoint(MouseEvent e, Point location, PrintWriter out) {
         out.println("  LPF fj_are_structure");
         out.println("    INT_VAR");
         out.println("    fj_loc_x             = " + (location.x + e.getX()));

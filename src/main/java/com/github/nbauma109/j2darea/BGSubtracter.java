@@ -4,23 +4,23 @@ import java.awt.Color;
 import java.awt.Polygon;
 import java.awt.image.BufferedImage;
 
-public class BGSubstracter {
+public class BGSubtracter {
 
     private BufferedImage originalImage;
     private BufferedImage previewImage;
     private Polygon polygon;
 
-    public BGSubstracter(BufferedImage image, Polygon polygon) {
+    public BGSubtracter(BufferedImage image, Polygon polygon) {
         this.originalImage = image;
         this.previewImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
         this.polygon = polygon;
     }
 
-    public BGSubstracter(BufferedImage image) {
+    public BGSubtracter(BufferedImage image) {
         this(image, null);
     }
 
-    public void substractBackground(double hueLimit, double satLimit, boolean hueMin, boolean satMax) {
+    public void subtractBackground(double hueLimit, double satLimit, boolean hueMin, boolean satMax) {
         for (int x = 0; x < previewImage.getWidth(); x++) {
             for (int y = 0; y < previewImage.getHeight(); y++) {
                 if (polygon != null && !polygon.contains(x, y)) {
@@ -40,6 +40,10 @@ public class BGSubstracter {
 
     public BufferedImage getPreviewImage() {
         return previewImage;
+    }
+
+    public BufferedImage getOriginalImage() {
+        return originalImage;
     }
 
 }

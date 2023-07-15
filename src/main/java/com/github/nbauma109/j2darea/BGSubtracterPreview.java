@@ -31,6 +31,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
@@ -41,7 +42,7 @@ public class BGSubtracterPreview extends JFrame {
     private static final int ERASER_MAX_SIZE = 16;
     private static final int ERASER_MIN_SIZE = 2;
 
-    private transient BGSubstracter bgSubstracter;
+    private transient BGSubtracter bgSubtracter;
     private int mouseX;
     private int mouseY;
     private int previewWidth;
@@ -53,18 +54,18 @@ public class BGSubtracterPreview extends JFrame {
     }
 
     public BGSubtracterPreview(BufferedImage image, Polygon polygon) {
-        setTitle("Background substracter preview");
+        setTitle("Background subtracter preview");
         eraserSize = 8;
         previewWidth = image.getWidth();
         previewHeight = image.getHeight();
-        bgSubstracter = new BGSubstracter(image, polygon);
-        bgSubstracter.substractBackground(1, 0, false, false);
+        bgSubtracter = new BGSubtracter(image, polygon);
+        bgSubtracter.subtractBackground(1, 0, false, false);
         JPanel previewPanel = new JPanel() {
             private static final long serialVersionUID = 1L;
 
             @Override
             protected void paintComponent(Graphics g) {
-                g.drawImage(bgSubstracter.getPreviewImage(), 0, 0, null);
+                g.drawImage(bgSubtracter.getPreviewImage(), 0, 0, null);
                 g.drawRect(mouseX - eraserSize / 2, mouseY - eraserSize / 2, eraserSize, eraserSize);
             }
 
@@ -78,7 +79,11 @@ public class BGSubtracterPreview extends JFrame {
 
             @Override
             public void mousePressed(MouseEvent e) {
-                erase(e);
+                if (SwingUtilities.isRightMouseButton(e)) {
+                    restore(e);
+                } else {
+                    erase(e);
+                }
             }
         });
 
@@ -86,7 +91,11 @@ public class BGSubtracterPreview extends JFrame {
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                erase(e);
+                if (SwingUtilities.isRightMouseButton(e)) {
+                    restore(e);
+                } else {
+                    erase(e);
+                }
             }
 
             @Override
@@ -171,7 +180,7 @@ public class BGSubtracterPreview extends JFrame {
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
                     boolean success;
                     try {
-                        ImageIO.write(bgSubstracter.getPreviewImage(), "png", chooser.getSelectedFile());
+                        ImageIO.write(bgSubtracter.getPreviewImage(), "png", chooser.getSelectedFile());
                         success = true;
                     } catch (IOException ex) {
                         ex.printStackTrace();
@@ -193,7 +202,7 @@ public class BGSubtracterPreview extends JFrame {
         setVisible(true);
     }
 
-    private JPanel createLabeledSliderPanel(JSlider slider, JLabel sliderLabel, JCheckBox checkbox) {
+    private static JPanel createLabeledSliderPanel(JSlider slider, JLabel sliderLabel, JCheckBox checkbox) {
         JPanel sliderPanel = new JPanel();
         sliderPanel.setLayout(new BoxLayout(sliderPanel, BoxLayout.Y_AXIS));
         sliderPanel.add(slider);
@@ -214,7 +223,7 @@ public class BGSubtracterPreview extends JFrame {
     }
 
     public void onChange(JSlider hueLimitSlider, JSlider satLimitSlider, JCheckBox hueCheckbox, JCheckBox satCheckbox) {
-        bgSubstracter.substractBackground(hueLimitSlider.getValue() / 100d, satLimitSlider.getValue() / 100d, hueCheckbox.isSelected(), satCheckbox.isSelected());
+        bgSubtracter.subtractBackground(hueLimitSlider.getValue() / 100d, satLimitSlider.getValue() / 100d, hueCheckbox.isSelected(), satCheckbox.isSelected());
     }
 
     public void erase(MouseEvent e) {
@@ -222,8 +231,21 @@ public class BGSubtracterPreview extends JFrame {
         mouseY = e.getY();
         for (int x = mouseX - eraserSize / 2; x < mouseX + eraserSize / 2; x++) {
             for (int y = mouseY - eraserSize / 2; y < mouseY + eraserSize / 2; y++) {
+                if (x >= 0 && y >= 0 && x < previewWidth && y < previewHeight) {
+                    bgSubtracter.getPreviewImage().setRGB(x, y, 0);
+                }
+            }
+        }
+        repaint();
+    }
+
+    public void restore(MouseEvent e) {
+        mouseX = e.getX();
+        mouseY = e.getY();
+        for (int x = mouseX - eraserSize / 2; x < mouseX + eraserSize / 2; x++) {
+            for (int y = mouseY - eraserSize / 2; y < mouseY + eraserSize / 2; y++) {
                 if (x > 0 && y > 0 && x < previewWidth && y < previewHeight) {
-                    bgSubstracter.getPreviewImage().setRGB(x, y, 0);
+                    bgSubtracter.getPreviewImage().setRGB(x, y, bgSubtracter.getOriginalImage().getRGB(x, y));
                 }
             }
         }
