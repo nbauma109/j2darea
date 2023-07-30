@@ -232,11 +232,25 @@ public class J2DArea extends JFrame {
                     for (int y = e.getY() - brushRadius; y < e.getY() + brushRadius; y++) {
                         double dist = Point2D.distance(x, y, e.getX(), e.getY());
                         if (dist < brushRadius && x >= 0 && y >= 0 && x < buildBackgroundImage.getWidth() && y < buildBackgroundImage.getHeight()) {
-                            buildBackgroundImage.setRGB(x, y, brushTexture.getRGB(x % brushTexture.getWidth(), y % brushTexture.getHeight()));
+                            // Calculate blend factor based on distance to edge of brush.
+                            // This will be 1.0 at the center of the brush and 0.0 at the edge.
+                            double blend = 1.0 - dist / brushRadius;
+
+                            Color background = new Color(buildBackgroundImage.getRGB(x, y));
+                            Color brush = new Color(brushTexture.getRGB(x % brushTexture.getWidth(), y % brushTexture.getHeight()));
+
+                            // Linearly interpolate between the background and brush colors based on the blend factor.
+                            int r = (int)(background.getRed() * (1.0 - blend) + brush.getRed() * blend);
+                            int g = (int)(background.getGreen() * (1.0 - blend) + brush.getGreen() * blend);
+                            int b = (int)(background.getBlue() * (1.0 - blend) + brush.getBlue() * blend);
+                            int a = (int)(background.getAlpha() * (1.0 - blend) + brush.getAlpha() * blend);
+                            
+                            buildBackgroundImage.setRGB(x, y, new Color(r, g, b, a).getRGB());
                         }
                     }
                 }
             }
+
 
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -778,7 +792,7 @@ public class J2DArea extends JFrame {
         setVisible(true);
     }
 
-    private BufferedImage chooseImageFile() {
+    private static BufferedImage chooseImageFile() {
         JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME), PICTURES));
         PreviewPanel previewPanel = new PreviewPanel();
         chooser.setAccessory(previewPanel);
