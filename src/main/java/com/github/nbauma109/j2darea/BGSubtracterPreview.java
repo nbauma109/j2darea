@@ -1,7 +1,5 @@
 package com.github.nbauma109.j2darea;
 
-import static com.github.nbauma109.j2darea.J2DArea.BUTTON_SIZE;
-
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -34,6 +32,8 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+
+import static com.github.nbauma109.j2darea.J2DArea.BUTTON_SIZE;
 
 public class BGSubtracterPreview extends JFrame {
 
@@ -167,6 +167,12 @@ public class BGSubtracterPreview extends JFrame {
         eraserMinus.setMaximumSize(BUTTON_SIZE);
         eraserMinus.setToolTipText("Decrease eraser size");
         menubar.add(eraserMinus);
+        
+        addMouseWheelListener(e -> {
+            eraserSize += e.getWheelRotation();
+            repaint();
+        });
+        
         JButton exportButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-img.png"))) {
 
             private static final long serialVersionUID = 1L;

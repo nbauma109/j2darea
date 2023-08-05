@@ -3,6 +3,7 @@ package com.github.nbauma109.j2darea;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FileDialog;
 import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.GridLayout;
@@ -26,6 +27,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -48,6 +50,8 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class J2DArea extends JFrame {
 
+    private static final Pattern IMG_FILE_PATTERN = Pattern.compile(".+?\\.(png|jpe?g|gif|tiff?)$", Pattern.CASE_INSENSITIVE);
+
     private static final String ERROR = "Error";
 
     private static final String PLUS = "Plus";
@@ -58,8 +62,6 @@ public class J2DArea extends JFrame {
     
     private static final String DOWN = "Down";
     
-    private static final String PICTURES = "Pictures";
-
     private static final String USER_HOME = "user.home";
 
     private static final Dimension MIN_SIZE = new Dimension(800, 800);
@@ -604,7 +606,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME), PICTURES));
+                JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
                 FileNameExtensionFilter filter = new FileNameExtensionFilter("BMP Images", "bmp");
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showSaveDialog(null);
@@ -639,7 +641,7 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 if (isValidTileSetup()) {
                     extractPanel.repaint();
-                    JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME), PICTURES));
+                    JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
                     FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
                     chooser.setFileFilter(filter);
                     int returnVal = chooser.showSaveDialog(null);
@@ -792,17 +794,16 @@ public class J2DArea extends JFrame {
         setVisible(true);
     }
 
-    private static BufferedImage chooseImageFile() {
-        JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME), PICTURES));
-        PreviewPanel previewPanel = new PreviewPanel();
-        chooser.setAccessory(previewPanel);
-        chooser.addPropertyChangeListener(previewPanel);
-        FileNameExtensionFilter filter = new FileNameExtensionFilter("GIF, JPG & PNG Images", "gif", "jpg", "png");
-        chooser.setFileFilter(filter);
-        int returnVal = chooser.showOpenDialog(null);
-        if (returnVal == JFileChooser.APPROVE_OPTION) {
+    private BufferedImage chooseImageFile() {
+        FileDialog chooser = new FileDialog(this, "Choose a file", FileDialog.LOAD);
+        chooser.setDirectory(System.getProperty(USER_HOME));
+        chooser.setFilenameFilter((dir, name) -> IMG_FILE_PATTERN.matcher(name).matches());
+        chooser.setVisible(true);
+
+        String returnVal = chooser.getFile();
+        if (returnVal != null) {
             try {
-                return ImageIO.read(chooser.getSelectedFile());
+                return ImageIO.read(new File(returnVal));
             } catch (IOException ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(null, "Error opening image.", ERROR, JOptionPane.ERROR_MESSAGE);
