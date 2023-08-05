@@ -800,10 +800,9 @@ public class J2DArea extends JFrame {
         chooser.setFilenameFilter((dir, name) -> IMG_FILE_PATTERN.matcher(name).matches());
         chooser.setVisible(true);
 
-        String returnVal = chooser.getFile();
-        if (returnVal != null) {
+        if (chooser.getFile() != null) {
             try {
-                return ImageIO.read(new File(returnVal));
+                return ImageIO.read(new File(chooser.getDirectory(), chooser.getFile()));
             } catch (IOException ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(null, "Error opening image.", ERROR, JOptionPane.ERROR_MESSAGE);
