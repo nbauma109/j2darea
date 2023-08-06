@@ -2,12 +2,11 @@ package com.github.nbauma109.j2darea;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-
-import javax.imageio.ImageIO;
 
 public class TileSeamless {
+
+    private TileSeamless() {
+    }
 
     public static BufferedImage createSeamlessTile(BufferedImage inputImage) {
         int w = inputImage.getWidth();
@@ -38,13 +37,4 @@ public class TileSeamless {
         double distanceToCenterY = y - h / 2d;
         return Math.sqrt(distanceToCenterX * distanceToCenterX + distanceToCenterY * distanceToCenterY);
     }
-
-    public static void main(String[] args) throws IOException {
-        File inputFile = new File(args[0]);
-        File outputFile = new File(args[1]);
-        BufferedImage inputImage = ImageIO.read(inputFile);
-        BufferedImage seamlessTile = TileSeamless.createSeamlessTile(inputImage);
-        ImageIO.write(seamlessTile, "png", outputFile);
-    }
-
 }

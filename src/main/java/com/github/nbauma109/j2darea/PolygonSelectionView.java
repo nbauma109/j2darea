@@ -1,8 +1,7 @@
 package com.github.nbauma109.j2darea;
 
-import static com.github.nbauma109.j2darea.J2DArea.BUTTON_SIZE;
-
 import java.awt.Dimension;
+import java.awt.FileDialog;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Point;
@@ -17,17 +16,16 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JEditorPane;
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.filechooser.FileNameExtensionFilter;
+
+import static com.github.nbauma109.j2darea.J2DArea.BUTTON_SIZE;
 
 public class PolygonSelectionView extends JFrame {
 
@@ -86,15 +84,11 @@ public class PolygonSelectionView extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home"), "Pictures"));
-                FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
-                chooser.setFileFilter(filter);
-                int returnVal = chooser.showSaveDialog(null);
-                if (returnVal == JFileChooser.APPROVE_OPTION) {
+                File file = J2DArea.chooseFile(PolygonSelectionView.this, FileDialog.SAVE);
+                if (file != null) {
                     boolean success;
                     try {
-                        ImageIO.write(bgSubtracter.getPreviewImage(), "png", chooser.getSelectedFile());
-                        success = true;
+                        success = J2DArea.writeImage(file, bgSubtracter.getPreviewImage());
                     } catch (IOException ex) {
                         ex.printStackTrace();
                         success = false;

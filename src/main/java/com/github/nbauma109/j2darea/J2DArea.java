@@ -26,8 +26,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -50,8 +50,6 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class J2DArea extends JFrame {
 
-    private static final Pattern IMG_FILE_PATTERN = Pattern.compile(".+?\\.(png|jpe?g|gif|tiff?)$", Pattern.CASE_INSENSITIVE);
-
     private static final String ERROR = "Error";
 
     private static final String PLUS = "Plus";
@@ -73,6 +71,7 @@ public class J2DArea extends JFrame {
     private int backgroundWidth = 5120;
     private int backgroundheight = 3840;
     private transient BufferedImage buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
+    private transient BufferedImage texturePreviewImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
     private transient BufferedImage extractionBackgroundImage;
     private Polygon polygon = new Polygon();
     private Rectangle movingRectangle;
@@ -172,6 +171,17 @@ public class J2DArea extends JFrame {
             }
         };
 
+        JPanel texturePreviewPanel = new JPanel(false) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.drawImage(texturePreviewImage, 0, 0, null);
+            }
+        };
+
         extractPanel.addMouseMotionListener(new MouseMotionAdapter() {
 
             @Override
@@ -197,6 +207,10 @@ public class J2DArea extends JFrame {
             @Override
             public void mouseReleased(MouseEvent e) {
                 tile.moveEndPoint(e);
+                if (isValidTileSetup()) {
+                    BufferedImage seamlessTile = TileSeamless.createSeamlessTile(tile.getSubImage(extractionBackgroundImage));
+                    fillBackground(texturePreviewImage, seamlessTile);
+                }
             }
 
             @Override
@@ -441,6 +455,7 @@ public class J2DArea extends JFrame {
         JScrollPane extractScrollPane = new JScrollPane(extractPanel);
         tabPane.addTab("Build Area", buildScrollPane);
         tabPane.addTab("Extraction Area", extractScrollPane);
+        tabPane.addTab("Texture Preview", new JScrollPane(texturePreviewPanel));
 
         JMenuBar menubar = new JMenuBar();
         setJMenuBar(menubar);
@@ -481,13 +496,7 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 BufferedImage textureImage = chooseImageFile();
-                if (textureImage != null) {
-                    for (int x = 0; x < buildBackgroundImage.getWidth(); x++) {
-                        for (int y = 0; y < buildBackgroundImage.getHeight(); y++) {
-                            buildBackgroundImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
-                        }
-                    }
-                }
+                fillBackground(buildBackgroundImage, textureImage);
                 repaint();
             }
         });
@@ -606,17 +615,13 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
-                FileNameExtensionFilter filter = new FileNameExtensionFilter("BMP Images", "bmp");
-                chooser.setFileFilter(filter);
-                int returnVal = chooser.showSaveDialog(null);
-                if (returnVal == JFileChooser.APPROVE_OPTION) {
+                File file = chooseFile(J2DArea.this, FileDialog.SAVE);
+                if (file != null) {
                     BufferedImage imageToexport = new BufferedImage(buildPanel.getWidth(), buildPanel.getHeight(), BufferedImage.TYPE_INT_RGB);
                     paintObjects(imageToexport.getGraphics());
                     boolean success;
                     try {
-                        ImageIO.write(imageToexport, "bmp", chooser.getSelectedFile());
-                        success = true;
+                        success = writeImage(file, imageToexport);
                     } catch (IOException ex) {
                         ex.printStackTrace();
                         success = false;
@@ -641,15 +646,11 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 if (isValidTileSetup()) {
                     extractPanel.repaint();
-                    JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
-                    FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
-                    chooser.setFileFilter(filter);
-                    int returnVal = chooser.showSaveDialog(null);
-                    if (returnVal == JFileChooser.APPROVE_OPTION) {
+                    File file = J2DArea.chooseFile(J2DArea.this, FileDialog.SAVE);
+                    if (file != null) {
                         boolean success;
                         try {
-                            ImageIO.write(TileSeamless.createSeamlessTile(tile.getSubImage(extractionBackgroundImage)), "png", chooser.getSelectedFile());
-                            success = true;
+                            success = J2DArea.writeImage(file, TileSeamless.createSeamlessTile(tile.getSubImage(extractionBackgroundImage)));
                         } catch (IOException ex) {
                             ex.printStackTrace();
                             success = false;
@@ -701,6 +702,8 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 editingParallelogram = true;
+                painting = false;
+                repaint();
             }
         });
         parallelogramButton.setMaximumSize(BUTTON_SIZE);
@@ -743,6 +746,7 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 painting = false;
+                repaint();
             }
         });
         cursorButton.setMaximumSize(BUTTON_SIZE);
@@ -758,7 +762,7 @@ public class J2DArea extends JFrame {
                 if (isValidTileSetup()) {
                     try {
                         File tempFile = File.createTempFile("j2darea", ".png");
-                        ImageIO.write(tile.getSubImage(extractionBackgroundImage), "png", tempFile);
+                        J2DArea.writeImage(tempFile, tile.getSubImage(extractionBackgroundImage));
                         ProcessBuilder processBuilder = new ProcessBuilder("mspaint", "\"" + tempFile.getAbsolutePath() + "\"", "/ForceBootstrapPaint3D");
                         processBuilder.start();
                     } catch (IOException ex) {
@@ -794,21 +798,48 @@ public class J2DArea extends JFrame {
         setVisible(true);
     }
 
-    private BufferedImage chooseImageFile() {
-        FileDialog chooser = new FileDialog(this, "Choose a file", FileDialog.LOAD);
-        chooser.setDirectory(System.getProperty(USER_HOME));
-        chooser.setFilenameFilter((dir, name) -> IMG_FILE_PATTERN.matcher(name).matches());
-        chooser.setVisible(true);
+    public static boolean writeImage(File file, BufferedImage imageToexport) throws IOException {
+        String[] formats = ImageIO.getWriterFormatNames();
+        for (String format : formats) {
+            if (file.getName().endsWith('.' + format)) {
+                return ImageIO.write(imageToexport, format, file);
+            }
+        }
+        JOptionPane.showMessageDialog(null, "Extension must be one of " + Arrays.toString(formats), ERROR, JOptionPane.ERROR_MESSAGE);
+        return false;
+    }
 
-        if (chooser.getFile() != null) {
+    private static void fillBackground(BufferedImage buildBackgroundImage, BufferedImage textureImage) {
+        if (textureImage != null) {
+            for (int x = 0; x < buildBackgroundImage.getWidth(); x++) {
+                for (int y = 0; y < buildBackgroundImage.getHeight(); y++) {
+                    buildBackgroundImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
+                }
+            }
+        }
+    }
+
+    private BufferedImage chooseImageFile() {
+        File file = chooseFile(this, FileDialog.LOAD);
+        if (file != null) {
             try {
-                return ImageIO.read(new File(chooser.getDirectory(), chooser.getFile()));
+                return ImageIO.read(file);
             } catch (IOException ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(null, "Error opening image.", ERROR, JOptionPane.ERROR_MESSAGE);
             }
         }
         return null;
+    }
+
+    public static File chooseFile(Frame parent, int mode) {
+        FileDialog chooser = new FileDialog(parent, "Choose a file", mode);
+        chooser.setDirectory(System.getProperty(USER_HOME));
+        chooser.setVisible(true);
+        if (chooser.getFile() == null) {
+            return null;
+        }
+        return new File(chooser.getDirectory(), chooser.getFile());
     }
 
     private void paintObjects(Graphics g) {
@@ -847,5 +878,4 @@ public class J2DArea extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(J2DArea::new);
     }
-
 }
