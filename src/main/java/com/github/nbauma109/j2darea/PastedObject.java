@@ -144,16 +144,17 @@ public class PastedObject implements Externalizable {
     }
 
     public void flip() {
-        BufferedImage tmp = new BufferedImage(getWidth(), getHeight(), getType());
-        for (int x = 0; x < getWidth(); x++) {
-            for (int y = 0; y < getHeight(); y++) {
-                tmp.setRGB(x, y, image.getImage().getRGB(getWidth() - x - 1 , y));
-            }
-        }
-        for (int x = 0; x < getWidth(); x++) {
-            for (int y = 0; y < getHeight(); y++) {
-                image.getImage().setRGB(x, y, tmp.getRGB(x, y));
+        int width = getWidth();
+        int height = getHeight();
+        BufferedImage img = image.getImage();
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width / 2; x++) {
+                int tmp = img.getRGB(x, y);
+                img.setRGB(x, y, img.getRGB(width - x - 1, y));
+                img.setRGB(width - x - 1, y, tmp);
             }
         }
     }
+
 }
