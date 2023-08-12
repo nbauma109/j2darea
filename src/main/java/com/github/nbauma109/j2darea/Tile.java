@@ -54,8 +54,20 @@ public class Tile {
     }
 
     public BufferedImage getSubImage(BufferedImage image) {
-        return image.getSubimage(getX(), getY(), getWidth(), getHeight());
+        int x = getX();
+        int y = getY();
+        int width = getWidth();
+        int height = getHeight();
+
+        // Clamp the coordinates and dimensions to the bounds of the original image
+        x = Math.max(0, Math.min(x, image.getWidth() - 1));
+        y = Math.max(0, Math.min(y, image.getHeight() - 1));
+        width = Math.min(width, image.getWidth() - x);
+        height = Math.min(height, image.getHeight() - y);
+
+        return image.getSubimage(x, y, width, height);
     }
+
 
     public void reset() {
         startPoint.move(0, 0);
