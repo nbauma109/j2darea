@@ -60,8 +60,11 @@ public class ExportableImage implements Externalizable {
         return image.getHeight();
     }
 
+    public int getType() {
+        return image.getType();
+    }
+
     public boolean isOpaque(int x, int y) {
         return new Color(image.getRGB(x, y), true).getTransparency() == Transparency.OPAQUE;
     }
-
 }

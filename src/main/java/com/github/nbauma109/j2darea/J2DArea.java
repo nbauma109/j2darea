@@ -244,6 +244,9 @@ public class J2DArea extends JFrame {
             }
 
             public void updateBrushStroke(MouseEvent e) {
+                if (brushTexture == null) {
+                    return;
+                }
                 for (int x = e.getX() - brushRadius; x < e.getX() + brushRadius; x++) {
                     for (int y = e.getY() - brushRadius; y < e.getY() + brushRadius; y++) {
                         double dist = Point2D.distance(x, y, e.getX(), e.getY());
@@ -351,9 +354,13 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mouseWheelMoved(MouseWheelEvent e) {
-                brushRadius += e.getWheelRotation();
-                buildBrushPreview();
-                repaint();
+                if (objectToMove != null) {
+                    objectToMove.flip();
+                } else if (painting) {                
+                    brushRadius += e.getWheelRotation();
+                    buildBrushPreview();
+                }
+                buildPanel.repaint();
             }
 
         };
@@ -635,7 +642,7 @@ public class J2DArea extends JFrame {
             }
         });
         exportButton.setMaximumSize(BUTTON_SIZE);
-        exportButton.setToolTipText("Export build area to a BMP image");
+        exportButton.setToolTipText("Export build area to an image");
         menubar.add(exportButton);
 
         JButton tileSeamlessButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-texture.png"))) {

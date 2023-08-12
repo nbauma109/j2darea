@@ -37,9 +37,6 @@ public class BGSubtracterPreview extends JFrame {
 
     private static final long serialVersionUID = 1L;
 
-    private static final int ERASER_MAX_SIZE = 16;
-    private static final int ERASER_MIN_SIZE = 2;
-
     private transient BGSubtracter bgSubtracter;
     private int mouseX;
     private int mouseY;
@@ -133,38 +130,6 @@ public class BGSubtracterPreview extends JFrame {
         add(sliderPanel, BorderLayout.EAST);
         JMenuBar menubar = new JMenuBar();
         setJMenuBar(menubar);
-        JButton eraserPlusButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/eraser+.png"))) {
-
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (eraserSize < ERASER_MAX_SIZE) {
-                    eraserSize++;
-                    repaint();
-                }
-            }
-
-        });
-        eraserPlusButton.setMaximumSize(BUTTON_SIZE);
-        eraserPlusButton.setToolTipText("Increase eraser size");
-        menubar.add(eraserPlusButton);
-        JButton eraserMinus = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/eraser-.png"))) {
-
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (eraserSize > ERASER_MIN_SIZE) {
-                    eraserSize--;
-                    repaint();
-                }
-            }
-
-        });
-        eraserMinus.setMaximumSize(BUTTON_SIZE);
-        eraserMinus.setToolTipText("Decrease eraser size");
-        menubar.add(eraserMinus);
         
         addMouseWheelListener(e -> {
             eraserSize += e.getWheelRotation();

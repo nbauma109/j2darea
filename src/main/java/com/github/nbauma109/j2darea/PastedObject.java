@@ -2,6 +2,7 @@ package com.github.nbauma109.j2darea;
 
 import java.awt.Graphics;
 import java.awt.Point;
+import java.awt.image.BufferedImage;
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -83,6 +84,10 @@ public class PastedObject implements Externalizable {
         return image.getHeight();
     }
 
+    public int getType() {
+        return image.getType();
+    }
+
     public void drawImage(Graphics g) {
         g.drawImage(image.getImage(), getX(), getY(), null);
     }
@@ -134,6 +139,20 @@ public class PastedObject implements Externalizable {
         for (int x = 0; x < getWidth(); x++) {
             for (int y = 0; y < getHeight(); y++) {
                 image.getImage().setRGB(x, y, transformed[x][y]);
+            }
+        }
+    }
+
+    public void flip() {
+        BufferedImage tmp = new BufferedImage(getWidth(), getHeight(), getType());
+        for (int x = 0; x < getWidth(); x++) {
+            for (int y = 0; y < getHeight(); y++) {
+                tmp.setRGB(x, y, image.getImage().getRGB(getWidth() - x - 1 , y));
+            }
+        }
+        for (int x = 0; x < getWidth(); x++) {
+            for (int y = 0; y < getHeight(); y++) {
+                image.getImage().setRGB(x, y, tmp.getRGB(x, y));
             }
         }
     }
