@@ -624,7 +624,7 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 File file = chooseFile(J2DArea.this, FileDialog.SAVE);
                 if (file != null) {
-                    BufferedImage imageToexport = new BufferedImage(buildPanel.getWidth(), buildPanel.getHeight(), BufferedImage.TYPE_INT_RGB);
+                    BufferedImage imageToexport = new BufferedImage(buildBackgroundImage.getWidth(), buildBackgroundImage.getHeight(), BufferedImage.TYPE_INT_RGB);
                     paintObjects(imageToexport.getGraphics());
                     boolean success;
                     try {
