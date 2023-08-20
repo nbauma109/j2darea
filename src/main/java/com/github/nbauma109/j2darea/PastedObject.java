@@ -12,23 +12,34 @@ public class PastedObject implements Externalizable {
 
     private Point location;
     private ExportableImage image;
+    private transient BufferedImage nightImage;
     private int correctionIndex;
     private int[][] original;
     private int[][] transformed;
+    private PastedObjectType pastedObjectType;
 
     public PastedObject() {
     }
 
-    public PastedObject(Point location, ExportableImage image) {
+    public PastedObject(Point location, ExportableImage image, PastedObjectType pastedObjectType) {
         this.location = location;
         this.image = image;
+        if (pastedObjectType != PastedObjectType.NIGHT_LIGHT) {
+            this.nightImage = ImageFilter.applyNightFilter(image.getImage());
+        }
+        this.pastedObjectType = pastedObjectType;
         initBuffers();
+    }
+
+    public PastedObject(Point point, ExportableImage exportableImage) {
+        this(point, exportableImage, PastedObjectType.STANDARD);
     }
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
         out.writeInt(location.x);
         out.writeInt(location.y);
+        out.writeInt(pastedObjectType.ordinal());
         image.writeExternal(out);
     }
 
@@ -37,8 +48,12 @@ public class PastedObject implements Externalizable {
         int x = in.readInt();
         int y = in.readInt();
         location = new Point(x, y);
+        pastedObjectType = PastedObjectType.values()[in.readInt()];
         image = new ExportableImage();
         image.readExternal(in);
+        if (pastedObjectType != PastedObjectType.NIGHT_LIGHT) {
+            this.nightImage = ImageFilter.applyNightFilter(image.getImage());
+        }
         initBuffers();
     }
 
@@ -88,8 +103,16 @@ public class PastedObject implements Externalizable {
         return image.getType();
     }
 
-    public void drawImage(Graphics g) {
-        g.drawImage(image.getImage(), getX(), getY(), null);
+    public PastedObjectType getPastedObjectType() {
+        return pastedObjectType;
+    }
+
+    public void drawImage(Graphics g, boolean night) {
+        if (pastedObjectType != PastedObjectType.NIGHT_LIGHT && night) {
+            g.drawImage(nightImage, getX(), getY(), null);
+        } else {
+            g.drawImage(image.getImage(), getX(), getY(), null);
+        }
     }
 
     public boolean isOpaque(int x, int y) {
@@ -144,17 +167,19 @@ public class PastedObject implements Externalizable {
     }
 
     public void flip() {
-        int width = getWidth();
-        int height = getHeight();
-        BufferedImage img = image.getImage();
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width / 2; x++) {
-                int tmp = img.getRGB(x, y);
-                img.setRGB(x, y, img.getRGB(width - x - 1, y));
-                img.setRGB(width - x - 1, y, tmp);
-            }
+        flip(image.getImage());
+        if (nightImage != null) {
+            flip(nightImage);
         }
     }
 
+    private void flip(BufferedImage img) {
+        for (int y = 0; y < getHeight(); y++) {
+            for (int x = 0; x < getWidth() / 2; x++) {
+                int tmp = img.getRGB(x, y);
+                img.setRGB(x, y, img.getRGB(getWidth() - x - 1, y));
+                img.setRGB(getWidth() - x - 1, y, tmp);
+            }
+        }
+    }
 }

@@ -62,16 +62,17 @@ public class J2DArea extends JFrame {
     
     private static final String USER_HOME = "user.home";
 
-    private static final Dimension MIN_SIZE = new Dimension(800, 800);
+    private static final Dimension MIN_SIZE = new Dimension(1100, 800);
 
     public static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
     private static final long serialVersionUID = 1L;
 
     private int backgroundWidth = 5120;
-    private int backgroundheight = 3840;
-    private transient BufferedImage buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
-    private transient BufferedImage texturePreviewImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
+    private int backgroundHeight = 3840;
+    private transient BufferedImage buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+    private transient BufferedImage buildBackgroundNightImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+    private transient BufferedImage texturePreviewImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
     private transient BufferedImage extractionBackgroundImage;
     private Polygon polygon = new Polygon();
     private Rectangle movingRectangle;
@@ -82,7 +83,10 @@ public class J2DArea extends JFrame {
     private int objectToMoveIdx = -1;
     private int deltaX;
     private int deltaY;
-    private boolean editingParallelogram;
+    private boolean drawClosed;
+    private boolean night;
+    private boolean editingBlackParallelogram;
+    private boolean editingTextureParallelogram;
     private List<Polygon> parallelograms = new ArrayList<>();
 
     private boolean editingPolygon;
@@ -92,6 +96,7 @@ public class J2DArea extends JFrame {
     private int brushRadius = 30;
     private transient BufferedImage brushTexture;
     private transient BufferedImage brushPreview;
+    private transient BufferedImage brushNightPreview;
 
     public J2DArea() {
         super("J2DArea");
@@ -131,7 +136,7 @@ public class J2DArea extends JFrame {
                 if (buildBackgroundImage != null) {
                     return new Dimension(buildBackgroundImage.getWidth(), buildBackgroundImage.getHeight());
                 }
-                return new Dimension(backgroundWidth, backgroundheight);
+                return new Dimension(backgroundWidth, backgroundHeight);
             }
         };
 
@@ -167,7 +172,7 @@ public class J2DArea extends JFrame {
                 if (extractionBackgroundImage != null) {
                     return new Dimension(extractionBackgroundImage.getWidth(), extractionBackgroundImage.getHeight());
                 }
-                return new Dimension(backgroundWidth, backgroundheight);
+                return new Dimension(backgroundWidth, backgroundHeight);
             }
         };
 
@@ -208,8 +213,14 @@ public class J2DArea extends JFrame {
             public void mouseReleased(MouseEvent e) {
                 tile.moveEndPoint(e);
                 if (isValidTileSetup()) {
-                    BufferedImage seamlessTile = TileSeamless.createSeamlessTile(tile.getSubImage(extractionBackgroundImage));
-                    fillBackground(texturePreviewImage, seamlessTile);
+                    BufferedImage textureImage = TileSeamless.createSeamlessTile(tile.getSubImage(extractionBackgroundImage));
+                    if (textureImage != null) {
+                        for (int x = 0; x < texturePreviewImage.getWidth(); x++) {
+                            for (int y = 0; y < texturePreviewImage.getHeight(); y++) {
+                                texturePreviewImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
+                            }
+                        }
+                    }
                 }
             }
 
@@ -265,6 +276,7 @@ public class J2DArea extends JFrame {
                             int a = (int)(background.getAlpha() * (1.0 - blend) + brush.getAlpha() * blend);
                             
                             buildBackgroundImage.setRGB(x, y, new Color(r, g, b, a).getRGB());
+                            buildBackgroundNightImage.setRGB(x, y, new Color((int) (0.45 * r), (int) (0.45 * g), (int) (0.85 * b), a).getRGB());
                         }
                     }
                 }
@@ -273,7 +285,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (editingParallelogram) {
+                if (editingBlackParallelogram || editingTextureParallelogram) {
                     if (parallelograms.isEmpty() || parallelograms.get(parallelograms.size() - 1).npoints == 4) {
                         Polygon parallelogram = new Polygon();
                         parallelogram.addPoint(e.getX(), e.getY());
@@ -283,9 +295,9 @@ public class J2DArea extends JFrame {
                         p.addPoint(e.getX(), e.getY());
                         if (p.npoints == 3) {
                             p.addPoint(p.xpoints[0] + p.xpoints[2] - p.xpoints[1], p.ypoints[0] + p.ypoints[2] - p.ypoints[1]);
-                            editingParallelogram = false;
                             buildPanel.repaint();
-                            BufferedImage textureImage = chooseImageFile();
+                            BufferedImage textureImage = editingBlackParallelogram ? null : chooseImageFile();
+                            editingBlackParallelogram = editingTextureParallelogram = false;
                             BufferedImage floorImage = new BufferedImage(p.getBounds().width, p.getBounds().height, BufferedImage.TYPE_INT_ARGB);
                             for (int x = 0; x < floorImage.getWidth(); x++) {
                                 for (int y = 0; y < floorImage.getHeight(); y++) {
@@ -477,8 +489,9 @@ public class J2DArea extends JFrame {
                     if (inputSize.matches("\\d+x\\d+")) {
                         String[] tokens = inputSize.split("x");
                         backgroundWidth = Integer.parseInt(tokens[0]);
-                        backgroundheight = Integer.parseInt(tokens[1]);
-                        buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundheight, BufferedImage.TYPE_INT_RGB);
+                        backgroundHeight = Integer.parseInt(tokens[1]);
+                        buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+                        buildBackgroundNightImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
                         pastedObjects.clear();
                         objectToMove = null;
                         objectToMoveIdx = -1;
@@ -503,7 +516,14 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 BufferedImage textureImage = chooseImageFile();
-                fillBackground(buildBackgroundImage, textureImage);
+                if (textureImage != null) {
+                    for (int x = 0; x < buildBackgroundImage.getWidth(); x++) {
+                        for (int y = 0; y < buildBackgroundImage.getHeight(); y++) {
+                            buildBackgroundImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
+                        }
+                    }
+                    buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
+                }
                 repaint();
             }
         });
@@ -528,6 +548,7 @@ public class J2DArea extends JFrame {
                         ExportableArea exportableArea = new ExportableArea();
                         exportableArea.readExternal(objectInputStream);
                         buildBackgroundImage = exportableArea.getBackgroundImage().getImage();
+                        buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
                         pastedObjects = exportableArea.getPastedObjects();
                         setExtendedState(Frame.MAXIMIZED_BOTH);
                         repaint();
@@ -702,20 +723,128 @@ public class J2DArea extends JFrame {
         pasteFromButton.setMaximumSize(BUTTON_SIZE);
         pasteFromButton.setToolTipText("Paste from an image file");
 
-        JButton parallelogramButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/parallelogram.png"))) {
+        JButton parallelogramBlackButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/parallelogram-black.png"))) {
 
             private static final long serialVersionUID = 1L;
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                editingParallelogram = true;
+                editingBlackParallelogram = true;
                 painting = false;
                 repaint();
             }
         });
-        parallelogramButton.setMaximumSize(BUTTON_SIZE);
-        parallelogramButton.setToolTipText("Draw and fill a new parallelogram");
-        menubar.add(parallelogramButton);
+        parallelogramBlackButton.setMaximumSize(BUTTON_SIZE);
+        parallelogramBlackButton.setToolTipText("Draw and fill a new black parallelogram");
+        menubar.add(parallelogramBlackButton);
+
+        JButton parallelogramTextureButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/parallelogram-texture.png"))) {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                editingTextureParallelogram = true;
+                painting = false;
+                repaint();
+            }
+        });
+        parallelogramTextureButton.setMaximumSize(BUTTON_SIZE);
+        parallelogramTextureButton.setToolTipText("Draw and fill a new parallelogram with a texture");
+        menubar.add(parallelogramTextureButton);
+
+        JButton pasteFromOpenDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/opened_door.png"))) {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                BufferedImage choice = chooseImageFile();
+                if (choice != null) {
+                    PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), PastedObjectType.OPENED_DOOR);
+                    pastedObjects.add(pastedObject);
+                    objectToMove = pastedObject;
+                    painting = false;
+                    drawClosed = false;
+                    repaint();
+                }
+            }
+        });
+        menubar.add(pasteFromOpenDoorButton);
+        pasteFromOpenDoorButton.setMaximumSize(BUTTON_SIZE);
+        pasteFromOpenDoorButton.setToolTipText("Paste from an image file of opened door");
+        
+        JButton pasteFromClosedDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/closed_door.png"))) {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                BufferedImage choice = chooseImageFile();
+                if (choice != null) {
+                    PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), PastedObjectType.CLOSED_DOOR);
+                    pastedObjects.add(pastedObject);
+                    objectToMove = pastedObject;
+                    painting = false;
+                    drawClosed = true;
+                    repaint();
+                }
+            }
+        });
+        menubar.add(pasteFromClosedDoorButton);
+        pasteFromClosedDoorButton.setMaximumSize(BUTTON_SIZE);
+        pasteFromClosedDoorButton.setToolTipText("Paste from an image file of closed door");
+        
+        JButton pasteFromNightLightButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/night_light.png"))) {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                BufferedImage choice = chooseImageFile();
+                if (choice != null) {
+                    PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), PastedObjectType.NIGHT_LIGHT);
+                    pastedObjects.add(pastedObject);
+                    objectToMove = pastedObject;
+                    painting = false;
+                    night = true;
+                    repaint();
+                }
+            }
+        });
+        menubar.add(pasteFromNightLightButton);
+        pasteFromNightLightButton.setMaximumSize(BUTTON_SIZE);
+        pasteFromNightLightButton.setToolTipText("Paste from an image file of night time light");
+        
+        JButton drawClosedDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/draw_closed.png"))) {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                drawClosed = !drawClosed;
+                painting = false;
+                repaint();
+            }
+        });
+        menubar.add(drawClosedDoorButton);
+        drawClosedDoorButton.setMaximumSize(BUTTON_SIZE);
+        drawClosedDoorButton.setToolTipText("Toggle draw closed doors");
+        
+        JButton nightButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/night.png"))) {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                night = !night;
+                painting = false;
+                repaint();
+            }
+        });
+        menubar.add(nightButton);
+        nightButton.setMaximumSize(BUTTON_SIZE);
+        nightButton.setToolTipText("Toggle day/night");
 
         JButton polygonButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/polygon.png"))) {
 
@@ -816,16 +945,6 @@ public class J2DArea extends JFrame {
         return false;
     }
 
-    private static void fillBackground(BufferedImage buildBackgroundImage, BufferedImage textureImage) {
-        if (textureImage != null) {
-            for (int x = 0; x < buildBackgroundImage.getWidth(); x++) {
-                for (int y = 0; y < buildBackgroundImage.getHeight(); y++) {
-                    buildBackgroundImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
-                }
-            }
-        }
-    }
-
     private BufferedImage chooseImageFile() {
         File file = chooseFile(this, FileDialog.LOAD);
         if (file != null) {
@@ -851,13 +970,40 @@ public class J2DArea extends JFrame {
 
     private void paintObjects(Graphics g) {
         if (buildBackgroundImage != null) {
-            g.drawImage(buildBackgroundImage, 0, 0, null);
+            if (night) {
+                g.drawImage(buildBackgroundNightImage, 0, 0, null);
+            } else {
+                g.drawImage(buildBackgroundImage, 0, 0, null);
+            }
         }
         if (painting && brushPreview != null) {
-            g.drawImage(brushPreview, mousePosition.x - brushRadius, mousePosition.y - brushRadius, null);
+            if (night) {
+                g.drawImage(brushNightPreview, mousePosition.x - brushRadius, mousePosition.y - brushRadius, null);
+            } else {
+                g.drawImage(brushPreview, mousePosition.x - brushRadius, mousePosition.y - brushRadius, null);
+            }
         }
         for (PastedObject pastedObject : pastedObjects) {
-            pastedObject.drawImage(g);
+            switch (pastedObject.getPastedObjectType()) {
+                case OPENED_DOOR:
+                    if (!drawClosed) {
+                        pastedObject.drawImage(g, night);
+                    }
+                    break;
+                case CLOSED_DOOR:
+                    if (drawClosed) {
+                        pastedObject.drawImage(g, night);
+                    }
+                    break;
+                case NIGHT_LIGHT:
+                    if (night) {
+                        pastedObject.drawImage(g, night);
+                    }
+                    break;
+                default:
+                    pastedObject.drawImage(g, night);
+                    break;
+            }
         }
     }
 
@@ -879,6 +1025,7 @@ public class J2DArea extends JFrame {
                     }
                 }
             }
+            brushNightPreview = ImageFilter.applyNightFilter(brushPreview);
         }
     }
 
