@@ -325,7 +325,7 @@ public class J2DArea extends JFrame {
                         int idx = 0;
                         for (PastedObject pastedObject : pastedObjects) {
                             Rectangle rect = new Rectangle(pastedObject.getX(), pastedObject.getY(), pastedObject.getWidth(), pastedObject.getHeight());
-                            if (rect.contains(e.getX(), e.getY()) && pastedObject.isOpaque(e.getX() - rect.x, e.getY() - rect.y)) {
+                            if (rect.contains(e.getX(), e.getY()) && pastedObject.isOpaque(e.getX() - rect.x, e.getY() - rect.y) && pastedObject.isVisible(drawClosed, night)) {
                                 movingRectangle = rect;
                                 objectToMove = pastedObject;
                                 objectToMoveIdx = idx;

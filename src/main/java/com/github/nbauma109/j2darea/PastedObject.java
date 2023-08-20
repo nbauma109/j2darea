@@ -182,4 +182,19 @@ public class PastedObject implements Externalizable {
             }
         }
     }
+
+    public boolean isVisible(boolean drawClosed, boolean night) {
+        switch (pastedObjectType) {
+            case STANDARD:
+                return true;
+            case OPENED_DOOR:
+                return !drawClosed;
+            case CLOSED_DOOR:
+                return drawClosed;
+            case NIGHT_LIGHT:
+                return night;
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
 }
