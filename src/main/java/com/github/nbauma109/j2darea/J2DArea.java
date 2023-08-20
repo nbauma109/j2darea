@@ -62,7 +62,7 @@ public class J2DArea extends JFrame {
     
     private static final String USER_HOME = "user.home";
 
-    private static final Dimension MIN_SIZE = new Dimension(1100, 800);
+    private static final Dimension MIN_SIZE = new Dimension(1200, 800);
 
     public static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
@@ -702,6 +702,31 @@ public class J2DArea extends JFrame {
         tileSeamlessButton.setMaximumSize(BUTTON_SIZE);
         tileSeamlessButton.setToolTipText("Create and export seamless tile from selection to PNG image");
         menubar.add(tileSeamlessButton);
+        
+        JButton saveDoorsButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-doors.png"))) {
+            
+            private static final long serialVersionUID = 1L;
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
+                chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                int returnVal = chooser.showSaveDialog(null);
+                if (returnVal == JFileChooser.APPROVE_OPTION) {
+                    List<Rectangle> rectangles = new ArrayList<>(); 
+                    int cnt = exportOpenDoorTiles(chooser.getSelectedFile(), rectangles);
+                    cnt += exportClosedDoorTiles(chooser.getSelectedFile(), rectangles);
+                    if (cnt == 0) {
+                        JOptionPane.showMessageDialog(null, "No door tile exported.");
+                    } else {
+                        JOptionPane.showMessageDialog(null, cnt + " door tiles exported.");
+                    }
+                }
+            }
+        });
+        saveDoorsButton.setMaximumSize(BUTTON_SIZE);
+        saveDoorsButton.setToolTipText("Export all door tiles");
+        menubar.add(saveDoorsButton);
 
         JButton pasteFromButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/paste-from.png"))) {
 
@@ -932,6 +957,55 @@ public class J2DArea extends JFrame {
         setSize(MIN_SIZE);
         setMinimumSize(MIN_SIZE);
         setVisible(true);
+    }
+
+    private int exportClosedDoorTiles(File destDir, List<Rectangle> rectangles) {
+        drawClosed = true;
+        BufferedImage imageToexport = new BufferedImage(buildBackgroundImage.getWidth(), buildBackgroundImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+        paintObjects(imageToexport.getGraphics());
+        int cnt = 0;
+        for (Rectangle r : rectangles) {
+            int x = (int) (64 * Math.floor(r.getX() / 64.));
+            int y = (int) (64 * Math.floor(r.getY() / 64.));
+            int w = (int) (64 * Math.ceil((r.getX() + r.getWidth()) / 64.)) - x;
+            int h = (int) (64 * Math.ceil((r.getY() + r.getHeight()) / 64.)) - y;
+            try {
+                String fileName = String.format("door_at_%dx_%dy_closed.bmp", x, y);
+                if (ImageIO.write(imageToexport.getSubimage(x, y, w, h), "bmp", new File(destDir, fileName))) {
+                    cnt++;
+                }
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(null, "Error exporting closed door tiles.", ERROR, JOptionPane.ERROR_MESSAGE);
+            }
+        }
+        return cnt;
+    }
+
+    private int exportOpenDoorTiles(File destDir, List<Rectangle> rectangles) {
+        drawClosed = false;
+        BufferedImage imageToexport = new BufferedImage(buildBackgroundImage.getWidth(), buildBackgroundImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+        paintObjects(imageToexport.getGraphics());
+        int cnt = 0;
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject.getPastedObjectType() == PastedObjectType.OPENED_DOOR) {
+                int x = (int) (64 * Math.floor(pastedObject.getX() / 64.));
+                int y = (int) (64 * Math.floor(pastedObject.getY() / 64.));
+                int w = (int) (64 * Math.ceil((pastedObject.getX() + pastedObject.getWidth()) / 64.)) - x;
+                int h = (int) (64 * Math.ceil((pastedObject.getY() + pastedObject.getHeight()) / 64.)) - y;
+                rectangles.add(new Rectangle(x, y, w, h));
+                try {
+                    String fileName = String.format("door_at_%dx_%dy_open.bmp", x, y);
+                    if (ImageIO.write(imageToexport.getSubimage(x, y, w, h), "bmp", new File(destDir, fileName))) {
+                        cnt++;
+                    }
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(null, "Error exporting open door tiles.", ERROR, JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+        return cnt;
     }
 
     public static boolean writeImage(File file, BufferedImage imageToexport) throws IOException {

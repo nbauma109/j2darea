@@ -197,4 +197,9 @@ public class PastedObject implements Externalizable {
                 throw new IllegalArgumentException();
         }
     }
+
+    public boolean isDoor() {
+        return pastedObjectType == PastedObjectType.OPENED_DOOR
+            || pastedObjectType == PastedObjectType.CLOSED_DOOR;
+    }
 }
