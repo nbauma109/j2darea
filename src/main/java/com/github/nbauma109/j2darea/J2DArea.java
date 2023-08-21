@@ -27,6 +27,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -67,6 +68,8 @@ public class J2DArea extends JFrame {
     public static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
     private static final long serialVersionUID = 1L;
+
+    private static EnumMap<FileChooserLocation, String> directories = new EnumMap<>(FileChooserLocation.class);
 
     private int backgroundWidth = 5120;
     private int backgroundHeight = 3840;
@@ -296,7 +299,7 @@ public class J2DArea extends JFrame {
                         if (p.npoints == 3) {
                             p.addPoint(p.xpoints[0] + p.xpoints[2] - p.xpoints[1], p.ypoints[0] + p.ypoints[2] - p.ypoints[1]);
                             buildPanel.repaint();
-                            BufferedImage textureImage = editingBlackParallelogram ? null : chooseImageFile();
+                            BufferedImage textureImage = editingBlackParallelogram ? null : chooseImageFile(FileChooserLocation.TEXTURE);
                             editingBlackParallelogram = editingTextureParallelogram = false;
                             BufferedImage floorImage = new BufferedImage(p.getBounds().width, p.getBounds().height, BufferedImage.TYPE_INT_ARGB);
                             for (int x = 0; x < floorImage.getWidth(); x++) {
@@ -515,7 +518,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                BufferedImage textureImage = chooseImageFile();
+                BufferedImage textureImage = chooseImageFile(FileChooserLocation.TEXTURE);
                 if (textureImage != null) {
                     for (int x = 0; x < buildBackgroundImage.getWidth(); x++) {
                         for (int y = 0; y < buildBackgroundImage.getHeight(); y++) {
@@ -569,7 +572,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                BufferedImage chosenImageFile = chooseImageFile();
+                BufferedImage chosenImageFile = chooseImageFile(FileChooserLocation.OPEN_BG);
                 if (chosenImageFile != null) {
                     if (tabPane.getSelectedComponent() == buildScrollPane) {
                         buildBackgroundImage = chosenImageFile;
@@ -593,7 +596,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                brushTexture = chooseImageFile();
+                brushTexture = chooseImageFile(FileChooserLocation.TEXTURE);
                 buildBrushPreview();
             }
         });
@@ -643,7 +646,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                File file = chooseFile(J2DArea.this, FileDialog.SAVE);
+                File file = chooseFile(J2DArea.this, FileDialog.SAVE, FileChooserLocation.SAVE_BG);
                 if (file != null) {
                     BufferedImage imageToexport = new BufferedImage(buildBackgroundImage.getWidth(), buildBackgroundImage.getHeight(), BufferedImage.TYPE_INT_RGB);
                     paintObjects(imageToexport.getGraphics());
@@ -674,7 +677,7 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 if (isValidTileSetup()) {
                     extractPanel.repaint();
-                    File file = J2DArea.chooseFile(J2DArea.this, FileDialog.SAVE);
+                    File file = J2DArea.chooseFile(J2DArea.this, FileDialog.SAVE, FileChooserLocation.TEXTURE);
                     if (file != null) {
                         boolean success;
                         try {
@@ -734,7 +737,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                BufferedImage choice = chooseImageFile();
+                BufferedImage choice = chooseImageFile(FileChooserLocation.OBJECT);
                 if (choice != null) {
                     PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice));
                     pastedObjects.add(pastedObject);
@@ -784,7 +787,7 @@ public class J2DArea extends JFrame {
             
             @Override
             public void actionPerformed(ActionEvent e) {
-                BufferedImage choice = chooseImageFile();
+                BufferedImage choice = chooseImageFile(FileChooserLocation.OPENED_DOOR);
                 if (choice != null) {
                     PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), PastedObjectType.OPENED_DOOR);
                     pastedObjects.add(pastedObject);
@@ -805,7 +808,7 @@ public class J2DArea extends JFrame {
             
             @Override
             public void actionPerformed(ActionEvent e) {
-                BufferedImage choice = chooseImageFile();
+                BufferedImage choice = chooseImageFile(FileChooserLocation.CLOSED_DOOR);
                 if (choice != null) {
                     PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), PastedObjectType.CLOSED_DOOR);
                     pastedObjects.add(pastedObject);
@@ -826,7 +829,7 @@ public class J2DArea extends JFrame {
             
             @Override
             public void actionPerformed(ActionEvent e) {
-                BufferedImage choice = chooseImageFile();
+                BufferedImage choice = chooseImageFile(FileChooserLocation.NIGHT_LIGHT);
                 if (choice != null) {
                     PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), PastedObjectType.NIGHT_LIGHT);
                     pastedObjects.add(pastedObject);
@@ -1019,8 +1022,8 @@ public class J2DArea extends JFrame {
         return false;
     }
 
-    private BufferedImage chooseImageFile() {
-        File file = chooseFile(this, FileDialog.LOAD);
+    private BufferedImage chooseImageFile(FileChooserLocation fileChooserLocation) {
+        File file = chooseFile(this, FileDialog.LOAD, fileChooserLocation);
         if (file != null) {
             try {
                 return ImageIO.read(file);
@@ -1032,13 +1035,14 @@ public class J2DArea extends JFrame {
         return null;
     }
 
-    public static File chooseFile(Frame parent, int mode) {
+    public static File chooseFile(Frame parent, int mode, FileChooserLocation fileChooserLocation) {
         FileDialog chooser = new FileDialog(parent, "Choose a file", mode);
-        chooser.setDirectory(System.getProperty(USER_HOME));
+        chooser.setDirectory(directories.get(fileChooserLocation));
         chooser.setVisible(true);
         if (chooser.getFile() == null) {
             return null;
         }
+        directories.put(fileChooserLocation, chooser.getDirectory());
         return new File(chooser.getDirectory(), chooser.getFile());
     }
 

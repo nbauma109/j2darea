@@ -84,7 +84,7 @@ public class PolygonSelectionView extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                File file = J2DArea.chooseFile(PolygonSelectionView.this, FileDialog.SAVE);
+                File file = J2DArea.chooseFile(PolygonSelectionView.this, FileDialog.SAVE, FileChooserLocation.OBJECT);
                 if (file != null) {
                     boolean success;
                     try {
