@@ -202,4 +202,8 @@ public class PastedObject implements Externalizable {
         return pastedObjectType == PastedObjectType.OPENED_DOOR
             || pastedObjectType == PastedObjectType.CLOSED_DOOR;
     }
+
+    public ExportableImage copyImage() {
+        return new ExportableImage(image.copyImage());
+    }
 }

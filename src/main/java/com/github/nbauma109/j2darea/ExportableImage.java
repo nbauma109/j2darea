@@ -48,6 +48,10 @@ public class ExportableImage implements Externalizable {
         return image;
     }
 
+    public BufferedImage copyImage() {
+        return ImageUtils.copyBufferedImage(image);
+    }
+
     public void setImage(BufferedImage image) {
         this.image = image;
     }
