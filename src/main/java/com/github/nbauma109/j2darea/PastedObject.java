@@ -171,6 +171,7 @@ public class PastedObject implements Externalizable {
         if (nightImage != null) {
             flip(nightImage);
         }
+        initBuffers();
     }
 
     private void flip(BufferedImage img) {
@@ -205,5 +206,9 @@ public class PastedObject implements Externalizable {
 
     public ExportableImage copyImage() {
         return new ExportableImage(image.copyImage());
+    }
+
+    public PastedObject copy() {
+        return new PastedObject(location, copyImage(), pastedObjectType);
     }
 }

@@ -338,7 +338,7 @@ public class J2DArea extends JFrame {
                             idx++;
                         }
                         if (e.isControlDown() && objectToMove != null) {
-                            objectToMove = new PastedObject(objectToMove.getLocation(), objectToMove.copyImage());
+                            objectToMove = objectToMove.copy();
                             pastedObjects.add(objectToMove);
                         }
                     } else {
