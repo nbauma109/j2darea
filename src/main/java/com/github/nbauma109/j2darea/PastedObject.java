@@ -24,7 +24,7 @@ public class PastedObject implements Externalizable {
     public PastedObject(Point location, ExportableImage image, PastedObjectType pastedObjectType) {
         this.location = location;
         this.image = image;
-        if (pastedObjectType != PastedObjectType.NIGHT_LIGHT) {
+        if (!pastedObjectType.isNightLight()) {
             this.nightImage = ImageFilter.applyNightFilter(image.getImage());
         }
         this.pastedObjectType = pastedObjectType;
@@ -51,8 +51,8 @@ public class PastedObject implements Externalizable {
         pastedObjectType = PastedObjectType.values()[in.readInt()];
         image = new ExportableImage();
         image.readExternal(in);
-        if (pastedObjectType != PastedObjectType.NIGHT_LIGHT) {
-            this.nightImage = ImageFilter.applyNightFilter(image.getImage());
+        if (!pastedObjectType.isNightLight()) {
+            nightImage = ImageFilter.applyNightFilter(image.getImage());
         }
         initBuffers();
     }
@@ -108,7 +108,7 @@ public class PastedObject implements Externalizable {
     }
 
     public void drawImage(Graphics g, boolean night) {
-        if (pastedObjectType != PastedObjectType.NIGHT_LIGHT && night) {
+        if (!pastedObjectType.isNightLight() && night) {
             g.drawImage(nightImage, getX(), getY(), null);
         } else {
             g.drawImage(image.getImage(), getX(), getY(), null);
@@ -190,6 +190,8 @@ public class PastedObject implements Externalizable {
                 return true;
             case OPENED_DOOR:
                 return !drawClosed;
+            case OPENED_DOOR_NIGHT:
+                return night && !drawClosed;
             case CLOSED_DOOR:
                 return drawClosed;
             case NIGHT_LIGHT:
@@ -197,11 +199,6 @@ public class PastedObject implements Externalizable {
             default:
                 throw new IllegalArgumentException();
         }
-    }
-
-    public boolean isDoor() {
-        return pastedObjectType == PastedObjectType.OPENED_DOOR
-            || pastedObjectType == PastedObjectType.CLOSED_DOOR;
     }
 
     public ExportableImage copyImage() {

@@ -787,9 +787,18 @@ public class J2DArea extends JFrame {
             
             @Override
             public void actionPerformed(ActionEvent e) {
-                BufferedImage choice = chooseImageFile(FileChooserLocation.OPENED_DOOR);
+                FileChooserLocation fileChooserLocation;
+                PastedObjectType pastedObjectType;
+                if (night) {
+                    fileChooserLocation = FileChooserLocation.OPENED_DOOR_NIGHT;
+                    pastedObjectType = PastedObjectType.OPENED_DOOR_NIGHT;
+                } else {
+                    fileChooserLocation = FileChooserLocation.OPENED_DOOR;
+                    pastedObjectType = PastedObjectType.OPENED_DOOR;
+                }
+                BufferedImage choice = chooseImageFile(fileChooserLocation);
                 if (choice != null) {
-                    PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), PastedObjectType.OPENED_DOOR);
+                    PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), pastedObjectType);
                     pastedObjects.add(pastedObject);
                     objectToMove = pastedObject;
                     painting = false;
@@ -990,8 +999,9 @@ public class J2DArea extends JFrame {
         BufferedImage imageToexport = new BufferedImage(buildBackgroundImage.getWidth(), buildBackgroundImage.getHeight(), BufferedImage.TYPE_INT_RGB);
         paintObjects(imageToexport.getGraphics());
         int cnt = 0;
+        PastedObjectType pastedObjectType = night ? PastedObjectType.OPENED_DOOR_NIGHT : PastedObjectType.OPENED_DOOR;
         for (PastedObject pastedObject : pastedObjects) {
-            if (pastedObject.getPastedObjectType() == PastedObjectType.OPENED_DOOR) {
+            if (pastedObject.getPastedObjectType() == pastedObjectType) {
                 int x = (int) (64 * Math.floor(pastedObject.getX() / 64.));
                 int y = (int) (64 * Math.floor(pastedObject.getY() / 64.));
                 int w = (int) (64 * Math.ceil((pastedObject.getX() + pastedObject.getWidth()) / 64.)) - x;
@@ -1062,25 +1072,8 @@ public class J2DArea extends JFrame {
             }
         }
         for (PastedObject pastedObject : pastedObjects) {
-            switch (pastedObject.getPastedObjectType()) {
-                case OPENED_DOOR:
-                    if (!drawClosed) {
-                        pastedObject.drawImage(g, night);
-                    }
-                    break;
-                case CLOSED_DOOR:
-                    if (drawClosed) {
-                        pastedObject.drawImage(g, night);
-                    }
-                    break;
-                case NIGHT_LIGHT:
-                    if (night) {
-                        pastedObject.drawImage(g, night);
-                    }
-                    break;
-                default:
-                    pastedObject.drawImage(g, night);
-                    break;
+            if (pastedObject.isVisible(drawClosed, night)) {
+                pastedObject.drawImage(g, night);
             }
         }
     }
