@@ -71,6 +71,17 @@ public class AREFile {
         // Write wind speed (4 bytes)
         dos.writeInt(Integer.reverseBytes(windSpeed));
 
+        // Calculate total vertex count and assign indices
+        int totalVertices = 0;
+        for (ARERegion region : regions) {
+            region.setVertexIndex(totalVertices);
+            totalVertices += region.getVertexCount();
+        }
+        for (AREDoor door : doors) {
+            door.setVertexIndex(totalVertices);
+            totalVertices += door.getVertexCount();
+        }
+
         // Calculate offsets (these will be updated after we know sizes)
         int actorOffset = 0x011C; // Standard ARE header size
         int regionOffset = actorOffset + (actors.size() * 272); // Actor size = 272 bytes
@@ -79,6 +90,7 @@ public class AREFile {
         int containerOffset = entranceOffset + (entrances.size() * 104); // Entrance size = 104 bytes
         int doorOffset = containerOffset + (containers.size() * 192); // Container size = 192 bytes
         int ambientOffset = doorOffset + (doors.size() * 200); // Door size = 200 bytes
+        int vertexOffset = ambientOffset + (ambients.size() * 212); // Ambient size = 212 bytes
 
         // Write counts and offsets (at offset 0x0048)
         dos.writeShort(Short.reverseBytes((short) actors.size()));
@@ -101,9 +113,9 @@ public class AREFile {
         dos.writeInt(Integer.reverseBytes(containerOffset));
         dos.writeInt(Integer.reverseBytes(0)); // Item offset
 
-        dos.writeShort(Short.reverseBytes((short) 0)); // Vertex count
+        dos.writeShort(Short.reverseBytes((short) totalVertices)); // Vertex count
         dos.writeShort(Short.reverseBytes((short) 0)); // Ambient count
-        dos.writeInt(Integer.reverseBytes(0)); // Vertex offset
+        dos.writeInt(Integer.reverseBytes(vertexOffset)); // Vertex offset
         dos.writeInt(Integer.reverseBytes(ambientOffset));
 
         dos.writeShort(Short.reverseBytes((short) 0)); // Variable count
@@ -155,6 +167,14 @@ public class AREFile {
         // Write doors
         for (AREDoor door : doors) {
             door.write(dos);
+        }
+
+        // Write vertices (shared pool for regions and doors)
+        for (ARERegion region : regions) {
+            region.writeVertices(dos);
+        }
+        for (AREDoor door : doors) {
+            door.writeVertices(dos);
         }
 
         dos.flush();
@@ -229,6 +249,7 @@ public class AREFile {
         private int boundingBoxRight = 0;
         private int boundingBoxBottom = 0;
         private List<Point> vertices = new ArrayList<>();
+        private int vertexIndex = 0; // Index into global vertex pool
 
         public void setName(String name) {
             this.name = name;
@@ -249,6 +270,14 @@ public class AREFile {
             vertices.add(new Point(x, y));
         }
 
+        public int getVertexCount() {
+            return vertices.size();
+        }
+
+        public void setVertexIndex(int index) {
+            this.vertexIndex = index;
+        }
+
         public void write(DataOutputStream dos) throws IOException {
             // Region structure (196 bytes minimum)
             writeFixedStringNullPadded(dos, name, 32);
@@ -258,10 +287,17 @@ public class AREFile {
             dos.writeShort(Short.reverseBytes((short) boundingBoxRight));
             dos.writeShort(Short.reverseBytes((short) boundingBoxBottom));
             dos.writeShort(Short.reverseBytes((short) vertices.size()));
-            dos.writeInt(Integer.reverseBytes(0)); // Vertex index offset
+            dos.writeInt(Integer.reverseBytes(vertexIndex)); // Vertex index in global pool
             // Pad to 196 bytes
             for (int i = 50; i < 196; i++) {
                 dos.writeByte(0);
+            }
+        }
+
+        public void writeVertices(DataOutputStream dos) throws IOException {
+            for (Point vertex : vertices) {
+                dos.writeShort(Short.reverseBytes((short) vertex.x));
+                dos.writeShort(Short.reverseBytes((short) vertex.y));
             }
         }
 
@@ -373,12 +409,35 @@ public class AREFile {
         private String id = "";
         private int x = 0;
         private int y = 0;
+        private List<Point> vertices = new ArrayList<>();
+        private int vertexIndex = 0; // Index into global vertex pool
 
         public AREDoor(String name, String id, int x, int y) {
             this.name = name;
             this.id = id;
             this.x = x;
             this.y = y;
+            // Create a default door entrance polygon (64x64 pixels)
+            addVertex(x, y);
+            addVertex(x + 64, y);
+            addVertex(x + 64, y + 64);
+            addVertex(x, y + 64);
+        }
+
+        public void addVertex(int x, int y) {
+            vertices.add(new Point(x, y));
+        }
+
+        public void clearVertices() {
+            vertices.clear();
+        }
+
+        public int getVertexCount() {
+            return vertices.size();
+        }
+
+        public void setVertexIndex(int index) {
+            this.vertexIndex = index;
         }
 
         public void write(DataOutputStream dos) throws IOException {
@@ -386,13 +445,20 @@ public class AREFile {
             writeFixedStringNullPadded(dos, name, 32);
             writeFixedStringNullPadded(dos, id, 8);
             dos.writeInt(Integer.reverseBytes(0)); // Flags
-            dos.writeInt(Integer.reverseBytes(0)); // Vertex index offset
-            dos.writeShort(Short.reverseBytes((short) 0)); // Vertex count
+            dos.writeInt(Integer.reverseBytes(vertexIndex)); // Vertex index in global pool
+            dos.writeShort(Short.reverseBytes((short) vertices.size())); // Vertex count
             dos.writeShort(Short.reverseBytes((short) 0)); // Cell count
             dos.writeInt(Integer.reverseBytes(0)); // Cell index offset
             // Pad to 200 bytes
             for (int i = 54; i < 200; i++) {
                 dos.writeByte(0);
+            }
+        }
+
+        public void writeVertices(DataOutputStream dos) throws IOException {
+            for (Point vertex : vertices) {
+                dos.writeShort(Short.reverseBytes((short) vertex.x));
+                dos.writeShort(Short.reverseBytes((short) vertex.y));
             }
         }
 

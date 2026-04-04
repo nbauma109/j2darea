@@ -18,8 +18,6 @@ public class PastedObject implements Externalizable {
     private int[][] transformed;
     private PastedObjectType pastedObjectType;
     private EntranceData entranceData; // Only used when pastedObjectType == ENTRANCE
-    private RegionData regionData; // Only used when pastedObjectType == REGION
-    private ContainerData containerData; // Only used when pastedObjectType == CONTAINER
 
     public PastedObject() {
     }
@@ -33,8 +31,6 @@ public class PastedObject implements Externalizable {
         this.pastedObjectType = pastedObjectType;
         if (pastedObjectType.isEntrance()) {
             this.entranceData = new EntranceData("", location.x, location.y);
-        } else if (pastedObjectType.isContainer()) {
-            this.containerData = new ContainerData("Container", location.x, location.y);
         }
         initBuffers();
     }
@@ -55,18 +51,6 @@ public class PastedObject implements Externalizable {
         } else {
             out.writeBoolean(false);
         }
-        if (pastedObjectType.isRegion() && regionData != null) {
-            out.writeBoolean(true);
-            regionData.writeExternal(out);
-        } else {
-            out.writeBoolean(false);
-        }
-        if (pastedObjectType.isContainer() && containerData != null) {
-            out.writeBoolean(true);
-            containerData.writeExternal(out);
-        } else {
-            out.writeBoolean(false);
-        }
     }
 
     @Override
@@ -84,16 +68,6 @@ public class PastedObject implements Externalizable {
         if (hasEntranceData) {
             entranceData = new EntranceData();
             entranceData.readExternal(in);
-        }
-        boolean hasRegionData = in.readBoolean();
-        if (hasRegionData) {
-            regionData = new RegionData();
-            regionData.readExternal(in);
-        }
-        boolean hasContainerData = in.readBoolean();
-        if (hasContainerData) {
-            containerData = new ContainerData();
-            containerData.readExternal(in);
         }
         initBuffers();
     }
@@ -238,8 +212,6 @@ public class PastedObject implements Externalizable {
             case NIGHT_LIGHT:
                 return night;
             case ENTRANCE:
-            case REGION:
-            case CONTAINER:
                 return true;
             default:
                 throw new IllegalArgumentException();
@@ -262,16 +234,6 @@ public class PastedObject implements Externalizable {
             copied.entranceData.setDestinationArea(entranceData.getDestinationArea());
             copied.entranceData.setDestinationEntrance(entranceData.getDestinationEntrance());
         }
-        if (containerData != null) {
-            copied.containerData = new ContainerData(
-                containerData.getName(),
-                containerData.getX(),
-                containerData.getY()
-            );
-            copied.containerData.setContainerType(containerData.getContainerType());
-            copied.containerData.setLocked(containerData.isLocked());
-            copied.containerData.setTrapped(containerData.isTrapped());
-        }
         return copied;
     }
 
@@ -281,21 +243,5 @@ public class PastedObject implements Externalizable {
 
     public void setEntranceData(EntranceData entranceData) {
         this.entranceData = entranceData;
-    }
-
-    public RegionData getRegionData() {
-        return regionData;
-    }
-
-    public void setRegionData(RegionData regionData) {
-        this.regionData = regionData;
-    }
-
-    public ContainerData getContainerData() {
-        return containerData;
-    }
-
-    public void setContainerData(ContainerData containerData) {
-        this.containerData = containerData;
     }
 }
