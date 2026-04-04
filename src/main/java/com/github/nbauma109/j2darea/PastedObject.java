@@ -17,6 +17,7 @@ public class PastedObject implements Externalizable {
     private int[][] original;
     private int[][] transformed;
     private PastedObjectType pastedObjectType;
+    private EntranceData entranceData; // Only used when pastedObjectType == ENTRANCE
 
     public PastedObject() {
     }
@@ -28,6 +29,9 @@ public class PastedObject implements Externalizable {
             this.nightImage = ImageFilter.applyNightFilter(image.getImage());
         }
         this.pastedObjectType = pastedObjectType;
+        if (pastedObjectType.isEntrance()) {
+            this.entranceData = new EntranceData("", location.x, location.y);
+        }
         initBuffers();
     }
 
@@ -41,6 +45,12 @@ public class PastedObject implements Externalizable {
         out.writeInt(location.y);
         out.writeInt(pastedObjectType.ordinal());
         image.writeExternal(out);
+        if (pastedObjectType.isEntrance() && entranceData != null) {
+            out.writeBoolean(true);
+            entranceData.writeExternal(out);
+        } else {
+            out.writeBoolean(false);
+        }
     }
 
     @Override
@@ -53,6 +63,11 @@ public class PastedObject implements Externalizable {
         image.readExternal(in);
         if (!pastedObjectType.isNightLight()) {
             nightImage = ImageFilter.applyNightFilter(image.getImage());
+        }
+        boolean hasEntranceData = in.readBoolean();
+        if (hasEntranceData) {
+            entranceData = new EntranceData();
+            entranceData.readExternal(in);
         }
         initBuffers();
     }
@@ -196,6 +211,8 @@ public class PastedObject implements Externalizable {
                 return drawClosed;
             case NIGHT_LIGHT:
                 return night;
+            case ENTRANCE:
+                return true;
             default:
                 throw new IllegalArgumentException();
         }
@@ -206,6 +223,25 @@ public class PastedObject implements Externalizable {
     }
 
     public PastedObject copy() {
-        return new PastedObject(location, copyImage(), pastedObjectType);
+        PastedObject copied = new PastedObject(location, copyImage(), pastedObjectType);
+        if (entranceData != null) {
+            copied.entranceData = new EntranceData(
+                entranceData.getName(),
+                entranceData.getX(),
+                entranceData.getY()
+            );
+            copied.entranceData.setOrientation(entranceData.getOrientation());
+            copied.entranceData.setDestinationArea(entranceData.getDestinationArea());
+            copied.entranceData.setDestinationEntrance(entranceData.getDestinationEntrance());
+        }
+        return copied;
+    }
+
+    public EntranceData getEntranceData() {
+        return entranceData;
+    }
+
+    public void setEntranceData(EntranceData entranceData) {
+        this.entranceData = entranceData;
     }
 }
