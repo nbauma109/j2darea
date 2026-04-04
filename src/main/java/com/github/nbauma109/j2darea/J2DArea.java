@@ -329,6 +329,15 @@ public class J2DArea extends JFrame {
                         }
                     }
                 } else {
+                    // Handle double-click on entrance to edit
+                    if (e.getClickCount() == 2 && objectToMove != null &&
+                        objectToMove.getPastedObjectType() == PastedObjectType.ENTRANCE &&
+                        objectToMove.getEntranceData() != null) {
+                        editEntrance(objectToMove);
+                        buildPanel.repaint();
+                        return;
+                    }
+
                     if (objectToMove == null) {
                         int idx = 0;
                         for (PastedObject pastedObject : pastedObjects) {
@@ -1281,6 +1290,38 @@ public class J2DArea extends JFrame {
             }
         }
         return count;
+    }
+
+    /**
+     * Opens the entrance editor dialog for editing entrance properties.
+     */
+    private void editEntrance(PastedObject entranceObject) {
+        if (entranceObject == null || entranceObject.getEntranceData() == null) {
+            return;
+        }
+
+        List<String> availableAreas = collectAvailableAreas();
+        EntranceEditorDialog dialog = new EntranceEditorDialog(this, entranceObject.getEntranceData(), availableAreas);
+        dialog.setVisible(true);
+
+        if (dialog.isConfirmed()) {
+            // Update the position of the entrance object based on edited coordinates
+            entranceObject.setLocation(new Point(
+                entranceObject.getEntranceData().getX(),
+                entranceObject.getEntranceData().getY()
+            ));
+        }
+    }
+
+    /**
+     * Collects a list of available area names from saved project files or a predefined list.
+     */
+    private List<String> collectAvailableAreas() {
+        List<String> areas = new ArrayList<>();
+        // For now, return an empty list. In a real implementation, this could scan
+        // a directory for .j2da files or maintain a list of known areas
+        // Users can still type area names manually
+        return areas;
     }
 
     public static void main(String[] args) {
