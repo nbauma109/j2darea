@@ -870,7 +870,41 @@ public class J2DArea extends JFrame {
         menubar.add(pasteFromNightLightButton);
         pasteFromNightLightButton.setMaximumSize(BUTTON_SIZE);
         pasteFromNightLightButton.setToolTipText("Paste from an image file of night time light");
-        
+
+        JButton entranceButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/entrance.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Create a simple entrance marker icon (small square with arrow)
+                BufferedImage entranceIcon = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
+                Graphics g = entranceIcon.getGraphics();
+                g.setColor(new Color(100, 150, 255, 200));
+                g.fillRect(8, 4, 16, 24);
+                g.setColor(new Color(255, 255, 100));
+                int[] xPoints = {16, 22, 16};
+                int[] yPoints = {12, 16, 20};
+                g.fillPolygon(xPoints, yPoints, 3);
+                g.dispose();
+
+                PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(entranceIcon), PastedObjectType.ENTRANCE);
+                String entranceName = JOptionPane.showInputDialog("Enter entrance name:", "Entrance" + (countEntrances() + 1));
+                if (entranceName != null && !entranceName.trim().isEmpty()) {
+                    pastedObject.getEntranceData().setName(entranceName.trim());
+                    pastedObject.getEntranceData().setX(mousePosition.x);
+                    pastedObject.getEntranceData().setY(mousePosition.y);
+                    pastedObjects.add(pastedObject);
+                    objectToMove = pastedObject;
+                    painting = false;
+                    repaint();
+                }
+            }
+        });
+        menubar.add(entranceButton);
+        entranceButton.setMaximumSize(BUTTON_SIZE);
+        entranceButton.setToolTipText("Place an entrance/exit point for area transitions");
+
         JButton drawClosedDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/draw_closed.png"))) {
             
             private static final long serialVersionUID = 1L;
@@ -1092,6 +1126,14 @@ public class J2DArea extends JFrame {
         for (PastedObject pastedObject : pastedObjects) {
             if (pastedObject.isVisible(drawClosed, night)) {
                 pastedObject.drawImage(g, night);
+                // Draw label for entrance points
+                if (pastedObject.getPastedObjectType() == PastedObjectType.ENTRANCE &&
+                    pastedObject.getEntranceData() != null) {
+                    g.setColor(Color.WHITE);
+                    g.drawString(pastedObject.getEntranceData().getName(),
+                        pastedObject.getX() + 2,
+                        pastedObject.getY() - 2);
+                }
             }
         }
     }
@@ -1183,6 +1225,19 @@ public class J2DArea extends JFrame {
                 }
             }
 
+            // Add entrances from pasted objects
+            for (PastedObject obj : pastedObjects) {
+                if (obj.getPastedObjectType() == PastedObjectType.ENTRANCE && obj.getEntranceData() != null) {
+                    AREFile.AREEntrance entrance = new AREFile.AREEntrance(
+                        obj.getEntranceData().getName(),
+                        obj.getEntranceData().getX(),
+                        obj.getEntranceData().getY(),
+                        obj.getEntranceData().getOrientation()
+                    );
+                    areFile.addEntrance(entrance);
+                }
+            }
+
             // Create the WED file
             WEDFile wedFile = new WEDFile(backgroundWidth, backgroundHeight, areaName);
 
@@ -1216,6 +1271,16 @@ public class J2DArea extends JFrame {
                 ERROR,
                 JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private int countEntrances() {
+        int count = 0;
+        for (PastedObject obj : pastedObjects) {
+            if (obj.getPastedObjectType() == PastedObjectType.ENTRANCE) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public static void main(String[] args) {
