@@ -318,9 +318,51 @@ public class AREFile {
     }
 
     public static class AREContainer {
+        private String name = "";
+        private int x = 0;
+        private int y = 0;
+        private int containerType = 1; // Default to chest
+        private int flags = 0;
+        private boolean locked = false;
+
+        public AREContainer() {
+        }
+
+        public AREContainer(String name, int x, int y, int containerType, boolean locked) {
+            this.name = name;
+            this.x = x;
+            this.y = y;
+            this.containerType = containerType;
+            this.locked = locked;
+            if (locked) {
+                flags |= 0x0001; // Set locked flag
+            }
+        }
+
         public void write(DataOutputStream dos) throws IOException {
             // Container structure (192 bytes)
-            for (int i = 0; i < 192; i++) {
+            writeFixedStringNullPadded(dos, name, 32);
+            dos.writeShort(Short.reverseBytes((short) x));
+            dos.writeShort(Short.reverseBytes((short) y));
+            dos.writeShort(Short.reverseBytes((short) containerType));
+            dos.writeShort(Short.reverseBytes((short) 0)); // Lock difficulty
+            dos.writeInt(Integer.reverseBytes(flags));
+            dos.writeShort(Short.reverseBytes((short) 0)); // Trap detection difficulty
+            dos.writeShort(Short.reverseBytes((short) 0)); // Trap removal difficulty
+            dos.writeShort(Short.reverseBytes((short) 0)); // Trapped flag
+            dos.writeShort(Short.reverseBytes((short) 0)); // Trap detected flag
+            dos.writeShort(Short.reverseBytes((short) 0)); // Launch point x
+            dos.writeShort(Short.reverseBytes((short) 0)); // Launch point y
+            // Pad to 192 bytes
+            for (int i = 52; i < 192; i++) {
+                dos.writeByte(0);
+            }
+        }
+
+        private void writeFixedStringNullPadded(DataOutputStream dos, String str, int length) throws IOException {
+            byte[] bytes = str.getBytes("US-ASCII");
+            dos.write(bytes, 0, Math.min(bytes.length, length));
+            for (int i = bytes.length; i < length; i++) {
                 dos.writeByte(0);
             }
         }

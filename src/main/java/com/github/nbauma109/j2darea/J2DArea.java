@@ -41,14 +41,18 @@ import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -334,6 +338,15 @@ public class J2DArea extends JFrame {
                         objectToMove.getPastedObjectType() == PastedObjectType.ENTRANCE &&
                         objectToMove.getEntranceData() != null) {
                         editEntrance(objectToMove);
+                        buildPanel.repaint();
+                        return;
+                    }
+
+                    // Handle double-click on container to edit
+                    if (e.getClickCount() == 2 && objectToMove != null &&
+                        objectToMove.getPastedObjectType() == PastedObjectType.CONTAINER &&
+                        objectToMove.getContainerData() != null) {
+                        editContainer(objectToMove);
                         buildPanel.repaint();
                         return;
                     }
@@ -914,6 +927,44 @@ public class J2DArea extends JFrame {
         entranceButton.setMaximumSize(BUTTON_SIZE);
         entranceButton.setToolTipText("Place an entrance/exit point for area transitions");
 
+        JButton containerButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/entrance.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Create a simple container icon (chest-like)
+                BufferedImage containerIcon = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
+                Graphics g = containerIcon.getGraphics();
+                // Draw chest body
+                g.setColor(new Color(139, 69, 19)); // Brown
+                g.fillRect(6, 12, 20, 16);
+                // Draw chest lid
+                g.setColor(new Color(160, 82, 45)); // Lighter brown
+                g.fillRect(6, 8, 20, 6);
+                // Draw lock
+                g.setColor(new Color(255, 215, 0)); // Gold
+                g.fillRect(14, 16, 4, 6);
+                g.fillOval(14, 14, 4, 4);
+                g.dispose();
+
+                PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(containerIcon), PastedObjectType.CONTAINER);
+                String containerName = JOptionPane.showInputDialog("Enter container name:", "Container" + (countContainers() + 1));
+                if (containerName != null && !containerName.trim().isEmpty()) {
+                    pastedObject.getContainerData().setName(containerName.trim());
+                    pastedObject.getContainerData().setX(mousePosition.x);
+                    pastedObject.getContainerData().setY(mousePosition.y);
+                    pastedObjects.add(pastedObject);
+                    objectToMove = pastedObject;
+                    painting = false;
+                    repaint();
+                }
+            }
+        });
+        menubar.add(containerButton);
+        containerButton.setMaximumSize(BUTTON_SIZE);
+        containerButton.setToolTipText("Place a container (chest, barrel, etc.)");
+
         JButton drawClosedDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/draw_closed.png"))) {
             
             private static final long serialVersionUID = 1L;
@@ -1143,6 +1194,14 @@ public class J2DArea extends JFrame {
                         pastedObject.getX() + 2,
                         pastedObject.getY() - 2);
                 }
+                // Draw label for containers
+                if (pastedObject.getPastedObjectType() == PastedObjectType.CONTAINER &&
+                    pastedObject.getContainerData() != null) {
+                    g.setColor(Color.YELLOW);
+                    g.drawString(pastedObject.getContainerData().getName(),
+                        pastedObject.getX() + 2,
+                        pastedObject.getY() - 2);
+                }
             }
         }
     }
@@ -1247,6 +1306,21 @@ public class J2DArea extends JFrame {
                 }
             }
 
+            // Add containers from pasted objects
+            for (PastedObject obj : pastedObjects) {
+                if (obj.getPastedObjectType() == PastedObjectType.CONTAINER && obj.getContainerData() != null) {
+                    ContainerData data = obj.getContainerData();
+                    AREFile.AREContainer container = new AREFile.AREContainer(
+                        data.getName(),
+                        data.getX(),
+                        data.getY(),
+                        data.getContainerType(),
+                        data.isLocked()
+                    );
+                    areFile.addContainer(container);
+                }
+            }
+
             // Create the WED file
             WEDFile wedFile = new WEDFile(backgroundWidth, backgroundHeight, areaName);
 
@@ -1292,6 +1366,16 @@ public class J2DArea extends JFrame {
         return count;
     }
 
+    private int countContainers() {
+        int count = 0;
+        for (PastedObject obj : pastedObjects) {
+            if (obj.getPastedObjectType() == PastedObjectType.CONTAINER) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     /**
      * Opens the entrance editor dialog for editing entrance properties.
      */
@@ -1310,6 +1394,45 @@ public class J2DArea extends JFrame {
                 entranceObject.getEntranceData().getX(),
                 entranceObject.getEntranceData().getY()
             ));
+        }
+    }
+
+    /**
+     * Opens a simple dialog for editing container properties.
+     */
+    private void editContainer(PastedObject containerObject) {
+        if (containerObject == null || containerObject.getContainerData() == null) {
+            return;
+        }
+
+        ContainerData data = containerObject.getContainerData();
+
+        // Simple dialog for container editing
+        JPanel panel = new JPanel(new GridLayout(0, 2, 5, 5));
+        JTextField nameField = new JTextField(data.getName(), 20);
+        JComboBox<String> typeCombo = new JComboBox<>(new String[]{
+            "Bag/Sack", "Chest", "Drawer", "Pile", "Table", "Shelf",
+            "Altar", "Non-visible", "Spellbook", "Body", "Barrel", "Crate"
+        });
+        typeCombo.setSelectedIndex(data.getContainerType());
+        JCheckBox lockedCheck = new JCheckBox("Locked", data.isLocked());
+        JCheckBox trappedCheck = new JCheckBox("Trapped", data.isTrapped());
+
+        panel.add(new JLabel("Name:"));
+        panel.add(nameField);
+        panel.add(new JLabel("Type:"));
+        panel.add(typeCombo);
+        panel.add(lockedCheck);
+        panel.add(trappedCheck);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Edit Container",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (result == JOptionPane.OK_OPTION) {
+            data.setName(nameField.getText().trim());
+            data.setContainerType(typeCombo.getSelectedIndex());
+            data.setLocked(lockedCheck.isSelected());
+            data.setTrapped(trappedCheck.isSelected());
         }
     }
 
