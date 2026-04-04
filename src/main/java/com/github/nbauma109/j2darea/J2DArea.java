@@ -1318,9 +1318,35 @@ public class J2DArea extends JFrame {
      */
     private List<String> collectAvailableAreas() {
         List<String> areas = new ArrayList<>();
-        // For now, return an empty list. In a real implementation, this could scan
-        // a directory for .j2da files or maintain a list of known areas
-        // Users can still type area names manually
+
+        // Add some common Baldur's Gate area codes as examples
+        areas.add("AR0001"); // Candlekeep - Library
+        areas.add("AR0002"); // Candlekeep - Inn
+        areas.add("AR0100"); // Friendly Arm Inn - Exterior
+        areas.add("AR0101"); // Friendly Arm Inn - Interior
+        areas.add("AR0300"); // Beregost - North
+        areas.add("AR0400"); // Beregost - South
+        areas.add("AR0500"); // Nashkel - Exterior
+        areas.add("AR0700"); // Nashkel Mines - Entrance
+        areas.add("AR1000"); // Custom Area Example
+
+        // Scan the current directory for .j2da project files
+        String lastDirectory = directories.get(FileChooserLocation.OPEN_BG);
+        if (lastDirectory != null) {
+            File dir = new File(lastDirectory);
+            if (dir.exists() && dir.isDirectory()) {
+                File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".j2da"));
+                if (files != null) {
+                    for (File file : files) {
+                        String areaName = file.getName().replace(".j2da", "").toUpperCase();
+                        if (!areas.contains(areaName) && areaName.length() <= 8) {
+                            areas.add(areaName);
+                        }
+                    }
+                }
+            }
+        }
+
         return areas;
     }
 
