@@ -32,6 +32,11 @@ import java.util.List;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import com.github.nbauma109.j2darea.ie.AREFile;
+import com.github.nbauma109.j2darea.ie.WEDFile;
+import com.github.nbauma109.j2darea.ie.TISFile;
+import com.github.nbauma109.j2darea.ie.WeiDUModPackager;
+
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
@@ -669,6 +674,19 @@ public class J2DArea extends JFrame {
         exportButton.setToolTipText("Export build area to an image");
         menubar.add(exportButton);
 
+        JButton exportModButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-doors.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                exportAsBaldursGateMod();
+            }
+        });
+        exportModButton.setMaximumSize(BUTTON_SIZE);
+        exportModButton.setToolTipText("Export as Baldur's Gate mod (WeiDU package)");
+        menubar.add(exportModButton);
+
         JButton tileSeamlessButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-texture.png"))) {
 
             private static final long serialVersionUID = 1L;
@@ -1097,6 +1115,106 @@ public class J2DArea extends JFrame {
                 }
             }
             brushNightPreview = ImageFilter.applyNightFilter(brushPreview);
+        }
+    }
+
+    /**
+     * Export the current area design as a complete Baldur's Gate mod package.
+     */
+    private void exportAsBaldursGateMod() {
+        try {
+            // Ask for mod name and area name
+            String modName = JOptionPane.showInputDialog(this,
+                "Enter mod name (e.g., MyCustomMod):",
+                "Export Baldur's Gate Mod",
+                JOptionPane.QUESTION_MESSAGE);
+
+            if (modName == null || modName.trim().isEmpty()) {
+                return; // User cancelled
+            }
+
+            String areaName = JOptionPane.showInputDialog(this,
+                "Enter area resref (e.g., AR1000, max 8 characters):",
+                "Export Baldur's Gate Mod",
+                JOptionPane.QUESTION_MESSAGE);
+
+            if (areaName == null || areaName.trim().isEmpty()) {
+                return; // User cancelled
+            }
+
+            // Limit area name to 8 characters
+            areaName = areaName.trim().toUpperCase();
+            if (areaName.length() > 8) {
+                areaName = areaName.substring(0, 8);
+            }
+
+            // Choose output directory
+            JFileChooser chooser = new JFileChooser();
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            chooser.setDialogTitle("Choose output directory for mod");
+
+            int result = chooser.showSaveDialog(this);
+            if (result != JFileChooser.APPROVE_OPTION) {
+                return;
+            }
+
+            File outputDir = chooser.getSelectedFile();
+
+            // Create the ARE file
+            AREFile areFile = new AREFile();
+            areFile.setAreaResRef(areaName);
+            areFile.setWedResource(areaName);
+            areFile.setWidth(backgroundWidth);
+            areFile.setHeight(backgroundHeight);
+
+            // Add doors from pasted objects
+            int doorIndex = 0;
+            for (PastedObject obj : pastedObjects) {
+                if (obj.getPastedObjectType() == PastedObjectType.OPENED_DOOR ||
+                    obj.getPastedObjectType() == PastedObjectType.CLOSED_DOOR) {
+                    AREFile.AREDoor door = new AREFile.AREDoor(
+                        "Door" + doorIndex,
+                        "DOOR" + String.format("%04d", doorIndex),
+                        obj.getX(),
+                        obj.getY()
+                    );
+                    areFile.addDoor(door);
+                    doorIndex++;
+                }
+            }
+
+            // Create the WED file
+            WEDFile wedFile = new WEDFile(backgroundWidth, backgroundHeight, areaName);
+
+            // Create the TIS file from the background image
+            BufferedImage fullImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+            paintObjects(fullImage.getGraphics());
+            TISFile tisFile = new TISFile(fullImage);
+
+            // Create the WeiDU mod package
+            WeiDUModPackager packager = new WeiDUModPackager(modName, areaName, outputDir);
+            packager.createModPackage(areFile, wedFile, tisFile);
+
+            JOptionPane.showMessageDialog(this,
+                "Mod package created successfully!\n\n" +
+                "Location: " + new File(outputDir, modName).getAbsolutePath() + "\n\n" +
+                "Files created:\n" +
+                "  - " + areaName + ".are (Area definition)\n" +
+                "  - " + areaName + ".wed (World editor data)\n" +
+                "  - " + areaName + ".tis (Tileset - " + tisFile.getTileCount() + " tiles)\n" +
+                "  - " + modName + ".tp2 (WeiDU installer)\n" +
+                "  - README.txt\n\n" +
+                "To install: Copy the " + modName + " folder to your Baldur's Gate\n" +
+                "directory and run the WeiDU installer.",
+                "Export Successful",
+                JOptionPane.INFORMATION_MESSAGE);
+
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                "Export failed: " + ex.getMessage(),
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
         }
     }
 
