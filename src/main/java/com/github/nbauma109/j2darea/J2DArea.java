@@ -141,6 +141,11 @@ public class J2DArea extends JFrame {
     private transient JCheckBoxMenuItem nightMenuItem;
     private transient JToggleButton drawClosedDoorToggleButton;
     private transient JToggleButton nightToggleButton;
+    private transient boolean buildPanning;
+    private transient boolean buildPanDragged;
+    private transient boolean suppressNextBuildClickAfterPan;
+    private transient Point buildPanStartMouseScreen;
+    private transient Point buildPanStartView;
     private TransitionPlacementSession transitionPlacementSession;
 
     private int brushRadius = 30;
@@ -293,12 +298,21 @@ public class J2DArea extends JFrame {
                     Point areaPoint = toAreaPoint(e, extractZoom);
                     if (polygon.npoints > 0 && (SwingUtilities.isRightMouseButton(e) || Point2D.distance(areaPoint.x, areaPoint.y, polygon.xpoints[0], polygon.ypoints[0]) <= 3)) {
                         editingPolygon = false;
-                        Rectangle r = polygon.getBounds();
-                        Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
-                        relativePolygon.translate(-r.x, -r.y);
-                        BufferedImage subimage = extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height);
-                        PolygonSelectionView polygonSelectionView = new PolygonSelectionView(subimage, relativePolygon, r.getLocation());
-                        polygonSelectionView.setLocation(e.getXOnScreen(), e.getYOnScreen());
+                        Rectangle r = clampToImageBounds(polygon.getBounds(), extractionBackgroundImage);
+                        if (r.width > 0 && r.height > 0) {
+                            Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
+                            relativePolygon.translate(-r.x, -r.y);
+                            BufferedImage subimage = extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height);
+                            PolygonSelectionView polygonSelectionView = new PolygonSelectionView(subimage, relativePolygon, r.getLocation());
+                            polygonSelectionView.setLocation(e.getXOnScreen(), e.getYOnScreen());
+                        } else {
+                            JOptionPane.showMessageDialog(
+                                J2DArea.this,
+                                "The selected polygon is too small to extract.",
+                                ERROR,
+                                JOptionPane.WARNING_MESSAGE
+                            );
+                        }
                         polygon.reset();
                     } else {
                         polygon.addPoint(areaPoint.x, areaPoint.y);
@@ -336,6 +350,16 @@ public class J2DArea extends JFrame {
                 }
                 if (showBuildPanelContextMenu(scaledEvent)) {
                     buildPanel.repaint();
+                    return;
+                }
+                if (!painting && !editingBlackParallelogram && !editingTextureParallelogram
+                        && objectToMove == null
+                        && SwingUtilities.isLeftMouseButton(e)
+                        && findPastedObjectAtPoint(scaledEvent.getX(), scaledEvent.getY()) == null) {
+                    buildPanning = true;
+                    buildPanDragged = false;
+                    buildPanStartMouseScreen = new Point(e.getXOnScreen(), e.getYOnScreen());
+                    buildPanStartView = buildScrollPane != null ? buildScrollPane.getViewport().getViewPosition() : new Point();
                     return;
                 }
                 if (painting) {
@@ -376,6 +400,10 @@ public class J2DArea extends JFrame {
             @Override
             public void mouseClicked(MouseEvent e) {
                 MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (suppressNextBuildClickAfterPan) {
+                    suppressNextBuildClickAfterPan = false;
+                    return;
+                }
                 if (handleTransitionPlacementCanvasClick(scaledEvent)) {
                     buildPanel.repaint();
                     return;
@@ -455,6 +483,16 @@ public class J2DArea extends JFrame {
             @Override
             public void mouseReleased(MouseEvent e) {
                 MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (buildPanning) {
+                    buildPanning = false;
+                    buildPanStartMouseScreen = null;
+                    buildPanStartView = null;
+                    if (buildPanDragged) {
+                        suppressNextBuildClickAfterPan = true;
+                    }
+                    buildPanDragged = false;
+                    return;
+                }
                 if (transitionPlacementSession != null) {
                     return;
                 }
@@ -490,6 +528,21 @@ public class J2DArea extends JFrame {
             public void mouseDragged(MouseEvent e) {
                 MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
                 if (transitionPlacementSession != null) {
+                    return;
+                }
+                if (buildPanning && buildScrollPane != null && buildPanStartMouseScreen != null && buildPanStartView != null) {
+                    int deltaX = e.getXOnScreen() - buildPanStartMouseScreen.x;
+                    int deltaY = e.getYOnScreen() - buildPanStartMouseScreen.y;
+                    if (deltaX != 0 || deltaY != 0) {
+                        buildPanDragged = true;
+                    }
+                    JViewport viewport = buildScrollPane.getViewport();
+                    Dimension preferredSize = buildPanel.getPreferredSize();
+                    int maxX = Math.max(0, preferredSize.width - viewport.getWidth());
+                    int maxY = Math.max(0, preferredSize.height - viewport.getHeight());
+                    int viewX = Math.max(0, Math.min(buildPanStartView.x - deltaX, maxX));
+                    int viewY = Math.max(0, Math.min(buildPanStartView.y - deltaY, maxY));
+                    viewport.setViewPosition(new Point(viewX, viewY));
                     return;
                 }
                 if (painting) {
@@ -1950,6 +2003,7 @@ public class J2DArea extends JFrame {
                 + "<b>Build Area</b><br><br>"
                 + "<b>Mouse</b><br>"
                 + "<b>Left-drag</b> on a selected object: move it.<br>"
+                + "<b>Ctrl + Click</b> on an object: duplicate it and start moving the copy.<br>"
                 + "<b>Right-click</b> an object or transition marker: open its context menu.<br>"
                 + "<b>Ctrl + Mouse Wheel</b>: zoom.<br>"
                 + "<b>Mouse Wheel</b>: scroll.<br>"
@@ -2803,6 +2857,19 @@ public class J2DArea extends JFrame {
         return new Dimension(scaledWidth, scaledHeight);
     }
 
+    private Rectangle clampToImageBounds(Rectangle bounds, BufferedImage image) {
+        if (bounds == null || image == null) {
+            return new Rectangle();
+        }
+        int left = Math.max(0, bounds.x);
+        int top = Math.max(0, bounds.y);
+        int right = Math.min(image.getWidth(), bounds.x + bounds.width);
+        int bottom = Math.min(image.getHeight(), bounds.y + bounds.height);
+        int width = Math.max(0, right - left);
+        int height = Math.max(0, bottom - top);
+        return new Rectangle(left, top, width, height);
+    }
+
     private Point toAreaPoint(MouseEvent event, double zoom) {
         int x = (int) Math.floor(event.getX() / zoom);
         int y = (int) Math.floor(event.getY() / zoom);
@@ -2861,6 +2928,20 @@ public class J2DArea extends JFrame {
             }
             Rectangle rect = new Rectangle(pastedObject.getX(), pastedObject.getY(), pastedObject.getWidth(), pastedObject.getHeight());
             rect = getPastedObjectBounds(pastedObject);
+            if (rect.contains(x, y) && isClickablePastedObjectHit(pastedObject, x - rect.x, y - rect.y)) {
+                return pastedObject;
+            }
+        }
+        return null;
+    }
+
+    private PastedObject findPastedObjectAtPoint(int x, int y) {
+        for (int i = pastedObjects.size() - 1; i >= 0; i--) {
+            PastedObject pastedObject = pastedObjects.get(i);
+            if (!pastedObject.isVisible(drawClosed, night)) {
+                continue;
+            }
+            Rectangle rect = getPastedObjectBounds(pastedObject);
             if (rect.contains(x, y) && isClickablePastedObjectHit(pastedObject, x - rect.x, y - rect.y)) {
                 return pastedObject;
             }
