@@ -1,5 +1,6 @@
 package com.github.nbauma109.j2darea;
 
+import java.io.EOFException;
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -9,15 +10,31 @@ import java.util.List;
 
 public class ExportableArea implements Externalizable {
 
+    private static final int EXTENDED_FORMAT_MARKER = 0x4A324442;
+
     private ExportableImage backgroundImage;
     private List<PastedObject> pastedObjects;
+    private List<RegionData> regions;
+    private List<ContainerData> containers;
+    private AreaAttributes areaAttributes;
 
     public ExportableArea() {
+        this.regions = new ArrayList<>();
+        this.containers = new ArrayList<>();
+        this.areaAttributes = new AreaAttributes();
     }
 
     public ExportableArea(ExportableImage backgroundImage, List<PastedObject> pastedObjects) {
+        this(backgroundImage, pastedObjects, new ArrayList<RegionData>(), new ArrayList<ContainerData>(), new AreaAttributes());
+    }
+
+    public ExportableArea(ExportableImage backgroundImage, List<PastedObject> pastedObjects,
+            List<RegionData> regions, List<ContainerData> containers, AreaAttributes areaAttributes) {
         this.backgroundImage = backgroundImage;
         this.pastedObjects = pastedObjects;
+        this.regions = regions;
+        this.containers = containers;
+        this.areaAttributes = areaAttributes;
     }
 
     @Override
@@ -27,6 +44,16 @@ public class ExportableArea implements Externalizable {
         for (PastedObject pastedObject : pastedObjects) {
             pastedObject.writeExternal(out);
         }
+        out.writeInt(EXTENDED_FORMAT_MARKER);
+        out.writeInt(regions.size());
+        for (RegionData region : regions) {
+            region.writeExternal(out);
+        }
+        out.writeInt(containers.size());
+        for (ContainerData container : containers) {
+            container.writeExternal(out);
+        }
+        areaAttributes.writeExternal(out);
     }
 
     @Override
@@ -39,6 +66,31 @@ public class ExportableArea implements Externalizable {
             PastedObject pastedObject = new PastedObject();
             pastedObject.readExternal(in);
             pastedObjects.add(pastedObject);
+        }
+        regions = new ArrayList<>();
+        containers = new ArrayList<>();
+        areaAttributes = new AreaAttributes();
+        try {
+            int marker = in.readInt();
+            if (marker == EXTENDED_FORMAT_MARKER) {
+                int regionCount = in.readInt();
+                for (int i = 0; i < regionCount; i++) {
+                    RegionData region = new RegionData();
+                    region.readExternal(in);
+                    regions.add(region);
+                }
+                int containerCount = in.readInt();
+                for (int i = 0; i < containerCount; i++) {
+                    ContainerData container = new ContainerData();
+                    container.readExternal(in);
+                    containers.add(container);
+                }
+                areaAttributes.readExternal(in);
+            }
+        } catch (EOFException ex) {
+            regions = new ArrayList<>();
+            containers = new ArrayList<>();
+            areaAttributes = new AreaAttributes();
         }
     }
 
@@ -58,4 +110,27 @@ public class ExportableArea implements Externalizable {
         this.pastedObjects = pastedObjects;
     }
 
+    public List<RegionData> getRegions() {
+        return regions;
+    }
+
+    public void setRegions(List<RegionData> regions) {
+        this.regions = regions;
+    }
+
+    public List<ContainerData> getContainers() {
+        return containers;
+    }
+
+    public void setContainers(List<ContainerData> containers) {
+        this.containers = containers;
+    }
+
+    public AreaAttributes getAreaAttributes() {
+        return areaAttributes;
+    }
+
+    public void setAreaAttributes(AreaAttributes areaAttributes) {
+        this.areaAttributes = areaAttributes;
+    }
 }

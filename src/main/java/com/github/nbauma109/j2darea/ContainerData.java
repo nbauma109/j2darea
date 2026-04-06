@@ -1,5 +1,7 @@
 package com.github.nbauma109.j2darea;
 
+import java.awt.Polygon;
+import java.io.EOFException;
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -22,12 +24,14 @@ public class ContainerData implements Externalizable {
     private boolean locked;
     private String keyItem;
     private String script;
+    private Polygon bounds;
 
     public ContainerData() {
         this.name = "";
         this.containerType = 1; // Default to chest
         this.keyItem = "";
         this.script = "";
+        this.bounds = defaultBounds(0, 0);
     }
 
     public ContainerData(String name, int x, int y) {
@@ -37,6 +41,7 @@ public class ContainerData implements Externalizable {
         this.containerType = 1;
         this.keyItem = "";
         this.script = "";
+        this.bounds = defaultBounds(x, y);
     }
 
     @Override
@@ -53,6 +58,12 @@ public class ContainerData implements Externalizable {
         out.writeBoolean(locked);
         out.writeUTF(keyItem != null ? keyItem : "");
         out.writeUTF(script != null ? script : "");
+        Polygon polygon = bounds != null ? bounds : defaultBounds(x, y);
+        out.writeInt(polygon.npoints);
+        for (int i = 0; i < polygon.npoints; i++) {
+            out.writeInt(polygon.xpoints[i]);
+            out.writeInt(polygon.ypoints[i]);
+        }
     }
 
     @Override
@@ -69,6 +80,18 @@ public class ContainerData implements Externalizable {
         locked = in.readBoolean();
         keyItem = in.readUTF();
         script = in.readUTF();
+        try {
+            int npoints = in.readInt();
+            int[] xpoints = new int[npoints];
+            int[] ypoints = new int[npoints];
+            for (int i = 0; i < npoints; i++) {
+                xpoints[i] = in.readInt();
+                ypoints[i] = in.readInt();
+            }
+            bounds = new Polygon(xpoints, ypoints, npoints);
+        } catch (EOFException ex) {
+            bounds = defaultBounds(x, y);
+        }
     }
 
     // Getters and setters
@@ -85,6 +108,9 @@ public class ContainerData implements Externalizable {
     }
 
     public void setX(int x) {
+        if (bounds != null) {
+            bounds.translate(x - this.x, 0);
+        }
         this.x = x;
     }
 
@@ -93,6 +119,9 @@ public class ContainerData implements Externalizable {
     }
 
     public void setY(int y) {
+        if (bounds != null) {
+            bounds.translate(0, y - this.y);
+        }
         this.y = y;
     }
 
@@ -168,6 +197,14 @@ public class ContainerData implements Externalizable {
         this.script = script;
     }
 
+    public Polygon getBounds() {
+        return bounds;
+    }
+
+    public void setBounds(Polygon bounds) {
+        this.bounds = bounds;
+    }
+
     /**
      * Get the container type name for display purposes.
      */
@@ -187,5 +224,15 @@ public class ContainerData implements Externalizable {
             case 11: return "Crate";
             default: return "Type " + containerType;
         }
+    }
+
+    private Polygon defaultBounds(int x, int y) {
+        int halfWidth = 24;
+        int halfHeight = 16;
+        return new Polygon(
+            new int[] {x - halfWidth, x + halfWidth, x + halfWidth, x - halfWidth},
+            new int[] {y - halfHeight, y - halfHeight, y + halfHeight, y + halfHeight},
+            4
+        );
     }
 }

@@ -1,0 +1,231 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+<!--- Don't miss this! --->
+
+<title>Modifying Existing Areas 1 with DLTCEP</title>
+</head>
+
+<p><i><b><font color=red>Contributor: Smoketest</font></b></i></p>
+
+<body>
+<FONT COLOR="navy"><h3>Contents</h3></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#version">Version History</A></TD></TR>
+	<TR><TD><A HREF = "#intro">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#dungeon">Modifying Jon's Dungeon</A></TD></TR>
+
+<TR>
+</table>
+</font>
+
+<!--- Version and intro --->
+
+<p><font color="navy">
+<A NAME = "version"><H3>Version History</H3></A>
+<ul>
+<table>
+	<tr><td width=20></td><td width=30>1.0</td><td>Initial release</td></tr>
+	<tr><td width=20></td><td width=30>1.1</td><td>Clarification of the cleanup function</td></tr>
+</table></ul>
+</font>
+
+<font color="navy">
+  <A NAME = "introduction"><H3>Introduction</H3></A>
+</font>
+
+<p>I've been trying to modify the map of AR0602 in BG2, the level of Jon's dungeon we all start out on. Specifically, I wanted to simplifiy the goblin hallway en-route from the Sewage Golem's room to the Library by removing two elbows and turning it into a simple L shape.
+It should have been easy, except Bioware's main tilesets have 'alternate' tiles attached to them (stored after the main map tiles) and while exporting, DLTCEP will clip off any tiles that don't form a complete row. This is bad because these alternate tiles are mostly used for displaying closed doors.
+Thankfully I found a roundabout way to get the job done without losing any tiles and without damaging the doors. Here's a brief step by step list of what I did. (I'll use AR0602 since that was what I was working on.)
+</p>
+
+<p>Unless you've changed your browser fonts to something weird and wonderful, the conventions in this tutorial are that black is descriptive text and blue bold is action text.</p>
+
+<!--- A HREF anchor target --->
+
+<font color="navy">
+  <A NAME = "#dungeon"><H3>Modifying Jon's Dungeon</H3></A>
+</font>
+
+<!--- Action lists --->
+
+<ul><b><font color="blue">
+  <li>Fire up DLTCEP and select 'Edit Area/Wed'</li>
+  <li>Click 'Load Area' and select AR0602</li>
+  <li>Click on 'Edit Wed'</li>
+</ul></b></font>
+
+<p>Since AR0602 has extra tiles, but not enough to form a row, I needed to find a way to add enough tiles to form a complete row. AR0602 has 10 extra tiles and rows are 77 tiles across, so I need to add at least 67 tiles (if I add too many, DLTCEP will cut them off during export).</p>
+
+<ul><b><font color="blue">
+  <li>Click on Edit Tiles</li>
+  <li>Click on the Draw Closed button to change it to Draw Open</li>
+</ul></b></font>
+
+<p>This last action is very important and will be explained later.</p>
+
+<ul><b><font color="blue">
+  <li>Scroll to the end of the list (tile 4311) and select that last tile</li>
+  <li>Click on Add Alternate</li>
+  <li>Moving up the list, continue adding alternates another 66 times (up to tile 4245)</li>
+</ul></b></font>
+
+<p>When all 67 tiles have alternates:</p>
+
+<ul><b><font color="blue">
+  <li>Click 'Save Tileset'</li>
+  <li>Click 'Back' to return to the Wed editor</li>
+  <li>Click 'Cleanup' to remove the now unnecessary alternate tile assignments</li>
+  <li>Click 'Back' to return to the Area editor</li>
+  <li>Save</li>
+  <li>Exit the area editor</li>
+</ul></b></font>
+
+<p>At this point the tileset is saved and should have enough extra tiles to form 58 rows, instead of the previous 57 rows, plus 10 extra tiles. Time to export the tileset for editing.</p>
+
+<!--- Image code --->
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="tis_edit_1.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 1 - 67 new tiles</b></i></font></p>
+</td></tr>
+</table>
+
+<ul><b><font color="blue">
+  <li>Click on 'Reload Chitin'</li>
+  <li>Select 'Edit TIS'</li>
+  <li>Select 'Load External TIS'</li>
+  <li>Load the modified AR0602.TIS file</li>
+  <li>Select Guess Dimensions from the 'Tools' menu</li>
+</ul></b></font>
+
+<p>Now the tileset should be shown as a grid of 77 x 58 tiles.</p>
+
+<!--- Image code --->
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="tis_edit_2.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 2 - Guess Dimensions</b></i></font></p>
+</td></tr>
+</table>
+
+<p>If all went well, this is what you should see at the bottom of the preview window after having DLTCEP Guess Dimensions in the TIS Editor. If only
+one row of alternate tiles is visible, you'll have to start over and try again. Not much fun at all.</p>
+
+<ul><b><font color="blue">
+  <li>Click 'Extract Tiles'</li>
+  <li>Save the file as .bmp</li>
+</ul></b></font>
+
+<p>It is important that the BMP be generated with doors drawn open, because the alternate tiles draw them closed. If you generate a BMP with doors drawn closed, you can still use the doors in the game, but they'll always be drawn closed because both the main tiles and the alternate tiles will draw them that way. (This also affects how doors are drawn in the MOS minimap when it's generated.)</p>
+<p>At this point I used Paintshop Pro to edit the bitmap, and used cut and paste to redesign the hallway, making sure everything lined up with existing objects. If everything was done right up to this point, all of the alternate tiles should be visible across the bottom of the bitmap image.
+This is the original tilemap as viewed in PSP, cropped to a convenient size that focuses on the area of interest. I saw no reason for the hallway to be so complex, and I had already removed the cannon-fodder goblins that had no place
+in the dungeon anyway.</p>
+
+<!--- Image code --->
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="tis_edit_3.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 3 - The original hallway</b></i></font></p>
+</td></tr>
+</table>
+
+<p>This is the new hallway after some careful cut n paste of hallway segments. It was a challenge getting big enough pieces without light fixtures getting in
+the way, but I managed. Note the abundance of darkness on each side of the hall where the old hallways used to be. When this image is imported as the main
+overlay, the preview screen will show this modification, as it should.</p>
+
+<!--- Image code --->
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="tis_edit_4.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 4 - The new hallway</b></i></font></p>
+</td></tr>
+</table>
+
+<p>Now it's time to import the edited tiles.</p>
+
+<ul><b><font color="blue">
+  <li>Go to 'Edit Area/Wed'</li>
+  <li>Load 'External Area' to load AR0602</li>
+  <li>Click on 'Edit Wed'</li>
+  <li>Click 'View Whole Tileset'</li>
+  <li>Click 'Set Overlay'</li>
+  <li>Go to the 'File' menu and select 'Load External Image'</li>
+  <li>Select 'AR0602.BMP'</li>
+</ul></b></font>
+
+<p>DLTCEP will convert the bitmap to tile data. When that's done,</p>
+
+<ul><b><font color="blue">
+  <li>click 'Save TIS As' and overwrite AR0602.TIS with the new data</li>
+</ul></b></font>
+
+<p>(If you want you can back up AR0602.TIS before doing this.)</p>
+
+<ul><b><font color="blue">
+  <li>Click 'Exit' to return to the Wed editor</li>
+  <li>Click 'Back' to return to the Area editor</li>
+  <li>Click 'Exit' </li>
+  <li>Click 'Reload Chitin'</li>
+</ul></b></font>
+
+<p>If all went well, the new tileset is ready for gaming and the doors should not have been affected. (My edit didn't involve any doorways.) If you do edit doors, you'll have to update the alternate tiles so you can have open and closed doors.</p>
+<p>If you check the alternates by clicking Edit Tiles from inside the Wed editor, you'll notice the 67 or so alternate tiles are no longer there. I suspect this is because we didn't actually use them for anything, so DLTCEP removed them when I clicked the 'Cleanup' button. That's okay though, because it got us what we wanted while they lasted: a complete tileset for editing and re-importing. Just keep in mind that if you decide to re-extract the new tileset, you'll have to re-add those alternates to create a full row.</p>
+<p>There are still a few things left to do before this change is totally complete, but they are covered in Yovaneth's existing tutorials. Specifically, the wall groups for that section of hallway need to be removed/edited (I had fun doing this), a MOS overhead minimap reflecting the new changes needs to be created, and the Search Map needs to be updated to prevent players from walking out into black space. In this project the light map was an optional edit that I didn't need to worry about, and the height map wasn't affected.</p>
+<p>Hopefully I didn't miss anything. It took me a few tries to get things figured out, but ultimately I got it fixed and no longer have an unnecessarily complicated hallway to travel through. (I had already removed the spawning goblins so they couldn't spawn into dead space.)</p>
+
+<p>Here are my temporary main character and Imoen CTRL-J'd to the location for a quick test. By this point I have edited the wallgroups for proper dithering
+and edited the search map to keep the characters from leaving the area graphic boundaries.</p>
+
+<!--- Image code --->
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="tis_edit_5.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 5 - In the game</b></i></font></p>
+</td></tr>
+</table>
+
+<!--- Image code --->
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="tis_edit_6.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 6 - The new MOS</b></i></font></p>
+</td></tr>
+</table>
+
+<p>This is a shot of the overhead MOS I generated based on the edited map. Note the modified hallway where the two green circles are positioned. I moved
+the view square out of the way so the new hall could be clearly seen.</p>
+
+<!--- Sign-off --->
+
+<font color="red">
+<table align=center>
+  <tr><td width=500>
+    <p><b><i>Tutorial written by Smoketest. Post it where you will but please don’t take credit for what you have not written.</i></b></p>
+  </td></tr>
+</table>
+</font>
+

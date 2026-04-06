@@ -6,11 +6,16 @@ import java.awt.Dimension;
 import java.awt.FileDialog;
 import java.awt.Frame;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -19,44 +24,63 @@ import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import com.github.nbauma109.j2darea.ie.AREFile;
-import com.github.nbauma109.j2darea.ie.WEDFile;
-import com.github.nbauma109.j2darea.ie.TISFile;
-import com.github.nbauma109.j2darea.ie.WeiDUModPackager;
-
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
+import javax.swing.Box;
+import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
 import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
+import javax.swing.JEditorPane;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.JViewport;
 import javax.swing.filechooser.FileNameExtensionFilter;
+
+import com.github.nbauma109.j2darea.ie.AREFile;
+import com.github.nbauma109.j2darea.ie.PvrzTisFile;
+import com.github.nbauma109.j2darea.ie.TISFile;
+import com.github.nbauma109.j2darea.ie.WEDFile;
+import com.github.nbauma109.j2darea.ie.WeiDUModPackager;
 
 public class J2DArea extends JFrame {
 
@@ -104,12 +128,24 @@ public class J2DArea extends JFrame {
     // Separate collections for polygon-based area features (not PastedObjects)
     private List<RegionData> regions = new ArrayList<>();
     private List<ContainerData> containers = new ArrayList<>();
+    private AreaAttributes areaAttributes = new AreaAttributes();
 
     private boolean editingPolygon;
 
     private boolean painting;
+    private transient JPanel buildPanel;
+    private transient JScrollPane buildScrollPane;
+    private transient JScrollPane extractScrollPane;
+    private transient LocalTransitionPlacementDialog localTransitionPlacementDialog;
+    private transient JCheckBoxMenuItem drawClosedDoorMenuItem;
+    private transient JCheckBoxMenuItem nightMenuItem;
+    private transient JToggleButton drawClosedDoorToggleButton;
+    private transient JToggleButton nightToggleButton;
+    private TransitionPlacementSession transitionPlacementSession;
 
     private int brushRadius = 30;
+    private double buildZoom = 1.0;
+    private double extractZoom = 1.0;
     private transient BufferedImage brushTexture;
     private transient BufferedImage brushPreview;
     private transient BufferedImage brushNightPreview;
@@ -121,38 +157,42 @@ public class J2DArea extends JFrame {
         JTabbedPane tabPane = new JTabbedPane(SwingConstants.BOTTOM);
         tabPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
 
-        JPanel buildPanel = new JPanel(false) {
+        buildPanel = new JPanel(false) {
 
             private static final long serialVersionUID = 1L;
 
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                paintObjects(g);
-                g.setColor(Color.GREEN);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.scale(buildZoom, buildZoom);
+                paintObjects(g2);
+                g2.setColor(Color.GREEN);
                 for (Polygon parallelogram : parallelograms) {
                     if (parallelogram.npoints < 3) {
                         Polygon newPolygon = new Polygon(parallelogram.xpoints, parallelogram.ypoints, parallelogram.npoints);
                         newPolygon.addPoint(mousePosition.x, mousePosition.y);
-                        g.drawPolygon(newPolygon);
+                        g2.drawPolygon(newPolygon);
                     } else {
-                        g.setColor(Color.BLACK);
-                        g.fillPolygon(parallelogram);
-                        g.setColor(Color.GREEN);
-                        g.drawPolygon(parallelogram);
+                        g2.setColor(Color.BLACK);
+                        g2.fillPolygon(parallelogram);
+                        g2.setColor(Color.GREEN);
+                        g2.drawPolygon(parallelogram);
                     }
                 }
                 if (movingRectangle != null) {
-                    g.drawRect(movingRectangle.x, movingRectangle.y, movingRectangle.width, movingRectangle.height);
+                    g2.drawRect(movingRectangle.x, movingRectangle.y, movingRectangle.width, movingRectangle.height);
                 }
+                paintTransitionPlacementDraft(g2);
+                g2.dispose();
             }
 
             @Override
             public Dimension getPreferredSize() {
                 if (buildBackgroundImage != null) {
-                    return new Dimension(buildBackgroundImage.getWidth(), buildBackgroundImage.getHeight());
+                    return scaleDimension(buildBackgroundImage.getWidth(), buildBackgroundImage.getHeight(), buildZoom);
                 }
-                return new Dimension(backgroundWidth, backgroundHeight);
+                return scaleDimension(backgroundWidth, backgroundHeight, buildZoom);
             }
         };
 
@@ -163,32 +203,35 @@ public class J2DArea extends JFrame {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.scale(extractZoom, extractZoom);
                 if (extractionBackgroundImage != null) {
-                    g.drawImage(extractionBackgroundImage, 0, 0, null);
-                    g.setColor(Color.LIGHT_GRAY);
-                    g.drawLine(mousePosition.x, 0, mousePosition.x, getHeight());
-                    g.drawLine(0, mousePosition.y, getWidth(), mousePosition.y);
+                    g2.drawImage(extractionBackgroundImage, 0, 0, null);
+                    g2.setColor(Color.LIGHT_GRAY);
+                    g2.drawLine(mousePosition.x, 0, mousePosition.x, extractionBackgroundImage.getHeight());
+                    g2.drawLine(0, mousePosition.y, extractionBackgroundImage.getWidth(), mousePosition.y);
                 }
                 Polygon newPolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
                 newPolygon.addPoint(mousePosition.x, mousePosition.y);
                 if (polygon.npoints > 0 && Point2D.distance(mousePosition.x, mousePosition.y, polygon.xpoints[0], polygon.ypoints[0]) <= 3) {
-                    g.setColor(Color.YELLOW);
-                    g.drawPolygon(newPolygon);
+                    g2.setColor(Color.YELLOW);
+                    g2.drawPolygon(newPolygon);
                 } else {
-                    g.setColor(Color.GREEN);
-                    g.drawPolyline(newPolygon.xpoints, newPolygon.ypoints, newPolygon.npoints);
+                    g2.setColor(Color.GREEN);
+                    g2.drawPolyline(newPolygon.xpoints, newPolygon.ypoints, newPolygon.npoints);
                 }
                 if (isValidTileSetup()) {
-                    tile.draw(g);
+                    tile.draw(g2);
                 }
+                g2.dispose();
             }
 
             @Override
             public Dimension getPreferredSize() {
                 if (extractionBackgroundImage != null) {
-                    return new Dimension(extractionBackgroundImage.getWidth(), extractionBackgroundImage.getHeight());
+                    return scaleDimension(extractionBackgroundImage.getWidth(), extractionBackgroundImage.getHeight(), extractZoom);
                 }
-                return new Dimension(backgroundWidth, backgroundHeight);
+                return scaleDimension(backgroundWidth, backgroundHeight, extractZoom);
             }
         };
 
@@ -207,13 +250,15 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                tile.moveEndPoint(e);
+                MouseEvent scaledEvent = scaleMouseEvent(e, extractPanel, extractZoom);
+                tile.moveEndPoint(scaledEvent);
                 extractPanel.repaint();
             }
 
             @Override
             public void mouseMoved(MouseEvent e) {
-                mousePosition.move(e.getX(), e.getY());
+                Point areaPoint = toAreaPoint(e, extractZoom);
+                mousePosition.move(areaPoint.x, areaPoint.y);
                 extractPanel.repaint();
             }
         });
@@ -222,12 +267,14 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mousePressed(MouseEvent e) {
-                tile.moveStartPoint(e);
+                MouseEvent scaledEvent = scaleMouseEvent(e, extractPanel, extractZoom);
+                tile.moveStartPoint(scaledEvent);
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                tile.moveEndPoint(e);
+                MouseEvent scaledEvent = scaleMouseEvent(e, extractPanel, extractZoom);
+                tile.moveEndPoint(scaledEvent);
                 if (isValidTileSetup()) {
                     BufferedImage textureImage = TileSeamless.createSeamlessTile(tile.getSubImage(extractionBackgroundImage));
                     if (textureImage != null) {
@@ -243,7 +290,8 @@ public class J2DArea extends JFrame {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (extractionBackgroundImage != null && editingPolygon) {
-                    if (polygon.npoints > 0 && (SwingUtilities.isRightMouseButton(e) || Point2D.distance(e.getX(), e.getY(), polygon.xpoints[0], polygon.ypoints[0]) <= 3)) {
+                    Point areaPoint = toAreaPoint(e, extractZoom);
+                    if (polygon.npoints > 0 && (SwingUtilities.isRightMouseButton(e) || Point2D.distance(areaPoint.x, areaPoint.y, polygon.xpoints[0], polygon.ypoints[0]) <= 3)) {
                         editingPolygon = false;
                         Rectangle r = polygon.getBounds();
                         Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
@@ -253,10 +301,28 @@ public class J2DArea extends JFrame {
                         polygonSelectionView.setLocation(e.getXOnScreen(), e.getYOnScreen());
                         polygon.reset();
                     } else {
-                        polygon.addPoint(e.getX(), e.getY());
+                        polygon.addPoint(areaPoint.x, areaPoint.y);
                     }
                     extractPanel.repaint();
                 }
+            }
+        });
+
+        extractPanel.addMouseWheelListener(new MouseAdapter() {
+            @Override
+            public void mouseWheelMoved(MouseWheelEvent e) {
+                if (!e.isControlDown()) {
+                    return;
+                }
+                e.consume();
+                double oldZoom = extractZoom;
+                double zoomFactor = UserPreferences.getZoomFactor();
+                double newZoom = clampZoom(oldZoom * (e.getWheelRotation() < 0 ? zoomFactor : 1.0 / zoomFactor));
+                if (Math.abs(newZoom - oldZoom) < 0.0001) {
+                    return;
+                }
+                extractZoom = newZoom;
+                applyZoom(extractScrollPane, extractPanel, oldZoom, newZoom, e.getPoint());
             }
         });
 
@@ -264,8 +330,16 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mousePressed(MouseEvent e) {
+                MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (transitionPlacementSession != null) {
+                    return;
+                }
+                if (showBuildPanelContextMenu(scaledEvent)) {
+                    buildPanel.repaint();
+                    return;
+                }
                 if (painting) {
-                    updateBrushStroke(e);
+                    updateBrushStroke(scaledEvent);
                     repaint();
                 }
             }
@@ -301,14 +375,19 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mouseClicked(MouseEvent e) {
+                MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (handleTransitionPlacementCanvasClick(scaledEvent)) {
+                    buildPanel.repaint();
+                    return;
+                }
                 if (editingBlackParallelogram || editingTextureParallelogram) {
                     if (parallelograms.isEmpty() || parallelograms.get(parallelograms.size() - 1).npoints == 4) {
                         Polygon parallelogram = new Polygon();
-                        parallelogram.addPoint(e.getX(), e.getY());
+                        parallelogram.addPoint(scaledEvent.getX(), scaledEvent.getY());
                         parallelograms.add(parallelogram);
                     } else {
                         Polygon p = parallelograms.get(parallelograms.size() - 1);
-                        p.addPoint(e.getX(), e.getY());
+                        p.addPoint(scaledEvent.getX(), scaledEvent.getY());
                         if (p.npoints == 3) {
                             p.addPoint(p.xpoints[0] + p.xpoints[2] - p.xpoints[1], p.ypoints[0] + p.ypoints[2] - p.ypoints[1]);
                             buildPanel.repaint();
@@ -337,12 +416,7 @@ public class J2DArea extends JFrame {
                         }
                     }
                 } else {
-                    // Handle double-click on entrance to edit
-                    if (e.getClickCount() == 2 && objectToMove != null &&
-                        objectToMove.getPastedObjectType() == PastedObjectType.ENTRANCE &&
-                        objectToMove.getEntranceData() != null) {
-                        editEntrance(objectToMove);
-                        buildPanel.repaint();
+                    if (SwingUtilities.isRightMouseButton(scaledEvent) || scaledEvent.isPopupTrigger()) {
                         return;
                     }
 
@@ -350,21 +424,28 @@ public class J2DArea extends JFrame {
                         int idx = 0;
                         for (PastedObject pastedObject : pastedObjects) {
                             Rectangle rect = new Rectangle(pastedObject.getX(), pastedObject.getY(), pastedObject.getWidth(), pastedObject.getHeight());
-                            if (rect.contains(e.getX(), e.getY()) && pastedObject.isOpaque(e.getX() - rect.x, e.getY() - rect.y) && pastedObject.isVisible(drawClosed, night)) {
+                            if (rect.contains(scaledEvent.getX(), scaledEvent.getY())
+                                    && isClickablePastedObjectHit(pastedObject, scaledEvent.getX() - rect.x, scaledEvent.getY() - rect.y)
+                                    && pastedObject.isVisible(drawClosed, night)) {
                                 movingRectangle = rect;
                                 objectToMove = pastedObject;
                                 objectToMoveIdx = idx;
-                                deltaX = e.getX() - objectToMove.getX();
-                                deltaY = e.getY() - objectToMove.getY();
+                                Rectangle anchorRect = getPastedObjectBounds(pastedObject);
+                                deltaX = scaledEvent.getX() - anchorRect.x;
+                                deltaY = scaledEvent.getY() - anchorRect.y;
                             }
                             idx++;
                         }
-                        if (e.isControlDown() && objectToMove != null) {
+                        if (scaledEvent.isControlDown() && objectToMove != null) {
                             objectToMove = objectToMove.copy();
                             pastedObjects.add(objectToMove);
+                            objectToMoveIdx = pastedObjects.size() - 1;
+                            deltaX = 0;
+                            deltaY = 0;
                         }
                     } else {
                         objectToMove = null;
+                        objectToMoveIdx = -1;
                         movingRectangle = null;
                     }
                 }
@@ -372,32 +453,73 @@ public class J2DArea extends JFrame {
             }
 
             @Override
+            public void mouseReleased(MouseEvent e) {
+                MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (transitionPlacementSession != null) {
+                    return;
+                }
+                if (showBuildPanelContextMenu(scaledEvent)) {
+                    buildPanel.repaint();
+                }
+            }
+
+            @Override
             public void mouseMoved(MouseEvent e) {
-                mousePosition.move(e.getX(), e.getY());
+                Point areaPoint = toAreaPoint(e, buildZoom);
+                mousePosition.move(areaPoint.x, areaPoint.y);
                 if (objectToMove != null) {
-                    objectToMove.setLocation(new Point(e.getX() - deltaX, e.getY() - deltaY));
-                    movingRectangle = new Rectangle(e.getX() - deltaX, e.getY() - deltaY, objectToMove.getWidth(), objectToMove.getHeight());
+                    Rectangle anchorRect = getPastedObjectBounds(objectToMove);
+                    int newRectX = areaPoint.x - deltaX;
+                    int newRectY = areaPoint.y - deltaY;
+                    if (objectToMove.getPastedObjectType() == PastedObjectType.ENTRANCE && objectToMove.getEntranceData() != null) {
+                        int centeredX = newRectX + (objectToMove.getWidth() / 2);
+                        int centeredY = newRectY + (objectToMove.getHeight() / 2);
+                        objectToMove.getEntranceData().setX(centeredX);
+                        objectToMove.getEntranceData().setY(centeredY);
+                        syncEntranceMarker(objectToMove);
+                    } else {
+                        objectToMove.setLocation(new Point(newRectX, newRectY));
+                    }
+                    anchorRect = getPastedObjectBounds(objectToMove);
+                    movingRectangle = new Rectangle(anchorRect.x, anchorRect.y, anchorRect.width, anchorRect.height);
                 }
                 buildPanel.repaint();
             }
 
             @Override
             public void mouseDragged(MouseEvent e) {
+                MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (transitionPlacementSession != null) {
+                    return;
+                }
                 if (painting) {
-                    updateBrushStroke(e);
+                    updateBrushStroke(scaledEvent);
                     repaint();
                 }
             }
 
             @Override
             public void mouseWheelMoved(MouseWheelEvent e) {
-                if (objectToMove != null) {
+                if (e.isShiftDown() && objectToMove != null) {
+                    e.consume();
                     objectToMove.flip();
-                } else if (painting) {                
+                    buildPanel.repaint();
+                } else if (e.isShiftDown() && painting) {                
+                    e.consume();
                     brushRadius += e.getWheelRotation();
                     buildBrushPreview();
+                    buildPanel.repaint();
+                } else if (e.isControlDown()) {
+                    e.consume();
+                    double oldZoom = buildZoom;
+                    double zoomFactor = UserPreferences.getZoomFactor();
+                    double newZoom = clampZoom(oldZoom * (e.getWheelRotation() < 0 ? zoomFactor : 1.0 / zoomFactor));
+                    if (Math.abs(newZoom - oldZoom) < 0.0001) {
+                        return;
+                    }
+                    buildZoom = newZoom;
+                    applyZoom(buildScrollPane, buildPanel, oldZoom, newZoom, e.getPoint());
                 }
-                buildPanel.repaint();
             }
 
         };
@@ -424,6 +546,7 @@ public class J2DArea extends JFrame {
                     pastedObjects.remove(objectToMove);
                     movingRectangle = null;
                     objectToMove = null;
+                    objectToMoveIdx = -1;
                     buildPanel.repaint();
                 }
             }
@@ -493,16 +616,33 @@ public class J2DArea extends JFrame {
 
         buildPanel.setLayout(new GridLayout());
         buildPanel.setBackground(Color.BLACK);
-        JScrollPane buildScrollPane = new JScrollPane(buildPanel);
+        buildScrollPane = new JScrollPane(buildPanel);
         extractPanel.setLayout(new GridLayout());
         extractPanel.setBackground(Color.BLACK);
-        JScrollPane extractScrollPane = new JScrollPane(extractPanel);
+        extractScrollPane = new JScrollPane(extractPanel);
         tabPane.addTab("Build Area", buildScrollPane);
         tabPane.addTab("Extraction Area", extractScrollPane);
         tabPane.addTab("Texture Preview", new JScrollPane(texturePreviewPanel));
 
         JMenuBar menubar = new JMenuBar();
         setJMenuBar(menubar);
+        JMenu fileMenu = new JMenu("File");
+        JMenu backgroundMenu = new JMenu("Background");
+        JMenu insertMenu = new JMenu("Insert");
+        JMenu cursorModeMenu = new JMenu("Cursor Mode");
+        JMenu viewMenu = new JMenu("View");
+        JMenu toolsMenu = new JMenu("Tools");
+        JMenu settingsMenu = new JMenu("Settings");
+        JMenu helpMenu = new JMenu("Help");
+        menubar.add(fileMenu);
+        menubar.add(backgroundMenu);
+        menubar.add(insertMenu);
+        menubar.add(cursorModeMenu);
+        menubar.add(viewMenu);
+        menubar.add(toolsMenu);
+        menubar.add(settingsMenu);
+        menubar.add(helpMenu);
+        menubar.add(Box.createHorizontalGlue());
         JButton newButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/new.png"))) {
 
             private static final long serialVersionUID = 1L;
@@ -518,6 +658,9 @@ public class J2DArea extends JFrame {
                         buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
                         buildBackgroundNightImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
                         pastedObjects.clear();
+                        regions.clear();
+                        containers.clear();
+                        areaAttributes = new AreaAttributes();
                         objectToMove = null;
                         objectToMoveIdx = -1;
                         movingRectangle = null;
@@ -532,7 +675,9 @@ public class J2DArea extends JFrame {
         });
         newButton.setMaximumSize(BUTTON_SIZE);
         newButton.setToolTipText("Create a new area");
-        menubar.add(newButton);
+        JMenuItem newMenuItem = new JMenuItem(newButton.getAction());
+        newMenuItem.setText("New Area");
+        fileMenu.add(newMenuItem);
 
         JButton fillButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/background.png"))) {
 
@@ -554,7 +699,9 @@ public class J2DArea extends JFrame {
         });
         fillButton.setMaximumSize(BUTTON_SIZE);
         fillButton.setToolTipText("Fill background with a seamless pattern image");
-        menubar.add(fillButton);
+        JMenuItem fillMenuItem = new JMenuItem(fillButton.getAction());
+        fillMenuItem.setText("Fill With Pattern...");
+        backgroundMenu.add(fillMenuItem);
 
         JButton openButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open.png"))) {
 
@@ -573,8 +720,17 @@ public class J2DArea extends JFrame {
                         ExportableArea exportableArea = new ExportableArea();
                         exportableArea.readExternal(objectInputStream);
                         buildBackgroundImage = exportableArea.getBackgroundImage().getImage();
+                        backgroundWidth = buildBackgroundImage.getWidth();
+                        backgroundHeight = buildBackgroundImage.getHeight();
                         buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
                         pastedObjects = exportableArea.getPastedObjects();
+                        regions = exportableArea.getRegions();
+                        containers = exportableArea.getContainers();
+                        areaAttributes = exportableArea.getAreaAttributes();
+                        refreshEntranceMarkers();
+                        objectToMove = null;
+                        objectToMoveIdx = -1;
+                        movingRectangle = null;
                         setExtendedState(Frame.MAXIMIZED_BOTH);
                         repaint();
                     } catch (IOException | ClassNotFoundException ex) {
@@ -586,7 +742,9 @@ public class J2DArea extends JFrame {
         });
         openButton.setMaximumSize(BUTTON_SIZE);
         openButton.setToolTipText("Open a project file");
-        menubar.add(openButton);
+        JMenuItem openMenuItem = new JMenuItem(openButton.getAction());
+        openMenuItem.setText("Open Project...");
+        fileMenu.add(openMenuItem);
 
         JButton openBackgroundButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open-bg.png"))) {
 
@@ -598,6 +756,9 @@ public class J2DArea extends JFrame {
                 if (chosenImageFile != null) {
                     if (tabPane.getSelectedComponent() == buildScrollPane) {
                         buildBackgroundImage = chosenImageFile;
+                        backgroundWidth = chosenImageFile.getWidth();
+                        backgroundHeight = chosenImageFile.getHeight();
+                        buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
                     }
                     if (tabPane.getSelectedComponent() == extractScrollPane) {
                         extractionBackgroundImage = chosenImageFile;
@@ -610,7 +771,9 @@ public class J2DArea extends JFrame {
         });
         openBackgroundButton.setMaximumSize(BUTTON_SIZE);
         openBackgroundButton.setToolTipText("Open a background image file");
-        menubar.add(openBackgroundButton);
+        JMenuItem openBackgroundMenuItem = new JMenuItem(openBackgroundButton.getAction());
+        openBackgroundMenuItem.setText("Open Background Image...");
+        backgroundMenu.add(openBackgroundMenuItem);
 
         JButton openBrushTextureButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open-texture.png"))) {
 
@@ -624,7 +787,9 @@ public class J2DArea extends JFrame {
         });
         openBrushTextureButton.setMaximumSize(BUTTON_SIZE);
         openBrushTextureButton.setToolTipText("Choose texture for brush");
-        menubar.add(openBrushTextureButton);
+        JMenuItem openBrushTextureMenuItem = new JMenuItem(openBrushTextureButton.getAction());
+        openBrushTextureMenuItem.setText("Choose Brush Texture...");
+        backgroundMenu.add(openBrushTextureMenuItem);
 
         JButton saveButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save.png"))) {
 
@@ -638,7 +803,13 @@ public class J2DArea extends JFrame {
                 int returnVal = chooser.showSaveDialog(null);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
                     boolean success;
-                    ExportableArea exportableArea = new ExportableArea(new ExportableImage(buildBackgroundImage), pastedObjects);
+                    ExportableArea exportableArea = new ExportableArea(
+                        new ExportableImage(buildBackgroundImage),
+                        pastedObjects,
+                        regions,
+                        containers,
+                        areaAttributes
+                    );
                     try (FileOutputStream fileOutputStream = new FileOutputStream(chooser.getSelectedFile())) {
                         try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(fileOutputStream)) {
                             try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(gzipOutputStream)) {
@@ -660,7 +831,9 @@ public class J2DArea extends JFrame {
         });
         saveButton.setMaximumSize(BUTTON_SIZE);
         saveButton.setToolTipText("Save build area to a project file");
-        menubar.add(saveButton);
+        JMenuItem saveMenuItem = new JMenuItem(saveButton.getAction());
+        saveMenuItem.setText("Save Project...");
+        fileMenu.add(saveMenuItem);
 
         JButton exportButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-img.png"))) {
 
@@ -689,7 +862,10 @@ public class J2DArea extends JFrame {
         });
         exportButton.setMaximumSize(BUTTON_SIZE);
         exportButton.setToolTipText("Export build area to an image");
-        menubar.add(exportButton);
+        fileMenu.addSeparator();
+        JMenuItem exportMenuItem = new JMenuItem(exportButton.getAction());
+        exportMenuItem.setText("Export Area Image...");
+        fileMenu.add(exportMenuItem);
 
         JButton exportModButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-doors.png"))) {
 
@@ -702,7 +878,51 @@ public class J2DArea extends JFrame {
         });
         exportModButton.setMaximumSize(BUTTON_SIZE);
         exportModButton.setToolTipText("Export as Baldur's Gate mod (WeiDU package)");
-        menubar.add(exportModButton);
+        JMenuItem exportModMenuItem = new JMenuItem(exportModButton.getAction());
+        exportModMenuItem.setText("Export Mod Package...");
+        fileMenu.add(exportModMenuItem);
+
+        JButton prefixButton = new JButton(new AbstractAction("Prefix") {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                editExportPrefix();
+            }
+        });
+        prefixButton.setToolTipText("Select the reserved resource prefix used for exports");
+        JMenuItem prefixMenuItem = new JMenuItem(prefixButton.getAction());
+        prefixMenuItem.setText("Export Prefix...");
+        settingsMenu.add(prefixMenuItem);
+
+        JButton preferencesButton = new JButton(new AbstractAction("Prefs") {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                editUserPreferences();
+            }
+        });
+        preferencesButton.setToolTipText("Edit user preferences, including the configured game install path");
+        JMenuItem preferencesMenuItem = new JMenuItem(preferencesButton.getAction());
+        preferencesMenuItem.setText("Preferences...");
+        settingsMenu.add(preferencesMenuItem);
+
+        JButton regionsButton = new JButton(new AbstractAction("Regions") {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                editRegions();
+            }
+        });
+        regionsButton.setToolTipText("Create and edit polygon regions, including destination-side travel geometry");
+        JMenuItem regionsMenuItem = new JMenuItem(regionsButton.getAction());
+        regionsMenuItem.setText("Regions...");
+        insertMenu.add(regionsMenuItem);
 
         JButton tileSeamlessButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-texture.png"))) {
 
@@ -739,7 +959,9 @@ public class J2DArea extends JFrame {
         });
         tileSeamlessButton.setMaximumSize(BUTTON_SIZE);
         tileSeamlessButton.setToolTipText("Create and export seamless tile from selection to PNG image");
-        menubar.add(tileSeamlessButton);
+        JMenuItem tileSeamlessMenuItem = new JMenuItem(tileSeamlessButton.getAction());
+        tileSeamlessMenuItem.setText("Export Seamless Tile...");
+        toolsMenu.add(tileSeamlessMenuItem);
         
         JButton saveDoorsButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-doors.png"))) {
             
@@ -764,7 +986,9 @@ public class J2DArea extends JFrame {
         });
         saveDoorsButton.setMaximumSize(BUTTON_SIZE);
         saveDoorsButton.setToolTipText("Export all door tiles");
-        menubar.add(saveDoorsButton);
+        JMenuItem saveDoorsMenuItem = new JMenuItem(saveDoorsButton.getAction());
+        saveDoorsMenuItem.setText("Export Door Tiles...");
+        toolsMenu.add(saveDoorsMenuItem);
 
         JButton pasteFromButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/paste-from.png"))) {
 
@@ -777,14 +1001,19 @@ public class J2DArea extends JFrame {
                     PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice));
                     pastedObjects.add(pastedObject);
                     objectToMove = pastedObject;
+                    objectToMoveIdx = pastedObjects.size() - 1;
+                    deltaX = 0;
+                    deltaY = 0;
                     painting = false;
                     repaint();
                 }
             }
         });
-        menubar.add(pasteFromButton);
         pasteFromButton.setMaximumSize(BUTTON_SIZE);
         pasteFromButton.setToolTipText("Paste from an image file");
+        JMenuItem pasteFromMenuItem = new JMenuItem(pasteFromButton.getAction());
+        pasteFromMenuItem.setText("Paste Image...");
+        insertMenu.add(pasteFromMenuItem);
 
         JButton parallelogramBlackButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/parallelogram-black.png"))) {
 
@@ -799,7 +1028,10 @@ public class J2DArea extends JFrame {
         });
         parallelogramBlackButton.setMaximumSize(BUTTON_SIZE);
         parallelogramBlackButton.setToolTipText("Draw and fill a new black parallelogram");
-        menubar.add(parallelogramBlackButton);
+        insertMenu.addSeparator();
+        JMenuItem parallelogramBlackMenuItem = new JMenuItem(parallelogramBlackButton.getAction());
+        parallelogramBlackMenuItem.setText("Black Parallelogram");
+        insertMenu.add(parallelogramBlackMenuItem);
 
         JButton parallelogramTextureButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/parallelogram-texture.png"))) {
             
@@ -814,7 +1046,9 @@ public class J2DArea extends JFrame {
         });
         parallelogramTextureButton.setMaximumSize(BUTTON_SIZE);
         parallelogramTextureButton.setToolTipText("Draw and fill a new parallelogram with a texture");
-        menubar.add(parallelogramTextureButton);
+        JMenuItem parallelogramTextureMenuItem = new JMenuItem(parallelogramTextureButton.getAction());
+        parallelogramTextureMenuItem.setText("Textured Parallelogram");
+        insertMenu.add(parallelogramTextureMenuItem);
 
         JButton pasteFromOpenDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/opened_door.png"))) {
             
@@ -836,15 +1070,20 @@ public class J2DArea extends JFrame {
                     PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), pastedObjectType);
                     pastedObjects.add(pastedObject);
                     objectToMove = pastedObject;
+                    objectToMoveIdx = pastedObjects.size() - 1;
+                    deltaX = 0;
+                    deltaY = 0;
                     painting = false;
                     drawClosed = false;
                     repaint();
                 }
             }
         });
-        menubar.add(pasteFromOpenDoorButton);
         pasteFromOpenDoorButton.setMaximumSize(BUTTON_SIZE);
         pasteFromOpenDoorButton.setToolTipText("Paste from an image file of opened door");
+        JMenuItem pasteFromOpenDoorMenuItem = new JMenuItem(pasteFromOpenDoorButton.getAction());
+        pasteFromOpenDoorMenuItem.setText("Paste Open Door...");
+        insertMenu.add(pasteFromOpenDoorMenuItem);
         
         JButton pasteFromClosedDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/closed_door.png"))) {
             
@@ -857,15 +1096,20 @@ public class J2DArea extends JFrame {
                     PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), PastedObjectType.CLOSED_DOOR);
                     pastedObjects.add(pastedObject);
                     objectToMove = pastedObject;
+                    objectToMoveIdx = pastedObjects.size() - 1;
+                    deltaX = 0;
+                    deltaY = 0;
                     painting = false;
                     drawClosed = true;
                     repaint();
                 }
             }
         });
-        menubar.add(pasteFromClosedDoorButton);
         pasteFromClosedDoorButton.setMaximumSize(BUTTON_SIZE);
         pasteFromClosedDoorButton.setToolTipText("Paste from an image file of closed door");
+        JMenuItem pasteFromClosedDoorMenuItem = new JMenuItem(pasteFromClosedDoorButton.getAction());
+        pasteFromClosedDoorMenuItem.setText("Paste Closed Door...");
+        insertMenu.add(pasteFromClosedDoorMenuItem);
         
         JButton pasteFromNightLightButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/night_light.png"))) {
             
@@ -878,15 +1122,20 @@ public class J2DArea extends JFrame {
                     PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(choice), PastedObjectType.NIGHT_LIGHT);
                     pastedObjects.add(pastedObject);
                     objectToMove = pastedObject;
+                    objectToMoveIdx = pastedObjects.size() - 1;
+                    deltaX = 0;
+                    deltaY = 0;
                     painting = false;
                     night = true;
                     repaint();
                 }
             }
         });
-        menubar.add(pasteFromNightLightButton);
         pasteFromNightLightButton.setMaximumSize(BUTTON_SIZE);
         pasteFromNightLightButton.setToolTipText("Paste from an image file of night time light");
+        JMenuItem pasteFromNightLightMenuItem = new JMenuItem(pasteFromNightLightButton.getAction());
+        pasteFromNightLightMenuItem.setText("Paste Night Light...");
+        insertMenu.add(pasteFromNightLightMenuItem);
 
         JButton entranceButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/entrance.png"))) {
 
@@ -894,33 +1143,20 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Create a simple entrance marker icon (small square with arrow)
-                BufferedImage entranceIcon = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
-                Graphics g = entranceIcon.getGraphics();
-                g.setColor(new Color(100, 150, 255, 200));
-                g.fillRect(8, 4, 16, 24);
-                g.setColor(new Color(255, 255, 100));
-                int[] xPoints = {16, 22, 16};
-                int[] yPoints = {12, 16, 20};
-                g.fillPolygon(xPoints, yPoints, 3);
-                g.dispose();
-
-                PastedObject pastedObject = new PastedObject(mousePosition, new ExportableImage(entranceIcon), PastedObjectType.ENTRANCE);
                 String entranceName = JOptionPane.showInputDialog("Enter entrance name:", "Entrance" + (countEntrances() + 1));
                 if (entranceName != null && !entranceName.trim().isEmpty()) {
-                    pastedObject.getEntranceData().setName(entranceName.trim());
-                    pastedObject.getEntranceData().setX(mousePosition.x);
-                    pastedObject.getEntranceData().setY(mousePosition.y);
-                    pastedObjects.add(pastedObject);
-                    objectToMove = pastedObject;
+                    beginTransitionPlacement(entranceName.trim());
                     painting = false;
                     repaint();
                 }
             }
         });
-        menubar.add(entranceButton);
         entranceButton.setMaximumSize(BUTTON_SIZE);
         entranceButton.setToolTipText("Place an entrance/exit point for area transitions");
+        insertMenu.addSeparator();
+        JMenuItem entranceMenuItem = new JMenuItem(entranceButton.getAction());
+        entranceMenuItem.setText("New Transition Entry/Exit...");
+        insertMenu.add(entranceMenuItem);
 
         JButton drawClosedDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/draw_closed.png"))) {
             
@@ -933,9 +1169,19 @@ public class J2DArea extends JFrame {
                 repaint();
             }
         });
-        menubar.add(drawClosedDoorButton);
         drawClosedDoorButton.setMaximumSize(BUTTON_SIZE);
         drawClosedDoorButton.setToolTipText("Toggle draw closed doors");
+        drawClosedDoorMenuItem = new JCheckBoxMenuItem("Closed Doors", drawClosed);
+        drawClosedDoorMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/draw_closed.png")));
+        drawClosedDoorMenuItem.setToolTipText("Toggle draw closed doors");
+        drawClosedDoorMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                painting = false;
+                setDrawClosedState(drawClosedDoorMenuItem.isSelected());
+            }
+        });
+        viewMenu.add(drawClosedDoorMenuItem);
         
         JButton nightButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/night.png"))) {
             
@@ -948,9 +1194,44 @@ public class J2DArea extends JFrame {
                 repaint();
             }
         });
-        menubar.add(nightButton);
         nightButton.setMaximumSize(BUTTON_SIZE);
         nightButton.setToolTipText("Toggle day/night");
+        nightMenuItem = new JCheckBoxMenuItem("Day/Night", night);
+        nightMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/night.png")));
+        nightMenuItem.setToolTipText("Toggle day/night");
+        nightMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                painting = false;
+                setNightModeState(nightMenuItem.isSelected());
+            }
+        });
+        viewMenu.add(nightMenuItem);
+        drawClosedDoorToggleButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/draw_closed.png")));
+        drawClosedDoorToggleButton.setSelected(drawClosed);
+        drawClosedDoorToggleButton.setToolTipText("Toggle draw closed doors");
+        drawClosedDoorToggleButton.setMaximumSize(BUTTON_SIZE);
+        drawClosedDoorToggleButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                painting = false;
+                setDrawClosedState(drawClosedDoorToggleButton.isSelected());
+            }
+        });
+        menubar.add(drawClosedDoorToggleButton);
+
+        nightToggleButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/night.png")));
+        nightToggleButton.setSelected(night);
+        nightToggleButton.setToolTipText("Toggle day/night");
+        nightToggleButton.setMaximumSize(BUTTON_SIZE);
+        nightToggleButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                painting = false;
+                setNightModeState(nightToggleButton.isSelected());
+            }
+        });
+        menubar.add(nightToggleButton);
 
         JButton polygonButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/polygon.png"))) {
 
@@ -966,7 +1247,21 @@ public class J2DArea extends JFrame {
         });
         polygonButton.setMaximumSize(BUTTON_SIZE);
         polygonButton.setToolTipText("Polygon selection");
-        menubar.add(polygonButton);
+        viewMenu.addSeparator();
+        ButtonGroup cursorModeGroup = new ButtonGroup();
+        JRadioButtonMenuItem cursorMenuItem = new JRadioButtonMenuItem("Select Objects", !painting && !editingPolygon);
+        cursorMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/cursor.png")));
+        cursorMenuItem.setToolTipText("Select objects");
+        cursorMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                painting = false;
+                editingPolygon = false;
+                repaint();
+            }
+        });
+        cursorModeGroup.add(cursorMenuItem);
+        cursorModeMenu.add(cursorMenuItem);
 
         JButton brushButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/pencil.png"))) {
 
@@ -979,7 +1274,18 @@ public class J2DArea extends JFrame {
         });
         brushButton.setMaximumSize(BUTTON_SIZE);
         brushButton.setToolTipText("Use texture brush");
-        menubar.add(brushButton);
+        JRadioButtonMenuItem brushMenuItem = new JRadioButtonMenuItem("Texture Brush", painting);
+        brushMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/pencil.png")));
+        brushMenuItem.setToolTipText("Use texture brush");
+        brushMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                painting = true;
+                editingPolygon = false;
+            }
+        });
+        cursorModeGroup.add(brushMenuItem);
+        cursorModeMenu.add(brushMenuItem);
 
         JButton cursorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/cursor.png"))) {
 
@@ -993,7 +1299,21 @@ public class J2DArea extends JFrame {
         });
         cursorButton.setMaximumSize(BUTTON_SIZE);
         cursorButton.setToolTipText("Select objects");
-        menubar.add(cursorButton);
+        JRadioButtonMenuItem polygonMenuItem = new JRadioButtonMenuItem("Polygon Selection", editingPolygon);
+        polygonMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/polygon.png")));
+        polygonMenuItem.setToolTipText("Polygon selection");
+        polygonMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                editingPolygon = true;
+                painting = false;
+                if (tabPane.getSelectedComponent() == buildScrollPane) {
+                    tabPane.setSelectedComponent(extractScrollPane);
+                }
+            }
+        });
+        cursorModeGroup.add(polygonMenuItem);
+        cursorModeMenu.add(polygonMenuItem);
 
         JButton paint3dButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/paint3d.png"))) {
 
@@ -1015,7 +1335,10 @@ public class J2DArea extends JFrame {
         });
         paint3dButton.setMaximumSize(BUTTON_SIZE);
         paint3dButton.setToolTipText("Edit selection in Paint 3D");
-        menubar.add(paint3dButton);
+        toolsMenu.addSeparator();
+        JMenuItem paint3dMenuItem = new JMenuItem(paint3dButton.getAction());
+        paint3dMenuItem.setText("Edit Selection in Paint 3D");
+        toolsMenu.add(paint3dMenuItem);
 
         JButton subtractBackgroundButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/remove-bg.png"))) {
 
@@ -1031,7 +1354,19 @@ public class J2DArea extends JFrame {
         });
         subtractBackgroundButton.setMaximumSize(BUTTON_SIZE);
         subtractBackgroundButton.setToolTipText("Subtract background from selection");
-        menubar.add(subtractBackgroundButton);
+        JMenuItem subtractBackgroundMenuItem = new JMenuItem(subtractBackgroundButton.getAction());
+        subtractBackgroundMenuItem.setText("Subtract Background");
+        toolsMenu.add(subtractBackgroundMenuItem);
+
+        JMenuItem commandsMenuItem = new JMenuItem("Commands...");
+        commandsMenuItem.setToolTipText("Show mouse, keyboard, and workflow help");
+        commandsMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showCommandsHelp();
+            }
+        });
+        helpMenu.add(commandsMenuItem);
 
         getContentPane().setLayout(new BorderLayout());
         getContentPane().add(tabPane, BorderLayout.CENTER);
@@ -1126,24 +1461,27 @@ public class J2DArea extends JFrame {
     }
 
     private void paintObjects(Graphics g) {
+        paintObjects(g, drawClosed, night, painting);
+    }
+
+    private void paintObjects(Graphics g, boolean closedDoors, boolean nightMode, boolean includeBrush) {
         if (buildBackgroundImage != null) {
-            if (night) {
+            if (nightMode) {
                 g.drawImage(buildBackgroundNightImage, 0, 0, null);
             } else {
                 g.drawImage(buildBackgroundImage, 0, 0, null);
             }
         }
-        if (painting && brushPreview != null) {
-            if (night) {
+        if (includeBrush && brushPreview != null) {
+            if (nightMode) {
                 g.drawImage(brushNightPreview, mousePosition.x - brushRadius, mousePosition.y - brushRadius, null);
             } else {
                 g.drawImage(brushPreview, mousePosition.x - brushRadius, mousePosition.y - brushRadius, null);
             }
         }
         for (PastedObject pastedObject : pastedObjects) {
-            if (pastedObject.isVisible(drawClosed, night)) {
-                pastedObject.drawImage(g, night);
-                // Draw label for entrance points
+            if (pastedObject.isVisible(closedDoors, nightMode)) {
+                pastedObject.drawImage(g, nightMode);
                 if (pastedObject.getPastedObjectType() == PastedObjectType.ENTRANCE &&
                     pastedObject.getEntranceData() != null) {
                     g.setColor(Color.WHITE);
@@ -1151,6 +1489,30 @@ public class J2DArea extends JFrame {
                         pastedObject.getX() + 2,
                         pastedObject.getY() - 2);
                 }
+            }
+        }
+        drawRegionOverlays(g);
+    }
+
+    private void drawRegionOverlays(Graphics g) {
+        for (RegionData regionData : regions) {
+            Polygon bounds = regionData.getBounds();
+            if (bounds == null || bounds.npoints < 3) {
+                continue;
+            }
+            Color fillColor = regionData.getType() == 2
+                ? new Color(255, 165, 0, 50)
+                : new Color(0, 200, 255, 40);
+            Color outlineColor = regionData.getType() == 2
+                ? new Color(255, 200, 0)
+                : new Color(0, 220, 255);
+            g.setColor(fillColor);
+            g.fillPolygon(bounds);
+            g.setColor(outlineColor);
+            g.drawPolygon(bounds);
+            if (regionData.getName() != null && !regionData.getName().trim().isEmpty()) {
+                Rectangle boundsRect = bounds.getBounds();
+                g.drawString(regionData.getName(), boundsRect.x + 2, boundsRect.y - 2);
             }
         }
     }
@@ -1182,32 +1544,52 @@ public class J2DArea extends JFrame {
      */
     private void exportAsBaldursGateMod() {
         try {
-            // Ask for mod name and area name
+            String prefix = requireConfiguredPrefix();
+            if (prefix == null) {
+                return;
+            }
+
             String modName = JOptionPane.showInputDialog(this,
                 "Enter mod name (e.g., MyCustomMod):",
                 "Export Baldur's Gate Mod",
                 JOptionPane.QUESTION_MESSAGE);
 
             if (modName == null || modName.trim().isEmpty()) {
-                return; // User cancelled
+                return;
+            }
+            String areaName;
+            int maxAreaIdLength = 6 - prefix.length();
+            if (maxAreaIdLength < 1) {
+                JOptionPane.showMessageDialog(this,
+                    "The configured prefix is too long. Prefix + area id must leave room for the night suffix.",
+                    ERROR,
+                    JOptionPane.ERROR_MESSAGE);
+                return;
             }
 
-            String areaName = JOptionPane.showInputDialog(this,
-                "Enter area resref (e.g., AR1000, max 8 characters):",
+            String areaId = JOptionPane.showInputDialog(this,
+                "Enter owned area id without prefix (max " + maxAreaIdLength + " chars, night suffix reserved):",
                 "Export Baldur's Gate Mod",
                 JOptionPane.QUESTION_MESSAGE);
 
-            if (areaName == null || areaName.trim().isEmpty()) {
-                return; // User cancelled
+            if (areaId == null || areaId.trim().isEmpty()) {
+                return;
             }
 
-            // Limit area name to 8 characters
-            areaName = areaName.trim().toUpperCase();
-            if (areaName.length() > 8) {
-                areaName = areaName.substring(0, 8);
+        areaId = areaId.trim().toUpperCase();
+            if (areaId.length() > maxAreaIdLength) {
+                areaId = areaId.substring(0, maxAreaIdLength);
             }
+            if (!areaId.matches("[A-Z0-9]+")) {
+                JOptionPane.showMessageDialog(this,
+                    "Area id must only contain letters and digits.",
+                    ERROR,
+                    JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            areaName = prefix + areaId;
+            String nightAreaName = areaName + 'N';
 
-            // Choose output directory
             JFileChooser chooser = new JFileChooser();
             chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
             chooser.setDialogTitle("Choose output directory for mod");
@@ -1218,31 +1600,88 @@ public class J2DArea extends JFrame {
             }
 
             File outputDir = chooser.getSelectedFile();
+            WeiDUModPackager packager = new WeiDUModPackager(modName, areaName, nightAreaName, outputDir);
+            String validationError = validateExistingAreaPatchGeometry();
+            if (validationError != null) {
+                JOptionPane.showMessageDialog(this,
+                    validationError,
+                    ERROR,
+                    JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            validationError = validateOwnedAreaDestinations();
+            if (validationError != null) {
+                JOptionPane.showMessageDialog(this,
+                    validationError,
+                    ERROR,
+                    JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            registerKnownOwnedAreas(areaName);
+            BufferedImage dayOpenRender = renderArea(false, false);
+            BufferedImage dayClosedRender = renderArea(true, false);
+            BufferedImage nightOpenRender = renderArea(false, true);
+            BufferedImage nightClosedRender = renderArea(true, true);
+            List<BufferedImage> dayTiles = new ArrayList<>(TISFile.splitImage(dayOpenRender));
+            List<BufferedImage> nightTiles = new ArrayList<>(TISFile.splitImage(nightOpenRender));
+            List<DoorExportData> doorExports = collectDoorExports();
+            WEDFile wedFile = new WEDFile(backgroundWidth, backgroundHeight, areaName);
+            WEDFile nightWedFile = new WEDFile(backgroundWidth, backgroundHeight, nightAreaName);
 
-            // Create the ARE file
+            for (DoorExportData doorExport : doorExports) {
+                for (Integer tileCell : doorExport.tileCells) {
+                    if (tileCell >= 0 && tileCell < dayTiles.size()) {
+                        BufferedImage closedTile = cropTile(dayClosedRender, tileCell);
+                        BufferedImage nightClosedTile = cropTile(nightClosedRender, tileCell);
+                        int alternateTileIndex = dayTiles.size();
+                        dayTiles.add(closedTile);
+                        nightTiles.add(nightClosedTile);
+                        wedFile.setAlternateTileIndex(tileCell, alternateTileIndex);
+                        nightWedFile.setAlternateTileIndex(tileCell, alternateTileIndex);
+                    }
+                }
+                WEDFile.DoorDefinition dayDoor = new WEDFile.DoorDefinition(
+                    doorExport.name,
+                    true,
+                    doorExport.tileCells,
+                    Arrays.asList(doorExport.openPolygon),
+                    Arrays.asList(doorExport.closedPolygon)
+                );
+                wedFile.addDoor(dayDoor);
+                nightWedFile.addDoor(new WEDFile.DoorDefinition(
+                    doorExport.name,
+                    true,
+                    doorExport.tileCells,
+                    Arrays.asList(doorExport.openPolygon),
+                    Arrays.asList(doorExport.closedPolygon)
+                ));
+            }
+
             AREFile areFile = new AREFile();
             areFile.setAreaResRef(areaName);
             areFile.setWedResource(areaName);
+            areFile.setAreaAttributes(areaAttributes);
             areFile.setWidth(backgroundWidth);
             areFile.setHeight(backgroundHeight);
 
-            // Add doors from pasted objects
-            int doorIndex = 0;
-            for (PastedObject obj : pastedObjects) {
-                if (obj.getPastedObjectType() == PastedObjectType.OPENED_DOOR ||
-                    obj.getPastedObjectType() == PastedObjectType.CLOSED_DOOR) {
-                    AREFile.AREDoor door = new AREFile.AREDoor(
-                        "Door" + doorIndex,
-                        "DOOR" + String.format("%04d", doorIndex),
-                        obj.getX(),
-                        obj.getY()
-                    );
-                    areFile.addDoor(door);
-                    doorIndex++;
-                }
+            for (DoorExportData doorExport : doorExports) {
+                AREFile.AREDoor door = new AREFile.AREDoor(
+                    doorExport.name,
+                    doorExport.id,
+                    doorExport.openPolygon,
+                    doorExport.closedPolygon
+                );
+                door.setFlags(doorExport.flags);
+                door.setOpenImpededCells(doorExport.openImpededCells);
+                door.setClosedImpededCells(doorExport.closedImpededCells);
+                door.setTravelTriggerName(doorExport.regionLinkName);
+                door.setOpenLocationFront(doorExport.openLocationFront);
+                door.setOpenLocationBack(doorExport.openLocationBack);
+                door.setLaunchPoint(doorExport.launchPoint);
+                door.setCursorIndex(doorExport.cursorIndex);
+                areFile.addDoor(door);
             }
 
-            // Add entrances from pasted objects
             for (PastedObject obj : pastedObjects) {
                 if (obj.getPastedObjectType() == PastedObjectType.ENTRANCE && obj.getEntranceData() != null) {
                     AREFile.AREEntrance entrance = new AREFile.AREEntrance(
@@ -1252,32 +1691,109 @@ public class J2DArea extends JFrame {
                         obj.getEntranceData().getOrientation()
                     );
                     areFile.addEntrance(entrance);
+
+                    if (!obj.getEntranceData().getDestinationArea().trim().isEmpty()) {
+                        AREFile.ARERegion exitRegion = new AREFile.ARERegion(
+                            obj.getEntranceData().getName() + "_EXIT",
+                            2,
+                            rectanglePolygon(new Rectangle(obj.getX() - 24, obj.getY() - 24, 48, 48))
+                        );
+                        exitRegion.setDestinationArea(obj.getEntranceData().getDestinationArea());
+                        exitRegion.setDestinationEntrance(resolveDestinationEntranceName(obj.getEntranceData()));
+                        exitRegion.setFlags(0x0004);
+                        areFile.addRegion(exitRegion);
+                    }
                 }
             }
 
-            // Create the WED file
-            WEDFile wedFile = new WEDFile(backgroundWidth, backgroundHeight, areaName);
+            addSyntheticTravelRegionEntrances(areFile);
 
-            // Create the TIS file from the background image
-            BufferedImage fullImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
-            paintObjects(fullImage.getGraphics());
-            TISFile tisFile = new TISFile(fullImage);
+            for (RegionData regionData : regions) {
+                AREFile.ARERegion region = new AREFile.ARERegion(
+                    regionData.getName(),
+                    regionData.getType(),
+                    regionData.getBounds()
+                );
+                region.setScript(regionData.getScript());
+                region.setDestinationArea(regionData.getDestinationArea());
+                region.setDestinationEntrance(regionData.getDestinationEntrance());
+                region.setFlags(regionData.getFlags());
+                region.setTrapDetectionDifficulty(regionData.getTrapDetectionDifficulty());
+                region.setTrapRemovalDifficulty(regionData.getTrapRemovalDifficulty());
+                region.setTrapped(regionData.isTrapped());
+                region.setTrapDetected(regionData.isTrapDetected());
+                areFile.addRegion(region);
+            }
 
-            // Create the WeiDU mod package
-            WeiDUModPackager packager = new WeiDUModPackager(modName, areaName, outputDir);
-            packager.createModPackage(areFile, wedFile, tisFile);
+            for (ContainerData containerData : containers) {
+                Polygon bounds = containerData.getBounds() != null
+                    ? containerData.getBounds()
+                    : rectanglePolygon(new Rectangle(containerData.getX() - 24, containerData.getY() - 16, 48, 32));
+                AREFile.AREContainer container = new AREFile.AREContainer(
+                    containerData.getName(),
+                    containerData.getX(),
+                    containerData.getY(),
+                    containerData.getContainerType() + 1,
+                    bounds
+                );
+                int flags = 0;
+                if (containerData.isLocked()) {
+                    flags |= 0x0001;
+                }
+                if (containerData.isTrapped()) {
+                    flags |= 0x0008;
+                }
+                container.setFlags(flags);
+                container.setLockDifficulty(containerData.getLockDifficulty());
+                container.setTrapDetectionDifficulty(containerData.getTrapDetectionDifficulty());
+                container.setTrapRemovalDifficulty(containerData.getTrapRemovalDifficulty());
+                container.setTrapped(containerData.isTrapped());
+                container.setTrapDetected(containerData.isTrapDetected());
+                container.setKeyItem(containerData.getKeyItem());
+                container.setScript(containerData.getScript());
+                areFile.addContainer(container);
+            }
+
+            PvrzTisFile tisFile = new PvrzTisFile(areaName, dayTiles);
+            PvrzTisFile nightTisFile = new PvrzTisFile(nightAreaName, nightTiles);
+            BufferedImage searchMap = createSearchMap();
+            BufferedImage lightMap = createLightMap();
+            BufferedImage heightMap = createHeightMap();
+            Map<String, String> existingAreaPatches = buildExistingAreaTransitionPatches(areaName);
+            packager.createModPackage(
+                areFile,
+                wedFile,
+                nightWedFile,
+                tisFile,
+                nightTisFile,
+                searchMap,
+                lightMap,
+                heightMap,
+                existingAreaPatches
+            );
+
+            StringBuilder successMessage = new StringBuilder();
+            successMessage.append("Mod package created successfully!\n\n");
+            successMessage.append("Location: ").append(new File(outputDir, modName).getAbsolutePath()).append("\n\n");
+            successMessage.append("Prefix: ").append(prefix).append('\n');
+            successMessage.append("Files created:\n");
+            successMessage.append("  - ").append(areaName).append(".ARE / .WED / .TIS\n");
+            successMessage.append("  - ").append(nightAreaName).append(".WED / .TIS\n");
+            successMessage.append("  - PVRZ component pages for day and night tilesets\n");
+            successMessage.append("  - ").append(areaName).append("SR.bmp / LM.bmp / HT.bmp\n");
+            if (!existingAreaPatches.isEmpty()) {
+                successMessage.append("  - patches/*.tpa for ").append(existingAreaPatches.size())
+                    .append(existingAreaPatches.size() == 1 ? " existing destination area\n" : " existing destination areas\n");
+            }
+            successMessage.append("  - ").append(modName).append(".tp2 (WeiDU installer)\n");
+            successMessage.append("  - setup-").append(modName).append(".bat / .command\n\n");
+            successMessage.append("PVRZ naming follows Near Infinity's TIS v2 convention.");
+            if (!existingAreaPatches.isEmpty()) {
+                successMessage.append("\n\nExisting-area patches were generated only for transitions marked to create a destination-side return path.");
+            }
 
             JOptionPane.showMessageDialog(this,
-                "Mod package created successfully!\n\n" +
-                "Location: " + new File(outputDir, modName).getAbsolutePath() + "\n\n" +
-                "Files created:\n" +
-                "  - " + areaName + ".are (Area definition)\n" +
-                "  - " + areaName + ".wed (World editor data)\n" +
-                "  - " + areaName + ".tis (Tileset - " + tisFile.getTileCount() + " tiles)\n" +
-                "  - " + modName + ".tp2 (WeiDU installer)\n" +
-                "  - README.txt\n\n" +
-                "To install: Copy the " + modName + " folder to your Baldur's Gate\n" +
-                "directory and run the WeiDU installer.",
+                successMessage.toString(),
                 "Export Successful",
                 JOptionPane.INFORMATION_MESSAGE);
 
@@ -1287,6 +1803,632 @@ public class J2DArea extends JFrame {
                 "Export failed: " + ex.getMessage(),
                 ERROR,
                 JOptionPane.ERROR_MESSAGE);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                "Export failed: " + ex.getMessage(),
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private BufferedImage renderArea(boolean closedDoors, boolean nightMode) {
+        BufferedImage image = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics graphics = image.getGraphics();
+        try {
+            paintObjects(graphics, closedDoors, nightMode, false);
+        } finally {
+            graphics.dispose();
+        }
+        return image;
+    }
+
+    private void editExportPrefix() {
+        List<PrefixReservation> reservations = loadPrefixReservations("/prefixes/ie-prefix-reservations.tsv");
+        if (reservations.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                "No reserved prefix catalog could be loaded.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        PrefixSelectionDialog dialog = new PrefixSelectionDialog(this, reservations, UserPreferences.getExportPrefix());
+        dialog.setVisible(true);
+        PrefixReservation selected = dialog.getSelectedPrefix();
+        if (selected == null) {
+            return;
+        }
+        UserPreferences.setExportPrefix(selected.getPrefix());
+        JOptionPane.showMessageDialog(this, "Saved export prefix: " + selected.getPrefix());
+    }
+
+    private String requireConfiguredPrefix() {
+        String prefix = normalizeExportPrefix(UserPreferences.getExportPrefix());
+        if (prefix != null) {
+            return prefix;
+        }
+        JOptionPane.showMessageDialog(this,
+            "Set an export prefix first. Use the Prefix button in the toolbar.",
+            ERROR,
+            JOptionPane.ERROR_MESSAGE);
+        return null;
+    }
+
+    private String normalizeExportPrefix(String prefix) {
+        if (prefix == null) {
+            return null;
+        }
+        prefix = prefix.trim();
+        for (PrefixReservation reservation : loadPrefixReservations("/prefixes/ie-prefix-reservations.tsv")) {
+            if (reservation.getPrefix().equals(prefix)) {
+                return prefix;
+            }
+        }
+        return null;
+    }
+
+    private void editUserPreferences() {
+        JTextField gamePathField = new JTextField(UserPreferences.getGameInstallPath(), 33);
+        JTextField storageLocationField = new JTextField(UserPreferences.getStorageLocation(), 33);
+        storageLocationField.setEditable(false);
+        storageLocationField.setCaretPosition(0);
+        JSpinner zoomFactorSpinner = new JSpinner(new SpinnerNumberModel(
+            Double.valueOf(UserPreferences.getZoomFactor()),
+            Double.valueOf(1.01d),
+            Double.valueOf(2.0d),
+            Double.valueOf(0.01d)
+        ));
+        JSpinner.NumberEditor zoomFactorEditor = new JSpinner.NumberEditor(zoomFactorSpinner, "0.00");
+        zoomFactorSpinner.setEditor(zoomFactorEditor);
+        JButton browseGamePathButton = new JButton(new ImageIcon(getClass().getResource("/icons/open.png")));
+        browseGamePathButton.setToolTipText("Browse for game install directory");
+        browseGamePathButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
+                chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                chooser.setDialogTitle("Select game install directory");
+                if (chooser.showOpenDialog(J2DArea.this) == JFileChooser.APPROVE_OPTION) {
+                    gamePathField.setText(chooser.getSelectedFile().getAbsolutePath());
+                }
+            }
+        });
+        JPanel gamePathPanel = new JPanel(new BorderLayout(5, 0));
+        gamePathPanel.add(gamePathField, BorderLayout.CENTER);
+        gamePathPanel.add(browseGamePathButton, BorderLayout.EAST);
+
+        JPanel contentPanel = new JPanel(new GridBagLayout());
+        contentPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 12, 6, 12));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(4, 4, 4, 4);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 0;
+        contentPanel.add(new JLabel("Game install path:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        contentPanel.add(gamePathPanel, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.weightx = 0;
+        contentPanel.add(new JLabel("Zoom factor:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        contentPanel.add(zoomFactorSpinner, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.weightx = 0;
+        contentPanel.add(new JLabel("Preferences file:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        contentPanel.add(storageLocationField, gbc);
+
+        int result = JOptionPane.showConfirmDialog(
+            this,
+            contentPanel,
+            "User Preferences",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+        if (result == JOptionPane.OK_OPTION) {
+            UserPreferences.setGameInstallPath(gamePathField.getText());
+            UserPreferences.setZoomFactor(((Number) zoomFactorSpinner.getValue()).doubleValue());
+        }
+    }
+
+    private void showCommandsHelp() {
+        JEditorPane helpTextPane = new JEditorPane("text/html",
+            "<html><body style='font-family:sans-serif;font-size:12pt;padding:8px'>"
+                + "<b>Build Area</b><br><br>"
+                + "<b>Mouse</b><br>"
+                + "<b>Left-drag</b> on a selected object: move it.<br>"
+                + "<b>Right-click</b> an object or transition marker: open its context menu.<br>"
+                + "<b>Ctrl + Mouse Wheel</b>: zoom.<br>"
+                + "<b>Mouse Wheel</b>: scroll.<br>"
+                + "<b>Shift + Mouse Wheel</b>: flip the selected object, or change brush size while painting.<br><br>"
+                + "<b>Keyboard</b><br>"
+                + "<b>Delete</b>: remove the selected object.<br>"
+                + "<b>+</b> or <b>Shift+=</b>: bring the selected object forward.<br>"
+                + "<b>-</b> or <b>NumPad-</b> or <b>6</b>: send the selected object backward.<br>"
+                + "<b>Up</b> / <b>Down</b>: adjust the selected object's vertical placement.<br><br>"
+                + "<b>Extraction Area</b><br><br>"
+                + "<b>Mouse</b><br>"
+                + "<b>Left-click</b>: add polygon vertices.<br>"
+                + "<b>Click near the first vertex</b>: close the polygon.<br>"
+                + "<b>Drag the tile handles</b>: refine the current extraction.<br>"
+                + "<b>Ctrl + Mouse Wheel</b>: zoom.<br>"
+                + "<b>Mouse Wheel</b>: scroll."
+                + "</body></html>"
+        );
+        helpTextPane.setEditable(false);
+        helpTextPane.setOpaque(false);
+        helpTextPane.setCaretPosition(0);
+        JScrollPane scrollPane = new JScrollPane(helpTextPane);
+        scrollPane.setPreferredSize(new Dimension(560, 420));
+        JOptionPane.showMessageDialog(this, scrollPane, "Commands", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private Map<String, String> buildExistingAreaTransitionPatches(String ownedAreaResref) {
+        Map<String, StringBuilder> patchBuilders = new LinkedHashMap<>();
+
+        for (PastedObject obj : pastedObjects) {
+            if (obj.getPastedObjectType() != PastedObjectType.ENTRANCE || obj.getEntranceData() == null) {
+                continue;
+            }
+
+            EntranceData entranceData = obj.getEntranceData();
+            if (!shouldCreateExistingAreaPatch(entranceData)) {
+                continue;
+            }
+
+            String targetArea = normalizeAreaResref(entranceData.getDestinationArea());
+            StringBuilder patchBuilder = patchBuilders.get(targetArea);
+            if (patchBuilder == null) {
+                patchBuilder = new StringBuilder();
+                patchBuilder.append("  // Generated by J2DArea for patching an existing destination area.\n");
+                patchBuilder.append("  // Target area: ").append(targetArea).append('\n');
+                patchBuilder.append("  // Owned source area: ").append(ownedAreaResref).append("\n\n");
+                patchBuilders.put(targetArea, patchBuilder);
+            }
+
+            String destinationEntranceName = resolveDestinationEntranceName(entranceData);
+            EntranceData destinationEntrance = new EntranceData(
+                destinationEntranceName,
+                entranceData.getDestinationPointX(),
+                entranceData.getDestinationPointY()
+            );
+            destinationEntrance.setOrientation(entranceData.getDestinationPointOrientation());
+            appendEntrancePatch(patchBuilder, destinationEntrance);
+
+            appendRegionPatch(
+                patchBuilder,
+                buildDestinationReturnRegionName(ownedAreaResref, entranceData),
+                2,
+                resolveDestinationReturnPolygon(entranceData),
+                ownedAreaResref,
+                trimToEmpty(entranceData.getName()),
+                0x0004,
+                "",
+                0,
+                0,
+                false,
+                false
+            );
+        }
+
+        for (RegionData regionData : regions) {
+            if (!shouldCreateExistingAreaPatch(regionData)) {
+                continue;
+            }
+
+            String targetArea = normalizeAreaResref(regionData.getDestinationArea());
+            StringBuilder patchBuilder = patchBuilders.get(targetArea);
+            if (patchBuilder == null) {
+                patchBuilder = new StringBuilder();
+                patchBuilder.append("  // Generated by J2DArea for patching an existing destination area.\n");
+                patchBuilder.append("  // Target area: ").append(targetArea).append('\n');
+                patchBuilder.append("  // Owned source area: ").append(ownedAreaResref).append("\n\n");
+                patchBuilders.put(targetArea, patchBuilder);
+            }
+
+            EntranceData destinationEntrance = new EntranceData(
+                resolveDestinationEntranceName(regionData),
+                regionData.getDestinationPointX(),
+                regionData.getDestinationPointY()
+            );
+            destinationEntrance.setOrientation(regionData.getDestinationPointOrientation());
+            appendEntrancePatch(patchBuilder, destinationEntrance);
+
+            appendRegionPatch(
+                patchBuilder,
+                buildDestinationReturnRegionName(ownedAreaResref, regionData),
+                2,
+                regionData.getDestinationReturnPolygon(),
+                ownedAreaResref,
+                resolveOwnedAreaReturnEntranceName(regionData),
+                0x0004,
+                "",
+                0,
+                0,
+                false,
+                false
+            );
+        }
+
+        Map<String, String> patches = new LinkedHashMap<>();
+        for (Map.Entry<String, StringBuilder> entry : patchBuilders.entrySet()) {
+            patches.put(entry.getKey(), entry.getValue().toString());
+        }
+        return patches;
+    }
+
+    private void appendEntrancePatch(StringBuilder out, EntranceData entranceData) {
+        out.append("  LPF fj_are_structure\n");
+        out.append("    INT_VAR\n");
+        out.append("      fj_loc_x             = ").append(entranceData.getX()).append('\n');
+        out.append("      fj_loc_y             = ").append(entranceData.getY()).append('\n');
+        out.append("      fj_orientation       = ").append(entranceData.getOrientation()).append('\n');
+        out.append("    STR_VAR\n");
+        out.append("      fj_structure_type    = entrance\n");
+        out.append("      fj_name              = ~").append(escapeWeiDUString(entranceData.getName())).append("~\n");
+        out.append("  END\n\n");
+    }
+
+    private void appendRegionPatch(StringBuilder out, String name, int type, Polygon polygon,
+            String destinationArea, String destinationEntrance, int flags, String script,
+            int trapDetectionDifficulty, int trapRemovalDifficulty, boolean trapped, boolean trapDetected) {
+        if (polygon == null || polygon.npoints == 0) {
+            return;
+        }
+        Rectangle bounds = polygon.getBounds();
+        out.append("  LPF fj_are_structure\n");
+        out.append("    INT_VAR\n");
+        out.append("      fj_type              = ").append(type).append('\n');
+        out.append("      fj_box_left          = ").append(bounds.x).append('\n');
+        out.append("      fj_box_top           = ").append(bounds.y).append('\n');
+        out.append("      fj_box_right         = ").append(bounds.x + bounds.width).append('\n');
+        out.append("      fj_box_bottom        = ").append(bounds.y + bounds.height).append('\n');
+        out.append("      fj_cursor_idx        = 34\n");
+        out.append("      fj_flags             = ").append(flags).append('\n');
+        out.append("      fj_trap_detect       = ").append(trapDetectionDifficulty).append('\n');
+        out.append("      fj_trap_remove       = ").append(trapRemovalDifficulty).append('\n');
+        out.append("      fj_trap_active       = ").append(trapped ? 1 : 0).append('\n');
+        out.append("      fj_trap_status       = ").append(trapDetected ? 1 : 0).append('\n');
+        out.append("      fj_loc_x             = ").append(bounds.x + (bounds.width / 2)).append('\n');
+        out.append("      fj_loc_y             = ").append(bounds.y + (bounds.height / 2)).append('\n');
+        for (int i = 0; i < polygon.npoints; i++) {
+            int vertex = polygon.xpoints[i] + (polygon.ypoints[i] << 16);
+            out.append("      fj_vertex_").append(i).append("          = ").append(vertex).append('\n');
+        }
+        out.append("    STR_VAR\n");
+        out.append("      fj_structure_type    = region\n");
+        out.append("      fj_name              = ~").append(escapeWeiDUString(name)).append("~\n");
+        out.append("      fj_destination_area  = ~").append(escapeWeiDUString(destinationArea)).append("~\n");
+        out.append("      fj_destination_name  = ~").append(escapeWeiDUString(destinationEntrance)).append("~\n");
+        out.append("      fj_reg_script        = ~").append(escapeWeiDUString(script)).append("~\n");
+        out.append("  END\n\n");
+    }
+
+    private String escapeWeiDUString(String value) {
+        return value != null ? value.replace("~", "") : "";
+    }
+
+    private void addSyntheticTravelRegionEntrances(AREFile areFile) {
+        Set<String> existingEntranceNames = collectExistingEntranceNames();
+        for (RegionData regionData : regions) {
+            if (!shouldCreateExistingAreaPatch(regionData)) {
+                continue;
+            }
+            String localEntranceName = resolveOwnedAreaReturnEntranceName(regionData);
+            if (localEntranceName.isEmpty() || existingEntranceNames.contains(localEntranceName)) {
+                continue;
+            }
+            Point center = getPolygonCenter(regionData.getBounds());
+            areFile.addEntrance(new AREFile.AREEntrance(localEntranceName, center.x, center.y, 0));
+            existingEntranceNames.add(localEntranceName);
+        }
+    }
+
+    private Set<String> collectExistingEntranceNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (PastedObject obj : pastedObjects) {
+            if (obj.getPastedObjectType() == PastedObjectType.ENTRANCE && obj.getEntranceData() != null) {
+                String name = trimToEmpty(obj.getEntranceData().getName());
+                if (!name.isEmpty()) {
+                    names.add(name);
+                }
+            }
+        }
+        return names;
+    }
+
+    private boolean shouldCreateExistingAreaPatch(EntranceData entranceData) {
+        return entranceData != null
+            && entranceData.getDestinationAreaType() == DestinationAreaType.EXISTING_GAME_AREA
+            && entranceData.isCreateDestinationReturnTransition()
+            && !trimToEmpty(entranceData.getDestinationArea()).isEmpty();
+    }
+
+    private boolean shouldCreateExistingAreaPatch(RegionData regionData) {
+        return regionData != null
+            && regionData.getType() == 2
+            && regionData.getDestinationAreaType() == DestinationAreaType.EXISTING_GAME_AREA
+            && !trimToEmpty(regionData.getDestinationArea()).isEmpty()
+            && regionData.getBounds() != null
+            && regionData.getBounds().npoints > 0
+            && regionData.getDestinationReturnPolygon() != null
+            && regionData.getDestinationReturnPolygon().npoints >= 3;
+    }
+
+    private String resolveDestinationEntranceName(EntranceData entranceData) {
+        String destinationEntrance = trimToEmpty(entranceData.getDestinationEntrance());
+        return destinationEntrance.isEmpty() ? trimToEmpty(entranceData.getName()) : destinationEntrance;
+    }
+
+    private String resolveDestinationEntranceName(RegionData regionData) {
+        String destinationEntrance = trimToEmpty(regionData.getDestinationEntrance());
+        return destinationEntrance.isEmpty() ? trimToEmpty(regionData.getName()) : destinationEntrance;
+    }
+
+    private String resolveOwnedAreaReturnEntranceName(RegionData regionData) {
+        return trimToEmpty(regionData.getName());
+    }
+
+    private String buildDestinationReturnRegionName(String ownedAreaResref, EntranceData entranceData) {
+        String baseName = trimToEmpty(ownedAreaResref) + "_" + trimToEmpty(entranceData.getName()) + "_EXIT";
+        return baseName.length() > 32 ? baseName.substring(0, 32) : baseName;
+    }
+
+    private String buildDestinationReturnRegionName(String ownedAreaResref, RegionData regionData) {
+        String baseName = trimToEmpty(ownedAreaResref) + "_" + trimToEmpty(regionData.getName()) + "_EXIT";
+        return baseName.length() > 32 ? baseName.substring(0, 32) : baseName;
+    }
+
+    private Point getPolygonCenter(Polygon polygon) {
+        if (polygon == null || polygon.npoints == 0) {
+            return new Point(0, 0);
+        }
+        Rectangle bounds = polygon.getBounds();
+        return new Point(bounds.x + (bounds.width / 2), bounds.y + (bounds.height / 2));
+    }
+
+    private String detectEdgeDirection(Polygon polygon) {
+        if (polygon == null || polygon.npoints < 3) {
+            return null;
+        }
+        Rectangle bounds = polygon.getBounds();
+        boolean touchesNorth = bounds.y <= 0;
+        boolean touchesSouth = bounds.y + bounds.height >= backgroundHeight;
+        boolean touchesWest = bounds.x <= 0;
+        boolean touchesEast = bounds.x + bounds.width >= backgroundWidth;
+        int count = (touchesNorth ? 1 : 0) + (touchesSouth ? 1 : 0) + (touchesWest ? 1 : 0) + (touchesEast ? 1 : 0);
+        if (count != 1) {
+            return null;
+        }
+        if (touchesNorth) {
+            return "NORTH";
+        }
+        if (touchesSouth) {
+            return "SOUTH";
+        }
+        if (touchesWest) {
+            return "WEST";
+        }
+        return "EAST";
+    }
+
+    private String validateExistingAreaPatchGeometry() {
+        List<String> invalidTravelRegions = new ArrayList<>();
+        for (RegionData regionData : regions) {
+            if (regionData == null
+                    || regionData.getType() != 2
+                    || regionData.getDestinationAreaType() != DestinationAreaType.EXISTING_GAME_AREA
+                    || trimToEmpty(regionData.getDestinationArea()).isEmpty()) {
+                continue;
+            }
+            Polygon destinationPolygon = regionData.getDestinationReturnPolygon();
+            if (destinationPolygon == null || destinationPolygon.npoints < 3) {
+                invalidTravelRegions.add(trimToEmpty(regionData.getName()).isEmpty() ? "<unnamed travel region>" : regionData.getName());
+            }
+        }
+        if (invalidTravelRegions.isEmpty()) {
+            return null;
+        }
+        StringBuilder message = new StringBuilder();
+        message.append("Existing-area travel regions need explicit destination-side geometry from the configured game install before export.\n\n");
+        message.append("Missing destination polygons:\n");
+        for (String regionName : invalidTravelRegions) {
+            message.append(" - ").append(regionName).append('\n');
+        }
+        message.append("\nOpen Regions, edit each travel region, pair it with an entrance, and use 'Select In Area...' to draw the destination-side return polygon.");
+        return message.toString();
+    }
+
+    private Polygon resolveDestinationReturnPolygon(EntranceData entranceData) {
+        Polygon polygon = entranceData.getDestinationReturnPolygon();
+        if (polygon != null && polygon.npoints >= 3) {
+            return polygon;
+        }
+        return rectanglePolygon(new Rectangle(
+            entranceData.getDestinationPointX() - 24,
+            entranceData.getDestinationPointY() - 24,
+            48,
+            48
+        ));
+    }
+
+    private String normalizeAreaResref(String value) {
+        return trimToEmpty(value).toUpperCase();
+    }
+
+    private String trimToEmpty(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private List<DoorExportData> collectDoorExports() {
+        List<DoorExportData> exports = new ArrayList<DoorExportData>();
+        int index = 1;
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject.getPastedObjectType() == PastedObjectType.OPENED_DOOR
+                    || pastedObject.getPastedObjectType() == PastedObjectType.CLOSED_DOOR) {
+                exports.add(createDoorExportData(index++, pastedObject));
+            }
+        }
+        return exports;
+    }
+
+    private DoorExportData createDoorExportData(int index, PastedObject doorObject) {
+        Rectangle openBounds = objectBounds(doorObject);
+        Rectangle closedBounds = openBounds;
+        Rectangle unionBounds = openBounds.union(closedBounds);
+        List<Integer> tileCells = new ArrayList<>();
+        int startTileX = Math.max(0, unionBounds.x / 64);
+        int endTileX = Math.min((backgroundWidth - 1) / 64, (unionBounds.x + unionBounds.width - 1) / 64);
+        int startTileY = Math.max(0, unionBounds.y / 64);
+        int endTileY = Math.min((backgroundHeight - 1) / 64, (unionBounds.y + unionBounds.height - 1) / 64);
+        int tilesPerRow = (backgroundWidth + 63) / 64;
+        for (int tileY = startTileY; tileY <= endTileY; tileY++) {
+            for (int tileX = startTileX; tileX <= endTileX; tileX++) {
+                tileCells.add(tileY * tilesPerRow + tileX);
+            }
+        }
+        String doorName = "DOOR" + String.format("%04d", index);
+        String doorId = doorName;
+        return new DoorExportData(
+            doorName,
+            doorId,
+            createDoorPolygon(openBounds),
+            createDoorPolygon(closedBounds),
+            tileCells,
+            new ArrayList<Point>(),
+            new ArrayList<Point>(),
+            0,
+            "",
+            new Point(),
+            new Point(),
+            new Point(),
+            30
+        );
+    }
+
+    private Rectangle objectBounds(PastedObject pastedObject) {
+        if (pastedObject == null) {
+            return new Rectangle();
+        }
+        return new Rectangle(pastedObject.getX(), pastedObject.getY(), pastedObject.getWidth(), pastedObject.getHeight());
+    }
+
+    private Polygon createDoorPolygon(Rectangle bounds) {
+        int left = bounds.x;
+        int right = bounds.x + bounds.width;
+        int top = bounds.y;
+        int bottom = bounds.y + bounds.height;
+        return new Polygon(
+            new int[] {right, right, left, left},
+            new int[] {bottom, top, top, bottom},
+            4
+        );
+    }
+
+    private Polygon rectanglePolygon(Rectangle rectangle) {
+        return new Polygon(
+            new int[] {rectangle.x, rectangle.x + rectangle.width, rectangle.x + rectangle.width, rectangle.x},
+            new int[] {rectangle.y, rectangle.y, rectangle.y + rectangle.height, rectangle.y + rectangle.height},
+            4
+        );
+    }
+
+    private BufferedImage cropTile(BufferedImage image, int tileCellIndex) {
+        int tilesPerRow = (backgroundWidth + 63) / 64;
+        int tileX = (tileCellIndex % tilesPerRow) * 64;
+        int tileY = (tileCellIndex / tilesPerRow) * 64;
+        int width = Math.min(64, image.getWidth() - tileX);
+        int height = Math.min(64, image.getHeight() - tileY);
+        BufferedImage tileImage = new BufferedImage(64, 64, BufferedImage.TYPE_INT_RGB);
+        Graphics graphics = tileImage.getGraphics();
+        try {
+            graphics.drawImage(image, 0, 0, width, height, tileX, tileY, tileX + width, tileY + height, null);
+        } finally {
+            graphics.dispose();
+        }
+        return tileImage;
+    }
+
+    private BufferedImage createSearchMap() {
+        BufferedImage image = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics graphics = image.getGraphics();
+        try {
+            graphics.setColor(Color.WHITE);
+            graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+        } finally {
+            graphics.dispose();
+        }
+        return image;
+    }
+
+    private BufferedImage createLightMap() {
+        BufferedImage image = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics graphics = image.getGraphics();
+        try {
+            graphics.setColor(new Color(128, 128, 128));
+            graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+        } finally {
+            graphics.dispose();
+        }
+        return image;
+    }
+
+    private BufferedImage createHeightMap() {
+        BufferedImage image = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics graphics = image.getGraphics();
+        try {
+            graphics.setColor(Color.BLACK);
+            graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+        } finally {
+            graphics.dispose();
+        }
+        return image;
+    }
+
+    private static class DoorExportData {
+        private final String name;
+        private final String id;
+        private final Polygon openPolygon;
+        private final Polygon closedPolygon;
+        private final List<Integer> tileCells;
+        private final List<Point> openImpededCells;
+        private final List<Point> closedImpededCells;
+        private final int flags;
+        private final String regionLinkName;
+        private final Point openLocationFront;
+        private final Point openLocationBack;
+        private final Point launchPoint;
+        private final int cursorIndex;
+
+        private DoorExportData(String name, String id, Polygon openPolygon, Polygon closedPolygon, List<Integer> tileCells,
+                List<Point> openImpededCells, List<Point> closedImpededCells, int flags, String regionLinkName,
+                Point openLocationFront, Point openLocationBack, Point launchPoint, int cursorIndex) {
+            this.name = name;
+            this.id = id;
+            this.openPolygon = openPolygon;
+            this.closedPolygon = closedPolygon;
+            this.tileCells = tileCells;
+            this.openImpededCells = openImpededCells;
+            this.closedImpededCells = closedImpededCells;
+            this.flags = flags;
+            this.regionLinkName = regionLinkName;
+            this.openLocationFront = openLocationFront;
+            this.openLocationBack = openLocationBack;
+            this.launchPoint = launchPoint;
+            this.cursorIndex = cursorIndex;
         }
     }
 
@@ -1307,55 +2449,838 @@ public class J2DArea extends JFrame {
         if (entranceObject == null || entranceObject.getEntranceData() == null) {
             return;
         }
+        syncEntranceDataFromObject(entranceObject);
 
-        List<String> availableAreas = collectAvailableAreas();
-        EntranceEditorDialog dialog = new EntranceEditorDialog(this, entranceObject.getEntranceData(), availableAreas);
+        List<AreaReference> availableAreas = collectAvailableAreas();
+        EntranceEditorDialog dialog = new EntranceEditorDialog(
+            this,
+            entranceObject.getEntranceData(),
+            availableAreas,
+            collectKnownOwnedAreaReferences(),
+            UserPreferences.getExportPrefix(),
+            collectReservedOwnedAreaResrefs()
+        );
         dialog.setVisible(true);
 
         if (dialog.isConfirmed()) {
-            // Update the position of the entrance object based on edited coordinates
-            entranceObject.setLocation(new Point(
-                entranceObject.getEntranceData().getX(),
-                entranceObject.getEntranceData().getY()
-            ));
+            syncEntranceMarker(entranceObject);
         }
+    }
+
+    private void editRegion(RegionData regionData) {
+        if (regionData == null) {
+            return;
+        }
+        RegionEditorDialog dialog = new RegionEditorDialog(
+            this,
+            regionData,
+            collectAvailableAreas(),
+            collectKnownOwnedAreaReferences(),
+            collectEntranceNames(),
+            UserPreferences.getExportPrefix(),
+            collectReservedOwnedAreaResrefs(),
+            backgroundWidth,
+            backgroundHeight
+        );
+        dialog.setVisible(true);
+    }
+
+    private void editRegions() {
+        RegionManagerDialog dialog = new RegionManagerDialog(
+            this,
+            regions,
+            collectAvailableAreas(),
+            collectKnownOwnedAreaReferences(),
+            collectEntranceNames(),
+            UserPreferences.getExportPrefix(),
+            collectReservedOwnedAreaResrefs(),
+            clonePolygon(polygon),
+            backgroundWidth,
+            backgroundHeight
+        );
+        dialog.setVisible(true);
+        if (dialog.isUsedCurrentSelection()) {
+            polygon.reset();
+            editingPolygon = false;
+        }
+        repaint();
+    }
+
+    private List<String> collectEntranceNames() {
+        List<String> names = new ArrayList<>();
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject.getPastedObjectType() == PastedObjectType.ENTRANCE && pastedObject.getEntranceData() != null) {
+                String name = trimToEmpty(pastedObject.getEntranceData().getName());
+                if (!name.isEmpty() && !names.contains(name)) {
+                    names.add(name);
+                }
+            }
+        }
+        return names;
+    }
+
+    private void refreshEntranceMarkers() {
+        for (PastedObject pastedObject : pastedObjects) {
+            syncEntranceMarker(pastedObject);
+        }
+    }
+
+    private void syncEntranceMarker(PastedObject pastedObject) {
+        if (pastedObject == null || pastedObject.getPastedObjectType() != PastedObjectType.ENTRANCE
+                || pastedObject.getEntranceData() == null) {
+            return;
+        }
+        pastedObject.setImage(new ExportableImage(
+            DirectionMarker.createEntranceMarkerImage(pastedObject.getEntranceData().getOrientation())
+        ));
+        pastedObject.setLocation(new Point(
+            pastedObject.getEntranceData().getX() - (pastedObject.getImage().getWidth() / 2),
+            pastedObject.getEntranceData().getY() - (pastedObject.getImage().getHeight() / 2)
+        ));
+        pastedObject.initBuffers();
+    }
+
+    private void syncEntranceDataFromObject(PastedObject pastedObject) {
+        if (pastedObject == null || pastedObject.getPastedObjectType() != PastedObjectType.ENTRANCE
+                || pastedObject.getEntranceData() == null) {
+            return;
+        }
+        pastedObject.getEntranceData().setX(pastedObject.getX() + (pastedObject.getWidth() / 2));
+        pastedObject.getEntranceData().setY(pastedObject.getY() + (pastedObject.getHeight() / 2));
+    }
+
+    private void beginTransitionPlacement(String entranceName) {
+        cancelTransitionPlacement(false);
+        transitionPlacementSession = new TransitionPlacementSession(entranceName);
+        localTransitionPlacementDialog = new LocalTransitionPlacementDialog(
+            this,
+            "Local Transition Geometry",
+            transitionPlacementSession.orientation,
+            new LocalTransitionPlacementDialog.Listener() {
+                @Override
+                public void onStateChanged() {
+                    if (transitionPlacementSession != null) {
+                        transitionPlacementSession.orientation = localTransitionPlacementDialog.getSelectedOrientation();
+                        updateTransitionPlacementSummary();
+                        repaint();
+                    }
+                }
+
+                @Override
+                public void onClearPolygon() {
+                    if (transitionPlacementSession != null) {
+                        transitionPlacementSession.localPolygon = new Polygon();
+                        updateTransitionPlacementSummary();
+                        repaint();
+                    }
+                }
+
+                @Override
+                public void onUndoVertex() {
+                    if (transitionPlacementSession != null && transitionPlacementSession.localPolygon.npoints > 0) {
+                        transitionPlacementSession.localPolygon = copyWithoutLastVertex(transitionPlacementSession.localPolygon);
+                        updateTransitionPlacementSummary();
+                        repaint();
+                    }
+                }
+
+                @Override
+                public void onConfirm() {
+                    confirmTransitionPlacement();
+                }
+
+                @Override
+                public void onCancel() {
+                    cancelTransitionPlacement(true);
+                }
+            }
+        );
+        updateTransitionPlacementSummary();
+        localTransitionPlacementDialog.setVisible(true);
+        buildPanel.repaint();
+    }
+
+    private boolean handleTransitionPlacementCanvasClick(MouseEvent e) {
+        if (transitionPlacementSession == null || localTransitionPlacementDialog == null) {
+            return false;
+        }
+        if (!SwingUtilities.isLeftMouseButton(e)) {
+            return true;
+        }
+        transitionPlacementSession.orientation = localTransitionPlacementDialog.getSelectedOrientation();
+        if (localTransitionPlacementDialog.isPointModeSelected()) {
+            transitionPlacementSession.hasPoint = true;
+            transitionPlacementSession.entranceX = e.getX();
+            transitionPlacementSession.entranceY = e.getY();
+        } else {
+            transitionPlacementSession.localPolygon.addPoint(e.getX(), e.getY());
+        }
+        updateTransitionPlacementSummary();
+        return true;
+    }
+
+    private void updateTransitionPlacementSummary() {
+        if (localTransitionPlacementDialog == null || transitionPlacementSession == null) {
+            return;
+        }
+        localTransitionPlacementDialog.setSelectionSummary(
+            transitionPlacementSession.hasPoint,
+            transitionPlacementSession.entranceX,
+            transitionPlacementSession.entranceY,
+            transitionPlacementSession.localPolygon.npoints
+        );
+    }
+
+    private void confirmTransitionPlacement() {
+        if (transitionPlacementSession == null) {
+            return;
+        }
+        if (!transitionPlacementSession.hasPoint) {
+            JOptionPane.showMessageDialog(this,
+                "Pick the entrance spawn point on the area before confirming.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (transitionPlacementSession.localPolygon.npoints < 3) {
+            JOptionPane.showMessageDialog(this,
+                "Draw the local travel-region exit polygon before confirming.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        EntranceData entranceData = new EntranceData(
+            transitionPlacementSession.entranceName,
+            transitionPlacementSession.entranceX,
+            transitionPlacementSession.entranceY
+        );
+        entranceData.setOrientation(transitionPlacementSession.orientation);
+
+        PastedObject entranceObject = new PastedObject(
+            new Point(transitionPlacementSession.entranceX, transitionPlacementSession.entranceY),
+            new ExportableImage(DirectionMarker.createEntranceMarkerImage(transitionPlacementSession.orientation)),
+            PastedObjectType.ENTRANCE
+        );
+        entranceObject.setEntranceData(entranceData);
+        syncEntranceMarker(entranceObject);
+        pastedObjects.add(entranceObject);
+
+        RegionData regionData = new RegionData(buildPairedTravelRegionName(transitionPlacementSession.entranceName), 2,
+            clonePolygon(transitionPlacementSession.localPolygon));
+        regionData.setPairedEntranceName(transitionPlacementSession.entranceName);
+        regions.add(regionData);
+
+        cancelTransitionPlacement(false);
+        repaint();
+    }
+
+    private void cancelTransitionPlacement(boolean disposeDialog) {
+        transitionPlacementSession = null;
+        if (localTransitionPlacementDialog != null) {
+            LocalTransitionPlacementDialog dialog = localTransitionPlacementDialog;
+            localTransitionPlacementDialog = null;
+            if (disposeDialog || dialog.isDisplayable()) {
+                dialog.dispose();
+            }
+        }
+        repaint();
+    }
+
+    private void paintTransitionPlacementDraft(Graphics g) {
+        if (transitionPlacementSession == null) {
+            return;
+        }
+        Graphics g2 = g.create();
+        try {
+            Polygon polygonDraft = transitionPlacementSession.localPolygon;
+            if (polygonDraft != null && polygonDraft.npoints > 0) {
+                g2.setColor(new Color(255, 165, 0, 50));
+                if (polygonDraft.npoints >= 3) {
+                    g2.fillPolygon(polygonDraft);
+                }
+                g2.setColor(new Color(255, 200, 0));
+                g2.drawPolygon(polygonDraft);
+                for (int i = 0; i < polygonDraft.npoints; i++) {
+                    g2.fillOval(polygonDraft.xpoints[i] - 3, polygonDraft.ypoints[i] - 3, 7, 7);
+                }
+            }
+            if (transitionPlacementSession.hasPoint) {
+                DirectionMarker.drawMarker(
+                    (Graphics2D) g2,
+                    transitionPlacementSession.entranceX,
+                    transitionPlacementSession.entranceY,
+                    transitionPlacementSession.orientation,
+                    Color.CYAN,
+                    new Color(255, 230, 100),
+                    7,
+                    9
+                );
+            }
+        } finally {
+            g2.dispose();
+        }
+    }
+
+    private boolean showBuildPanelContextMenu(MouseEvent e) {
+        if (e == null || !e.isPopupTrigger()) {
+            return false;
+        }
+
+        PastedObject entranceObject = findEntranceAtPoint(e.getX(), e.getY());
+        if (entranceObject != null) {
+            clearObjectMoveSelection();
+            showEntranceContextMenu(e, entranceObject);
+            return true;
+        }
+
+        RegionData regionData = findTravelRegionAtPoint(e.getPoint());
+        if (regionData != null) {
+            clearObjectMoveSelection();
+            showTravelRegionContextMenu(e, regionData);
+            return true;
+        }
+        return false;
+    }
+
+    private void showEntranceContextMenu(MouseEvent e, PastedObject entranceObject) {
+        JPopupMenu menu = new JPopupMenu();
+
+        JMenuItem editEntranceItem = new JMenuItem("Edit Entrance");
+        editEntranceItem.addActionListener(evt -> {
+            editEntrance(entranceObject);
+            repaint();
+        });
+        menu.add(editEntranceItem);
+
+        menu.show(e.getComponent(), e.getX(), e.getY());
+    }
+
+    private void showTravelRegionContextMenu(MouseEvent e, RegionData regionData) {
+        JPopupMenu menu = new JPopupMenu();
+
+        JMenuItem editRegionItem = new JMenuItem("Edit Region");
+        editRegionItem.addActionListener(evt -> {
+            editRegion(regionData);
+            repaint();
+        });
+        menu.add(editRegionItem);
+
+        menu.show(e.getComponent(), e.getX(), e.getY());
+    }
+
+    private void clearObjectMoveSelection() {
+        objectToMove = null;
+        objectToMoveIdx = -1;
+        movingRectangle = null;
+    }
+
+    private void setDrawClosedState(boolean drawClosed) {
+        this.drawClosed = drawClosed;
+        if (drawClosedDoorMenuItem != null && drawClosedDoorMenuItem.isSelected() != drawClosed) {
+            drawClosedDoorMenuItem.setSelected(drawClosed);
+        }
+        if (drawClosedDoorToggleButton != null && drawClosedDoorToggleButton.isSelected() != drawClosed) {
+            drawClosedDoorToggleButton.setSelected(drawClosed);
+        }
+        repaint();
+    }
+
+    private void setNightModeState(boolean night) {
+        this.night = night;
+        if (nightMenuItem != null && nightMenuItem.isSelected() != night) {
+            nightMenuItem.setSelected(night);
+        }
+        if (nightToggleButton != null && nightToggleButton.isSelected() != night) {
+            nightToggleButton.setSelected(night);
+        }
+        repaint();
+    }
+
+    private Dimension scaleDimension(int width, int height, double zoom) {
+        int scaledWidth = Math.max(1, (int) Math.round(width * zoom));
+        int scaledHeight = Math.max(1, (int) Math.round(height * zoom));
+        return new Dimension(scaledWidth, scaledHeight);
+    }
+
+    private Point toAreaPoint(MouseEvent event, double zoom) {
+        int x = (int) Math.floor(event.getX() / zoom);
+        int y = (int) Math.floor(event.getY() / zoom);
+        return new Point(Math.max(0, x), Math.max(0, y));
+    }
+
+    private MouseEvent scaleMouseEvent(MouseEvent event, JPanel panel, double zoom) {
+        Point areaPoint = toAreaPoint(event, zoom);
+        return new MouseEvent(
+            panel,
+            event.getID(),
+            event.getWhen(),
+            event.getModifiersEx(),
+            areaPoint.x,
+            areaPoint.y,
+            event.getXOnScreen(),
+            event.getYOnScreen(),
+            event.getClickCount(),
+            event.isPopupTrigger(),
+            event.getButton()
+        );
+    }
+
+    private double clampZoom(double zoom) {
+        return Math.max(0.25, Math.min(zoom, 4.0));
+    }
+
+    private void applyZoom(JScrollPane scrollPane, JPanel panel, double oldZoom, double newZoom, Point mousePoint) {
+        if (scrollPane == null || panel == null || mousePoint == null) {
+            return;
+        }
+        JViewport viewport = scrollPane.getViewport();
+        Point viewPosition = viewport.getViewPosition();
+        double contentX = (viewPosition.x + mousePoint.x) / oldZoom;
+        double contentY = (viewPosition.y + mousePoint.y) / oldZoom;
+        panel.revalidate();
+        panel.repaint();
+        int newViewX = (int) Math.round(contentX * newZoom - mousePoint.x);
+        int newViewY = (int) Math.round(contentY * newZoom - mousePoint.y);
+        Dimension preferredSize = panel.getPreferredSize();
+        int maxX = Math.max(0, preferredSize.width - viewport.getWidth());
+        int maxY = Math.max(0, preferredSize.height - viewport.getHeight());
+        viewport.setViewPosition(new Point(
+            Math.max(0, Math.min(newViewX, maxX)),
+            Math.max(0, Math.min(newViewY, maxY))
+        ));
+    }
+
+    private PastedObject findEntranceAtPoint(int x, int y) {
+        for (int i = pastedObjects.size() - 1; i >= 0; i--) {
+            PastedObject pastedObject = pastedObjects.get(i);
+            if (pastedObject.getPastedObjectType() != PastedObjectType.ENTRANCE
+                    || pastedObject.getEntranceData() == null
+                    || !pastedObject.isVisible(drawClosed, night)) {
+                continue;
+            }
+            Rectangle rect = new Rectangle(pastedObject.getX(), pastedObject.getY(), pastedObject.getWidth(), pastedObject.getHeight());
+            rect = getPastedObjectBounds(pastedObject);
+            if (rect.contains(x, y) && isClickablePastedObjectHit(pastedObject, x - rect.x, y - rect.y)) {
+                return pastedObject;
+            }
+        }
+        return null;
+    }
+
+    private boolean isClickablePastedObjectHit(PastedObject pastedObject, int localX, int localY) {
+        if (pastedObject == null) {
+            return false;
+        }
+        if (pastedObject.getPastedObjectType() == PastedObjectType.ENTRANCE) {
+            return localX >= 0 && localY >= 0
+                && localX < pastedObject.getWidth()
+                && localY < pastedObject.getHeight();
+        }
+        return pastedObject.isOpaque(localX, localY);
+    }
+
+    private Rectangle getPastedObjectBounds(PastedObject pastedObject) {
+        if (pastedObject == null) {
+            return new Rectangle();
+        }
+        if (pastedObject.getPastedObjectType() == PastedObjectType.ENTRANCE) {
+            return new Rectangle(
+                pastedObject.getX(),
+                pastedObject.getY(),
+                pastedObject.getWidth(),
+                pastedObject.getHeight()
+            );
+        }
+        return new Rectangle(pastedObject.getX(), pastedObject.getY(), pastedObject.getWidth(), pastedObject.getHeight());
+    }
+
+    private RegionData findTravelRegionAtPoint(Point point) {
+        if (point == null) {
+            return null;
+        }
+        for (int i = regions.size() - 1; i >= 0; i--) {
+            RegionData regionData = regions.get(i);
+            Polygon bounds = regionData.getBounds();
+            if (regionData.getType() == 2 && bounds != null && bounds.npoints >= 3 && bounds.contains(point)) {
+                return regionData;
+            }
+        }
+        return null;
+    }
+
+    private boolean editTransitionPair(EntranceData entranceData) {
+        if (entranceData == null || entranceData.getDestinationAreaType() != DestinationAreaType.EXISTING_GAME_AREA) {
+            return false;
+        }
+        RegionData pairedRegion = findRegionPairedWithEntrance(entranceData.getName());
+        return editTransitionPair(entranceData, pairedRegion);
+    }
+
+    private boolean editTransitionPair(RegionData regionData) {
+        if (regionData == null || trimToEmpty(regionData.getPairedEntranceName()).isEmpty()) {
+            return false;
+        }
+        PastedObject entranceObject = findEntranceByName(regionData.getPairedEntranceName());
+        if (entranceObject == null || entranceObject.getEntranceData() == null) {
+            return false;
+        }
+        return editTransitionPair(entranceObject.getEntranceData(), regionData);
+    }
+
+    private boolean editTransitionPair(EntranceData entranceData, RegionData regionData) {
+        if (entranceData == null || entranceData.getDestinationAreaType() != DestinationAreaType.EXISTING_GAME_AREA) {
+            return false;
+        }
+
+        String entranceDestinationArea = trimToEmpty(entranceData.getDestinationArea());
+        String regionDestinationArea = regionData != null ? trimToEmpty(regionData.getDestinationArea()) : "";
+        String destinationArea = !entranceDestinationArea.isEmpty() ? entranceDestinationArea : regionDestinationArea;
+        if (destinationArea.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                "Set the destination area first before editing the destination-side transition pair.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+            return true;
+        }
+        if (!entranceDestinationArea.isEmpty() && !regionDestinationArea.isEmpty()
+                && !entranceDestinationArea.equalsIgnoreCase(regionDestinationArea)) {
+            JOptionPane.showMessageDialog(this,
+                "The paired entrance and travel region target different destination areas. Fix that mismatch in the editors first.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+            return true;
+        }
+
+        Polygon localPolygon = regionData != null ? clonePolygon(regionData.getBounds()) : new Polygon();
+        LocalTransitionRegionSelectionDialog localDialog = new LocalTransitionRegionSelectionDialog(
+            this,
+            buildBackgroundImage,
+            localPolygon
+        );
+        localDialog.setVisible(true);
+        if (!localDialog.isConfirmed()) {
+            return true;
+        }
+        localPolygon = localDialog.getPolygon();
+
+        int pointX = entranceData.getDestinationPointX();
+        int pointY = entranceData.getDestinationPointY();
+        int pointOrientation = entranceData.getDestinationPointOrientation();
+        if (pointX == 0 && pointY == 0 && regionData != null) {
+            pointX = regionData.getDestinationPointX();
+            pointY = regionData.getDestinationPointY();
+            pointOrientation = regionData.getDestinationPointOrientation();
+        }
+        Polygon polygon = regionData != null && regionData.getDestinationReturnPolygon().npoints >= 3
+            ? regionData.getDestinationReturnPolygon()
+            : entranceData.getDestinationReturnPolygon();
+        String destinationEntranceName = trimToEmpty(entranceData.getDestinationEntrance());
+        if (destinationEntranceName.isEmpty() && regionData != null) {
+            destinationEntranceName = trimToEmpty(regionData.getDestinationEntrance());
+        }
+
+        DestinationPatchSelectionDialog dialog = new DestinationPatchSelectionDialog(
+            this,
+            destinationArea,
+            pointX,
+            pointY,
+            pointOrientation,
+            destinationEntranceName,
+            polygon
+        );
+        dialog.setVisible(true);
+        if (!dialog.isConfirmed()) {
+            return true;
+        }
+
+        RegionData effectiveRegion = regionData;
+        if (effectiveRegion == null) {
+            effectiveRegion = new RegionData(buildPairedTravelRegionName(entranceData), 2, localPolygon);
+            regions.add(effectiveRegion);
+        } else {
+            effectiveRegion.setBounds(localPolygon);
+            if (trimToEmpty(effectiveRegion.getName()).isEmpty()) {
+                effectiveRegion.setName(buildPairedTravelRegionName(entranceData));
+            }
+        }
+
+        entranceData.setDestinationArea(destinationArea);
+        entranceData.setDestinationEntrance(dialog.getDestinationEntranceName());
+        entranceData.setCreateDestinationReturnTransition(true);
+        entranceData.setDestinationPointX(dialog.getPointX());
+        entranceData.setDestinationPointY(dialog.getPointY());
+        entranceData.setDestinationPointOrientation(dialog.getPointOrientation());
+        entranceData.setDestinationReturnPolygon(dialog.getReturnPolygon());
+        entranceData.setDestinationPreviewImagePath("");
+
+        effectiveRegion.setType(2);
+        effectiveRegion.setBounds(localPolygon);
+        effectiveRegion.setDestinationAreaType(DestinationAreaType.EXISTING_GAME_AREA);
+        effectiveRegion.setDestinationArea(destinationArea);
+        effectiveRegion.setDestinationEntrance(dialog.getDestinationEntranceName());
+        effectiveRegion.setDestinationPointX(dialog.getPointX());
+        effectiveRegion.setDestinationPointY(dialog.getPointY());
+        effectiveRegion.setDestinationPointOrientation(dialog.getPointOrientation());
+        effectiveRegion.setDestinationReturnPolygon(dialog.getReturnPolygon());
+        effectiveRegion.setDestinationPreviewImagePath("");
+        effectiveRegion.setPairedEntranceName(trimToEmpty(entranceData.getName()));
+        repaint();
+        return true;
+    }
+
+    private String buildPairedTravelRegionName(EntranceData entranceData) {
+        String entranceName = trimToEmpty(entranceData != null ? entranceData.getName() : "");
+        return buildPairedTravelRegionName(entranceName);
+    }
+
+    private String buildPairedTravelRegionName(String entranceName) {
+        entranceName = trimToEmpty(entranceName);
+        String baseName = entranceName.isEmpty() ? "TravelRegion" : entranceName + "_EXIT";
+        return baseName.length() > 32 ? baseName.substring(0, 32) : baseName;
+    }
+
+    private Polygon copyWithoutLastVertex(Polygon source) {
+        if (source == null || source.npoints <= 1) {
+            return new Polygon();
+        }
+        int[] xpoints = new int[source.npoints - 1];
+        int[] ypoints = new int[source.npoints - 1];
+        System.arraycopy(source.xpoints, 0, xpoints, 0, source.npoints - 1);
+        System.arraycopy(source.ypoints, 0, ypoints, 0, source.npoints - 1);
+        return new Polygon(xpoints, ypoints, source.npoints - 1);
+    }
+
+    private RegionData findRegionPairedWithEntrance(String entranceName) {
+        String normalizedName = trimToEmpty(entranceName);
+        if (normalizedName.isEmpty()) {
+            return null;
+        }
+        for (RegionData regionData : regions) {
+            if (normalizedName.equals(trimToEmpty(regionData.getPairedEntranceName()))) {
+                return regionData;
+            }
+        }
+        return null;
+    }
+
+    private PastedObject findEntranceByName(String entranceName) {
+        String normalizedName = trimToEmpty(entranceName);
+        if (normalizedName.isEmpty()) {
+            return null;
+        }
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject.getPastedObjectType() == PastedObjectType.ENTRANCE
+                    && pastedObject.getEntranceData() != null
+                    && normalizedName.equals(trimToEmpty(pastedObject.getEntranceData().getName()))) {
+                return pastedObject;
+            }
+        }
+        return null;
     }
 
     /**
      * Collects a list of available area names from saved project files or a predefined list.
      */
-    private List<String> collectAvailableAreas() {
-        List<String> areas = new ArrayList<>();
+    private List<AreaReference> collectAvailableAreas() {
+        return loadAreaCatalog("/areas/eet-areas.csv");
+    }
 
-        // Add some common Baldur's Gate area codes as examples
-        areas.add("AR0001"); // Candlekeep - Library
-        areas.add("AR0002"); // Candlekeep - Inn
-        areas.add("AR0100"); // Friendly Arm Inn - Exterior
-        areas.add("AR0101"); // Friendly Arm Inn - Interior
-        areas.add("AR0300"); // Beregost - North
-        areas.add("AR0400"); // Beregost - South
-        areas.add("AR0500"); // Nashkel - Exterior
-        areas.add("AR0700"); // Nashkel Mines - Entrance
-        areas.add("AR1000"); // Custom Area Example
+    private List<String> collectReservedOwnedAreaResrefs() {
+        List<String> reserved = new ArrayList<>();
+        for (String knownArea : UserPreferences.getKnownOwnedAreas()) {
+            if (knownArea != null && !knownArea.trim().isEmpty()) {
+                reserved.add(knownArea.trim());
+            }
+        }
+        for (PastedObject obj : pastedObjects) {
+            if (obj.getPastedObjectType() == PastedObjectType.ENTRANCE && obj.getEntranceData() != null
+                    && obj.getEntranceData().getDestinationAreaType() == DestinationAreaType.OWNED_MOD_AREA) {
+                String destinationArea = obj.getEntranceData().getDestinationArea();
+                if (destinationArea != null && !destinationArea.trim().isEmpty()) {
+                    reserved.add(destinationArea.trim());
+                }
+            }
+        }
+        for (RegionData regionData : regions) {
+            if (regionData.getDestinationAreaType() == DestinationAreaType.OWNED_MOD_AREA) {
+                String destinationArea = regionData.getDestinationArea();
+                if (destinationArea != null && !destinationArea.trim().isEmpty()) {
+                    reserved.add(destinationArea.trim());
+                }
+            }
+        }
+        return reserved;
+    }
 
-        // Scan the current directory for .j2da project files
-        String lastDirectory = directories.get(FileChooserLocation.OPEN_BG);
-        if (lastDirectory != null) {
-            File dir = new File(lastDirectory);
-            if (dir.exists() && dir.isDirectory()) {
-                File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".j2da"));
-                if (files != null) {
-                    for (File file : files) {
-                        String areaName = file.getName().replace(".j2da", "").toUpperCase();
-                        if (!areas.contains(areaName) && areaName.length() <= 8) {
-                            areas.add(areaName);
-                        }
-                    }
+    private List<AreaReference> collectKnownOwnedAreaReferences() {
+        List<AreaReference> references = new ArrayList<>();
+        for (String areaResref : UserPreferences.getKnownOwnedAreas()) {
+            if (areaResref != null && !areaResref.trim().isEmpty()) {
+                references.add(new AreaReference(areaResref, "Known owned area"));
+            }
+        }
+        return references;
+    }
+
+    private void registerKnownOwnedAreas(String currentAreaResref) {
+        UserPreferences.addKnownOwnedArea(currentAreaResref);
+    }
+
+    private String validateOwnedAreaDestinations() {
+        Set<String> knownOwnedAreas = new LinkedHashSet<String>();
+        for (String areaResref : UserPreferences.getKnownOwnedAreas()) {
+            if (areaResref != null && !areaResref.trim().isEmpty()) {
+                knownOwnedAreas.add(areaResref.trim());
+            }
+        }
+
+        List<String> invalidTargets = new ArrayList<String>();
+        for (PastedObject obj : pastedObjects) {
+            if (obj.getPastedObjectType() != PastedObjectType.ENTRANCE || obj.getEntranceData() == null) {
+                continue;
+            }
+            EntranceData entranceData = obj.getEntranceData();
+            if (entranceData.getDestinationAreaType() == DestinationAreaType.OWNED_MOD_AREA) {
+                String destinationArea = trimToEmpty(entranceData.getDestinationArea());
+                if (!destinationArea.isEmpty() && !knownOwnedAreas.contains(destinationArea)) {
+                    invalidTargets.add("Entrance '" + trimToEmpty(entranceData.getName()) + "' -> " + destinationArea);
                 }
             }
         }
 
+        for (RegionData regionData : regions) {
+            if (regionData.getType() != 2 || regionData.getDestinationAreaType() != DestinationAreaType.OWNED_MOD_AREA) {
+                continue;
+            }
+            String destinationArea = trimToEmpty(regionData.getDestinationArea());
+            if (destinationArea.isEmpty()) {
+                continue;
+            }
+            if (!knownOwnedAreas.contains(destinationArea) && detectEdgeDirection(regionData.getBounds()) == null) {
+                invalidTargets.add("Travel region '" + trimToEmpty(regionData.getName()) + "' -> " + destinationArea);
+            }
+        }
+
+        if (invalidTargets.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder message = new StringBuilder();
+        message.append("In-mod transitions must target an existing owned area.\n");
+        message.append("The only exception is a single-edge NORTH/SOUTH/EAST/WEST travel region.\n\n");
+        message.append("Invalid destinations:\n");
+        for (String invalidTarget : invalidTargets) {
+            message.append(" - ").append(invalidTarget).append('\n');
+        }
+        return message.toString();
+    }
+
+    private List<AreaReference> loadAreaCatalog(String resourcePath) {
+        List<AreaReference> areas = new ArrayList<>();
+        try (InputStream input = getClass().getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                return areas;
+            }
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
+                String line;
+                boolean firstLine = true;
+                while ((line = reader.readLine()) != null) {
+                    line = line.trim();
+                    if (line.isEmpty() || line.startsWith("#")) {
+                        continue;
+                    }
+                    if (firstLine) {
+                        firstLine = false;
+                    }
+                    String[] parts = line.split(",", 2);
+                    if (parts.length != 2) {
+                        continue;
+                    }
+                    String resref = parseCsvValue(parts[0].trim());
+                    String description = parseCsvValue(parts[1].trim());
+                    if ("resref".equalsIgnoreCase(resref) && "description".equalsIgnoreCase(description)) {
+                        continue;
+                    }
+                    if (!resref.isEmpty() && !description.isEmpty()) {
+                        areas.add(new AreaReference(resref, description));
+                    }
+                }
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
         return areas;
+    }
+
+    private List<PrefixReservation> loadPrefixReservations(String resourcePath) {
+        List<PrefixReservation> reservations = new ArrayList<>();
+        try (InputStream input = getClass().getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                return reservations;
+            }
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
+                String line;
+                boolean firstLine = true;
+                while ((line = reader.readLine()) != null) {
+                    if (line.trim().isEmpty() || line.startsWith("#")) {
+                        continue;
+                    }
+                    if (firstLine) {
+                        firstLine = false;
+                        continue;
+                    }
+                    String[] parts = line.split("\t", -1);
+                    if (parts.length < 5) {
+                        continue;
+                    }
+                    reservations.add(new PrefixReservation(
+                        parts[0].trim(),
+                        parts[1].trim(),
+                        parts[2].trim(),
+                        parts[3].trim(),
+                        parts[4].trim()
+                    ));
+                }
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return reservations;
+    }
+
+    private String parseCsvValue(String value) {
+        if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
+            value = value.substring(1, value.length() - 1).replace("\"\"", "\"");
+        }
+        return value;
+    }
+
+    private Polygon clonePolygon(Polygon source) {
+        if (source == null || source.npoints == 0) {
+            return new Polygon();
+        }
+        int[] xpoints = new int[source.npoints];
+        int[] ypoints = new int[source.npoints];
+        System.arraycopy(source.xpoints, 0, xpoints, 0, source.npoints);
+        System.arraycopy(source.ypoints, 0, ypoints, 0, source.npoints);
+        return new Polygon(xpoints, ypoints, source.npoints);
+    }
+
+    private static final class TransitionPlacementSession {
+        private final String entranceName;
+        private int entranceX;
+        private int entranceY;
+        private int orientation;
+        private boolean hasPoint;
+        private Polygon localPolygon;
+
+        private TransitionPlacementSession(String entranceName) {
+            this.entranceName = entranceName != null ? entranceName.trim() : "";
+            this.orientation = 0;
+            this.hasPoint = false;
+            this.localPolygon = new Polygon();
+        }
     }
 
     public static void main(String[] args) {

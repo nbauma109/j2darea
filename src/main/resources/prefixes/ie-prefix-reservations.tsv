@@ -1,0 +1,832 @@
+scope	prefix	project	status	comments
+community	0x	CoI: Tales of the Deep Gardens (Lava)	OK	Conflict with Vail_Woodshadow
+community	1X	Aeon, miscellany (Lava)	OK	
+community	9X	CoI: Innershade (Lava)	OK	
+community	B0	Projet NeoBG	OK	
+community	BA	World Transition Project	OK	Global TIS file naming registration for Baldur's Gate
+community	BP	The Big Picture	OK	
+community	CM	Chosen of Mystra community prefix	OK	
+community	COM	Chosen of Mystra community prefix	OK	
+community	DC	The Dragon's Call	OK	Prefix for areas
+community	DS	Dark Side of the Sword Coast	Conflict	conflicts with Daz (personal)
+community	E3	Fade Romance	OK	
+community	FA	Fragile Alliance	OK	
+community	FW	BGTutu file naming prefix	OK, protected	ARE and WED
+community	G1	Gahesh NPC (Lava)	OK	
+community	IA	World Transition Project	OK	Global TIS file naming registration for Icewind Dale
+community	IP	Ilmatar Portrait Pack (Lava)	OK	
+community	ISNF	CoI: I Shall Never Forget (Lava)	OK	Conflicts with Xiphias
+community	JZ	Jerry Zinger Mod	OK	
+community	L3	Petsy (Lava)	OK	
+community	L7	Tsuki BG2 NPC (Lava)	OK	
+community	Lav	LaViconia	Conflict	
+community	LD#	Swylif NPC (Lava)	Conflict	
+community	LSX	Eilistraees Song (Lava)	Conflict	
+community	MCA	Modron Cube Adventure	OK	
+community	NS	Saerileth mod	Conflict	Conflict with NemoSum (personal prefix list)
+community	PA	World Transition Project	OK	Global TIS file naming registration for Planescape Torment
+community	RTW	Return to Windspear	OK	
+community	TB	Chosen of Mystra community prefix	OK	conflicts with the bigg
+community	TFS	Tales of a Fallen Star	OK	
+community	TK	Termlem's Keep Mod	Conflict	Conflict with Kai (personal prefix list)
+community	TPT	The Plot Thickens-mod	Conflict	Conflict with Stone Wolf (personal prefix list)
+community	U!	Unfinished Business	OK	
+community	V#	White NPC (Lava)	Conflict	
+community	VE	Valen Expansion	OK	
+community	VX	Varshoon (Lava)	Conflict	
+community	WQ	CoI: The White Queen (Lava)	OK	
+community	X#	BG1 NPC Project	OK	
+community	xxx	The Dragon's Call	OK, dynamic	xxx is the area code for where the file is placed
+community	YRX	Yoshimo Romance (Lava)	Conflict	
+community	YX	Yvette Romance (Lava)	OK	
+community	_	BGTutu file naming prefix	OK, protected	
+personal	!B	Tash	OK	
+personal	!I	nowaru	OK	
+personal	!K	Kev	OK	
+personal	!N	Nubad	OK	
+personal	!S	Saradas	OK	
+personal	!W	webba84	OK	
+personal	!x	KenTeamBG	OK, protected, dynamic	x is a number or letter
+personal	!_	JohnBob	OK	on behalf of Incrementis from Gibberlings3
+personal	#!	Icendoan	OK	
+personal	#-	miked2681	OK	
+personal	#A	Aeryes	OK	
+personal	#B	Ripper	OK	
+personal	#C	Isaya	OK	
+personal	#D	Druss	OK	
+personal	#E	Isina	OK	
+personal	#F	muffin-tacos	OK	
+personal	#G	Salk	OK	
+personal	#H	Hoppy	OK	
+personal	#I	Il3	OK	
+personal	#J	Jab	OK	
+personal	#K	Kamui2040	OK	
+personal	#L	Lauriel	OK	
+personal	#M	Kuronapo	OK	
+personal	#N	Enkida	OK	
+personal	#P	pasco95	OK	
+personal	#Q	equus	OK	
+personal	#R	Raiha	OK	
+personal	#S	Ripper	OK	
+personal	#T	Azze	OK	
+personal	#V	Armand	OK	
+personal	#W	PancakeWizard	OK	
+personal	#X	Anouchka	OK	
+personal	#Z	Vel Cheran	OK	
+personal	0	Vail_Woodshadow	OK	
+personal	0O	rainlit	OK	
+personal	1A	Arnaeus	OK	
+personal	1B	The Baffled King	OK	
+personal	1E	The Baffled King	OK	
+personal	1G	The Baffled King	OK	
+personal	1S	Saphael	OK	
+personal	2B	The Baffled King	OK	
+personal	2E	The Baffled King	OK	
+personal	2G	The Baffled King	OK	
+personal	2H	b00jum	OK	
+personal	2L	mr2150	OK	
+personal	3E	Goat_Boy11	OK	
+personal	5E	Fog6532	OK	
+personal	5H	5th_horseman	OK	
+personal	5R	Qatanqa	OK	
+personal	5S	Graion Dilach	OK	on behalf of Sarevok57
+personal	6W	Udiknedormin	OK	Including _6W. For the CompassOfWomanhood project.
+personal	7#	angemusicien	OK	
+personal	7C	CrevsDaak	OK	
+personal	7D	Dazzu	OK	
+personal	7S	Meridan 1	OK	
+personal	7X	Austin87	OK	on behalf of Smiling Imp
+personal	7_	IchigoRXC	OK	
+personal	8S	Serkyan	OK	
+personal	8_	The Baffled King	OK	
+personal	A!	Andyr	OK	
+personal	A#	Andyr	OK	
+personal	A-	magrat	OK	
+personal	A0	Adul	OK	
+personal	A1	Alsea	OK	
+personal	A2	Azkyroth/Azzathoth	OK	
+personal	A3	Arctodus	OK	
+personal	A4	aeviannce24	OK	
+personal	A5	xburc	OK	
+personal	A6	Ascension64	OK	
+personal	A7	Argent77	OK	
+personal	A8	afrothundaaaa	OK	
+personal	A9	Askii	OK	
+personal	A@	Arch Angel	OK	
+personal	AA	jube	OK	Vecna
+personal	AB	plainab	OK	
+personal	AC	Acifer	OK	
+personal	AD	SisterVigilante	OK	
+personal	AE	GandorMythos	OK	
+personal	AF	flippinflynn	OK	
+personal	AG	Ardanis	OK	
+personal	AH	Andy Halfelf	OK	
+personal	AI	Agashi	OK	
+personal	AJ	Ajoc	OK	
+personal	AKL	BigRob	OK	
+personal	AKLON	BigRob	OK	
+personal	AL	nal'ex	OK	
+personal	AM	Amaurea	OK	
+personal	AN	Austin87	OK	
+personal	AO	Tysadil	Conflict	Conflict with Dashael
+personal	AOT#	Dashael	Conflict	Conflict with Tysadil
+personal	AP	Arnel	OK	
+personal	AQ	Nightfall IV	OK	
+personal	AR	Apocalypse Razel	Conflict	Conflict with Arcannazar, Darkholy, and Manveru
+personal	ARC	Arcannazar	Conflict	Conflict with Apocalypse Razel
+personal	ARDH	Darkholy	Conflict	Conflict with Apocalypse Razel
+personal	ARF	Manveru	Conflict	Conflict with Apocalypse Razel
+personal	ARM	Manveru	Conflict	Conflict with Apocalypse Razel
+personal	ARP	Manveru	Conflict	Conflict with Apocalypse Razel
+personal	AS	Thanatos	Conflict	Conflict with LordRampage
+personal	ASH	LordRampage	Conflict	Conflict with Thanatos
+personal	AT	Amaunator09	OK	[unreleased mods]
+personal	AU	Arundor	OK	
+personal	AV	Avenger_teambg	OK	
+personal	AW	Sekereth	OK	
+personal	AX	WonderGoon	OK	
+personal	AY	AstroBryGuy	OK	
+personal	AZ	balduran	OK	
+personal	A_	Angelus Crow	OK	
+personal	§	Telcar	OK	
+personal	B	SS-Deimos777	Global Conflict	
+personal	B!	berelinde	OK	
+personal	B#	Blitz	Conflict	Conflict with Moonfruit
+personal	B#	Moonfruit	Conflict	Conflict with Blitz
+personal	B1	sacrament	OK	
+personal	B2	Coutelier	OK	
+personal	B3	Bubb	OK	
+personal	B4	BR4ZIL	OK	
+personal	B7	Brei	OK	
+personal	BA	Baronius	OK	
+personal	BB	Baronius	OK	
+personal	BC	Grey Acumen	OK	
+personal	BD	CamDawg	OK	[Requested by CamDawg, for Beamdog]
+personal	BE	Boresal	OK	
+personal	BF	zenblack	OK	on behalf of bucketfulofsunshine from G3 forums
+personal	BG	Minotaur in Maze	OK	
+personal	BH#	BevH	OK	
+personal	BI	Bill Bisco	OK	
+personal	BK	Rabain	OK	
+personal	BL	Abel	OK	
+personal	BM	Thorium Dragon	OK	
+personal	BQ	Existential	OK	
+personal	BR	cuervo_br	Conflict	Conflict with Briannandoah
+personal	BR_	Briannandoah	Conflict	Conflict with cuervo_br
+personal	BS	Yovaneth	Conflict	Conflict with Tsuru
+personal	BSM	Tsuru	Conflict	Conflict with Yovaneth
+personal	BT	Mordan Dragonslayer	OK	
+personal	BU	Sir Buliwyf	OK	
+personal	BW	Baronius	OK, protected	
+personal	BX	Barretta	OK	
+personal	BY	Billy Yank	OK	
+personal	BZ	Bardez	OK	
+personal	B_	Grammarsalad	OK	
+personal	C!	CamDawg	OK	
+personal	C#	jastey	OK	
+personal	C-	cmorgan	OK	
+personal	C0	artemius i	OK	
+personal	C1	CaloNord	OK	
+personal	C2	The Imp (for Item Upgrade mod)	OK	
+personal	C3	Corsymyr	OK	
+personal	C4	c4_angel	OK	
+personal	C5	critto	OK	
+personal	C6	果子狸	OK	
+personal	C7	CrevsDaak	OK	
+personal	C8	Stormfin32	OK	
+personal	C@	Henanigan	OK	
+personal	CA#	Caedwyr	OK	
+personal	CB	CBisson	OK	
+personal	CC	Choo Choo	OK	
+personal	CD	CamDawg	OK	
+personal	CE	Constantine	OK	
+personal	CF	CursedScholar	OK	
+personal	CG#	SnowKing	OK	
+personal	CH	Caralill	OK	
+personal	CK	Klare	OK	
+personal	CLF	Cliffette	OK	
+personal	CN	Caelellowynn	OK	
+personal	CO	Gwendolyne_FP	OK	on behalf of Cocrane
+personal	CP	Co0n	OK	
+personal	CQ	Icendoan	OK	
+personal	CR	Creepin	OK	
+personal	CS	Chronis	OK	
+personal	CT	commonterry	OK	
+personal	CU	Cuv	OK	
+personal	CV	Cuv	OK	
+personal	CW	smyth25	OK	
+personal	CX	Carnifex	OK	
+personal	CY	Rpg Cyco	OK	
+personal	CZ	chaz58	OK	
+personal	C_	Celissa	OK	
+personal	D!	Daeva	OK	
+personal	D#	Dellaster	OK	
+personal	D0	SimDing0	OK	
+personal	D1	Daulmakan	OK	
+personal	D2	Dan_P	OK	
+personal	D5	subtledoctor	OK	
+personal	D8	Dracoqwerty	OK	
+personal	D9	DrAzTiK	OK	
+personal	DA	Dark Awakenings	Conflict	Conflict with Daelomin and with Daz
+personal	DAE	Daelomin	Conflict	Conflict with Dark Awakenings
+personal	DAZ	Daz	Conflict	Conflict with Dark Awakenings
+personal	DB	marchitek	OK	
+personal	DC	Dan51386	OK	
+personal	DD	Potencius	OK	
+personal	DE	Deano	Conflict	Conflict with Def-Je Betor and with Denethorns
+personal	DEF	Def-Je_Betor	Conflict	Conflict with Deano
+personal	DEN	Denethorn	Conflict	Conflict with Deano
+personal	DF	Red Carnelian	OK	
+personal	DG	daigoro	OK	
+personal	DHS	darkholy	OK	
+personal	DK	jastey	Conflict	Conflict with duckyjr, Raziel/r9216
+personal	DK	Raziel/r9216	Conflict	Conflict with duckyjr
+personal	DK	duckyjr	Conflict	Conflict with Raziel/r9216
+personal	DL	Potencius	OK	
+personal	DM	Dark Magic	Conflict	Conflict with Vail_Woodshadow
+personal	DMJ	Vail_Woodshadow	Conflict	Conflict with Dark Magic
+personal	DOD	MaskedMarauder	OK	
+personal	DP	DPennyway	OK	Comment requested by user: I sometimes go by "Aosaw" and "Dee"
+personal	DR	Dragon Lord	OK	
+personal	DS	Daz	OK	Conflicts with Dark Side of the Sword Coast (project)
+personal	DTH	Denethorn	OK	
+personal	DU	Duality	OK	
+personal	DV	Devlinor	OK	
+personal	DW	Dreamer	Conflict	Conflict with DavidW
+personal	DW	DavidW	Conflict	Conflict with Dreamer
+personal	DX	Cilantro	OK	
+personal	DY	Daymar	OK	
+personal	DZ	Doc East	OK	
+personal	D_	drake127	OK	
+personal	E!	Raven	OK	
+personal	E#	Neriana	OK	
+personal	E)	Eleandor	OK	
+personal	E4	Epantiras	OK	
+personal	E9	Ithilian	OK	
+personal	EA	Edda	OK	
+personal	EC	hlidskialf	OK	
+personal	ED	turim	OK	
+personal	EE	Endarire	OK	
+personal	EG	EGM	OK	
+personal	EK	erik	OK	
+personal	EM	Abdel_Adrian	OK	
+personal	EN	Bataff	OK	
+personal	EP	ericp	OK	
+personal	EQ	Aurphan Intelechid	OK	
+personal	ER	Erg	OK	
+personal	ES	EiriktheSkald	OK	
+personal	EV	DragonJewel13	OK	
+personal	EX	SConrad	OK, protected	
+personal	EY	eyre	OK	
+personal	E_	Akadis	OK	
+personal	F!	GoGo.Finch	OK	
+personal	F#	Crucis	OK	
+personal	F-	fearless	OK	
+personal	F1	Usually Lurking	OK	
+personal	F8	FearsomeScout	OK	
+personal	FAL	Falconari	OK	
+personal	FB	Sombrepiaf	OK	
+personal	FC	Austin87	Conflict	on behalf of tipun (Arcanecoast Team)
+personal	FC	François de Callune	Conflict	
+personal	FD	Fallen Demon	OK	
+personal	FE	TheFinalEntity	OK	
+personal	FF	FairyFatale	OK	
+personal	FG	FailGeek	OK	
+personal	FH	Miss Sakaki	OK	
+personal	FI	Arren	OK	
+personal	FK	Pélagie	OK	
+personal	FL	Wisp	OK	
+personal	FM	Solen	OK	
+personal	FN	Finamenon	OK	
+personal	FQ	VerSkillt	OK	
+personal	FR	Gwendolyne_FP	OK	
+personal	FS	Shinook	OK	
+personal	FT	friartuck	OK	
+personal	FU	phordicus	OK	
+personal	FWD	Death	OK	
+personal	FZ	amika	OK	
+personal	F_	flysoup	OK	
+personal	G	Grisbilen	Global Conflict	
+personal	G!	CrazeeFFan	OK	
+personal	G#	Grim Squeaker	OK	
+personal	G-	JohnBob	OK	On behalf of FallDamage312, Szef and Wrathu
+personal	G3	CamDawg	OK, protected	
+personal	G6	grainne6	OK	
+personal	G7	Senficon	OK	
+personal	G9	GaxGuy	OK	
+personal	G@	JohnBob	OK	on behalf of Gregor
+personal	GA	GuardianAnubite	OK	
+personal	GCM	Gabrielle	OK	
+personal	GCOM	Gabrielle	OK	
+personal	GD	Le Magos	OK	
+personal	GE	The Imp	OK	on behalf of Gel87
+personal	GG	Gusinda	OK	
+personal	GI	rotfarmer	OK	
+personal	GM	Lone Wolf	OK	
+personal	GP	Korel, the night's drood	OK	
+personal	GR	Grog	OK	
+personal	GS	ModMan	OK	
+personal	GT	Luke	OK	
+personal	GV	Glam Vrock	OK	
+personal	GW	Gwendolyne	OK	
+personal	G_	Gort	OK	
+personal	H!	Hety	OK	
+personal	H#	Anomaly	OK	
+personal	H2	badalamenti	OK	
+personal	H5	TotalMilk90	OK	
+personal	HA	LightMonday	OK	
+personal	HB	tonin	OK	
+personal	HF	hlidskialf	OK	
+personal	HH	Huxley	OK	
+personal	HK	Kurokarasu	OK	
+personal	HN	Hondo	OK	
+personal	HO	mynameisook	OK	
+personal	HU	Huxley	OK	
+personal	HWK	Kodun	OK	
+personal	HX	Huxley	OK	
+personal	H_	TotalMilk90	OK	
+personal	i!	icelus	OK	
+personal	I#	K'aeloree	OK	
+personal	I-	Ipsissimus	OK	
+personal	I0	Incarnax	OK	
+personal	i1	igi	OK	
+personal	I@	Isandir	OK	
+personal	IA	Sikret	OK	
+personal	IB	Bookwyrme	OK	
+personal	IC	Isildur	OK	
+personal	IE	Iceberg	OK	
+personal	IG	Igneous	OK	
+personal	II	bt_igi	OK, protected	
+personal	IJ	Jarno Mikkola	OK	
+personal	IK	Idobek	OK	
+personal	IL	Blooddrinker	Conflict	Conflict with Ilúvatar
+personal	ILU	Ilúvatar	Conflict	Conflict with Blooddrinker
+personal	IMG	IronFist	OK	
+personal	InfM	Inferno	OK	
+personal	IQ	insidicism	OK	
+personal	IR	Iconius Rathmor,	OK	
+personal	IS	Xiphias	OK	
+personal	IT	Sorrow	OK	
+personal	IU	Meyahi	OK	
+personal	IW	Azrii	OK	
+personal	IX	Ieldra	OK	
+personal	IZ	golden_elminster	OK	"instructional"
+personal	I_	Isaya	OK	
+personal	J!	Januszka	OK	
+personal	J#	Ghreyfain	OK	
+personal	J-	jesscookie	OK	
+personal	J0	Jrc	OK	
+personal	J3	mashedtaters	OK	
+personal	J7	-JR-	OK	
+personal	J8	jmerry	OK	
+personal	J9	Jourin	OK	
+personal	JA	aigleborgne	OK	
+personal	JB	Ombre	OK	
+personal	JC	Iondragon	OK	
+personal	JF	Kai	OK	
+personal	JH	ClumsyDwarf	OK	
+personal	JJ	Jan Janson	OK	
+personal	JK	Dammen1661	OK	
+personal	JL	Animater/Archmage	OK	
+personal	JM	Loriel421	OK	
+personal	JM#	Loriel421	OK	
+personal	JN	jnwee	OK	
+personal	JO	JohnBob	OK	
+personal	JP	japheth	OK	
+personal	JQ	baldur46233	OK	
+personal	JR	Jeradin	OK	
+personal	JS	DarkPoet	OK	
+personal	JT	Jartan	OK	
+personal	JW	JBMadrid	OK	
+personal	JX	Atharaon	OK	
+personal	JY_	Jaysyn	OK	
+personal	J_	SapphireIce101	OK	
+personal	K	Kitrax	Global Conflict	
+personal	K!	Kingrames	OK	
+personal	K#	Khayman	Conflict	Conflict with theacefes
+personal	K#	theacefes	Conflict	Conflict with khayman
+personal	K-	kthxbye	OK	
+personal	K0	Daeros_Trollkiller	OK	
+personal	K1	lambada	OK	
+personal	K2	silversnuff	OK	
+personal	K7	Kai of Candlekeep	OK	
+personal	K9	golden_elminster	OK	
+personal	KA#	Sir Kalthorine	OK	
+personal	KB	PsychoWedge	OK	Kerzenburg-Forums
+personal	KC	Callirgos	OK	
+personal	KD	kakitadairu	OK	
+personal	KE	Kendris	OK	
+personal	KF	kimmuryiel	OK	
+personal	KG	xdeathplanetx	OK	
+personal	KH	ronin69hof	OK	
+personal	KI	that_guy13	OK	
+personal	KISH	Kish	OK	
+personal	KK	DKnight	OK	
+personal	KL	Sir Kill	OK	
+personal	KM	Auctor	OK	
+personal	KN#	Kain	OK	
+personal	KO	Mas	OK	
+personal	KQ	Kirowen	OK	
+personal	KR	Kromlech	OK	
+personal	KS	Kish	OK	
+personal	KT	koteko	OK	
+personal	KV	gboeck	OK	
+personal	KW	Killerwizerd	OK	
+personal	KX	KoraxtheGhoul	OK	
+personal	KY	Krugos	OK	
+personal	KZ	Gkar	OK	
+personal	K_	Keryvian	OK	
+personal	L!	Lord-Jyssev	OK	
+personal	L#	LeutianBG	OK	
+personal	L#	Lava Del Vortel	OK	
+personal	L-	Almateria	OK	
+personal	L0	moggadeet	OK	
+personal	L4	Lawlight	OK	
+personal	L6	Leto	OK	
+personal	L8	Lasci	OK	
+personal	LA	Lord Agamemnon	OK	
+personal	LC	Galactygon	OK	
+personal	LD	Lordsdarkknight1585	OK	
+personal	LE	Lord Ernie	OK	
+personal	LF	lefreut	OK	
+personal	LH	Elhoe	OK	
+personal	LI#	Littiz	OK	
+personal	LJ#	Ragnar	OK	
+personal	LK	K'aeloree	OK	
+personal	LL	Linaze	OK	
+personal	LM	morgain	OK	Legendes
+personal	LN	Lodano	OK	
+personal	LOD	TheMindsEye	OK	
+personal	LR	lroumen	OK	
+personal	LS	Aeryn	OK	
+personal	LU	LuckyOne	OK	
+personal	LW	Lone Wolf	OK	
+personal	LY	Lyrandon	OK	
+personal	LZ	Luiz	OK	
+personal	L_	Victorius	OK	
+personal	M!	M_018	OK	
+personal	M#	Moonfruit	Conflict	Conflict with Meira and Morrow
+personal	M#	Meira	Conflict	Conflict with Morrow and Moonfruit
+personal	M#	Morrow	Conflict	Conflict with Meira and Moonfruit
+personal	M-	Melissan	OK	
+personal	M1	Mikos Valdemar	OK	
+personal	M2	MacMonkey	OK	
+personal	M3	Twani	OK	
+personal	M4	Myz	OK	
+personal	M7	flamewing	OK	
+personal	M8	Maus	OK	
+personal	MA	Macready	OK	
+personal	MB	Doug Piranha	OK	
+personal	MC	Coorlim	OK	
+personal	MD	MageDuel	Conflict	Conflict with Mordan Dragonslayer
+personal	MDS	Mordan Dragonslayer	Conflict	Conflict with MageDuel
+personal	MF	Mikkelpf	OK	
+personal	MG	Moongaze	OK	
+personal	MH	The Imp	OK	on behalf of Angel
+personal	MI	Mike1072	OK	
+personal	MJ	Jolyth	OK	
+personal	MK	Mandyr Khron	OK	
+personal	ML	Maurolava	OK	
+personal	MM	MaryMagus	OK	
+personal	MN	Mycenius	OK	
+personal	MO	morpheus562	OK	
+personal	MP	Peks	Conflict	Conflict with Wolfmoon
+personal	MPI	Wolfmoon	Conflict	Conflict with Peks
+personal	MPS	Wolfmoon	Conflict	Conflict with Peks
+personal	MQ	Maiev	OK	
+personal	MR	Creepin	OK	According to Creepin: mod creator Lord Mirabbo, maintained by TCDale
+personal	MS	Idratha	OK	
+personal	MT	Mortis	OK	
+personal	MU	Mathsorcerer	OK	
+personal	MV	Myval	OK	
+personal	MW	Deathsangel	OK	
+personal	MX	maximize20	OK	
+personal	MY	Musigny	OK	
+personal	MZ	MCZ	OK	
+personal	M_	Malnefein,	OK	
+personal	N	Necaradan	Global Conflict	
+personal	N!	Nastian	OK	
+personal	N#	kuemper	OK	
+personal	N)	Nico999	OK	
+personal	N-	Nivellen	OK	
+personal	N1	Nifft	OK	
+personal	N3	Nexus	OK	
+personal	NA	Nal'shu	OK	
+personal	NB	Neeber	OK	
+personal	NE	nenai	OK	
+personal	NF	NightFall	OK	
+personal	NI	amilauh	OK	
+personal	NJ	Vlad	OK	
+personal	NM	Nightmare	OK	
+personal	NO	Nameless One	OK	
+personal	NP	Yovaneth	OK	
+personal	NS	NemoSum	Conflict	Conflict with the Saerileth mod (project prefix list)
+personal	NU	Nukenin	OK	
+personal	NW	JohnBob	OK	on behalf of Paladin84 from ArcaneCoast
+personal	NX	Nemelex	OK	
+personal	NY	nychold	OK	
+personal	N_	Nickop	OK	
+personal	O!	olimikrig	OK	
+personal	O#	kulyok	OK	
+personal	o1	Ossian Studios	OK	
+personal	o2	Ossian Studios	OK	
+personal	o3	Ossian Studios	OK	
+personal	OA	Bardamu	OK	
+personal	OC	Nephridil	OK	
+personal	OD	Dashgar	OK	
+personal	OH	CamDawg	OK	[Requested by CamDawg, for Overhaul]
+personal	OL	Within Amnesia	OK	
+personal	OO	Oomph	OK	
+personal	OP	Kelop	OK	
+personal	OR	Greener	OK	
+personal	OS	Mordan Dragonslayer	OK	
+personal	OW	Otherwisely	OK	
+personal	O_	OTG	OK	
+personal	P!	WarChiefZeke	OK	
+personal	P#	Domi	OK	
+personal	P3	Picollo	OK	
+personal	P4	Pitneyb	OK	
+personal	P5	pro5	OK	
+personal	P@	Marupal	OK	
+personal	PA	Grim Squeaker	OK	
+personal	PB	Heron	OK	
+personal	PC	Calindor	OK	
+personal	PD	Tor_Erouan	OK	
+personal	PE	Da Rock	OK	
+personal	PF	Pale fire	OK	
+personal	PF_	Pale fire	OK	
+personal	PG	jcompton	OK	
+personal	PH	Pharaun	OK	
+personal	PI	ala	OK	[unreleased mods]
+personal	PJ	JPme2187	OK	
+personal	PK	raekuul	OK	
+personal	PL	Corradun	OK	
+personal	PO	Potencius	OK	
+personal	PP	wizerthe13th	OK	
+personal	PS	Duality	OK	
+personal	PT	jastey	OK	
+personal	PU	puriel	OK	
+personal	PW	PsychoWedge	OK	
+personal	PX	Deratiseur	Conflict	Conflict with PixieButt
+personal	PXB	PixieButt	Conflict	Conflict with Deratiseur
+personal	PY	Python	OK	
+personal	P_	Pol_Rupes	OK	
+personal	Q!	ottomadenedamotto	OK	
+personal	Q#	Thorfinn	OK	
+personal	Q1	Den666	OK	
+personal	Q6	markmid (Paareth)	OK	
+personal	QD	aquadrizzt	OK	
+personal	QI	jmaeq	OK	
+personal	QQ	Huxaltec	OK	
+personal	QT	Qatanqa	OK	
+personal	QU	Cornmarket	OK	
+personal	QW	Qwallath	OK	
+personal	QX	Moongaze (Skunk's Den)	OK	
+personal	Q_	Mr Wibble	OK	
+personal	R!	Rastor	OK	
+personal	R#	Rastor	OK	
+personal	R0	Reens	OK	
+personal	R1	RoorenArt	OK	
+personal	R2	Romin	OK	
+personal	R4	RVNS	OK	
+personal	R5	rskv	OK	
+personal	R7	Riviera	OK	
+personal	R8	Red Carnelian	OK	
+personal	R99	Reapper99	OK	
+personal	R@	Ravandel	OK	
+personal	RA	Raduziel	OK	
+personal	RB	Drew	OK	
+personal	RCS	Rika_Catgirl	OK	
+personal	RD	Thorium Dragon	OK	
+personal	RE	kulyok	OK	
+personal	RF	rotfarmer	OK	
+personal	RG	Renegade	OK	
+personal	RH	Rhaella	OK	
+personal	RJ	nullset	OK	
+personal	RK	Red Knight	OK	
+personal	RL	Ravenslight	OK	
+personal	RM	Kabuki	OK	
+personal	RN	jastey	OK	Rosenranken recoded mods
+personal	RO	RoJadre	OK	
+personal	RP	zenblack	OK	on behalf of RoyalProtector from G3 forums
+personal	RQ	Revan	OK	
+personal	RR	aVENGER	OK	
+personal	RS	Rabbi Satan	OK	
+personal	RT	RavenSW	OK	
+personal	RV	Révérie	OK	
+personal	RW	Master Bercon	OK	
+personal	RX	rbx4	OK	
+personal	RZ	Razfallow	OK	
+personal	R_	Fantasy	OK	
+personal	S!	Sikret	OK	
+personal	S#	serSafir	OK	
+personal	S-	Saber	OK	
+personal	S0	Soliir	OK	
+personal	S1	Scol	OK	
+personal	S2	Songbow	OK	
+personal	S3	artificial_sunlight	OK	
+personal	S4	sufflaminandus	OK	
+personal	S5	SyrinxCerian	OK	
+personal	S6	SixOfSpades	OK	
+personal	S7	Meridan 1	OK	
+personal	S8	SirK8	OK	
+personal	S9	smeagolheart	OK	
+personal	S@	skellytz	OK	
+personal	SA	Seanas	Conflict	Conflcit with Savage
+personal	SA	Savage	Conflict	Conflict with Seanas
+personal	SBB	Stryker	OK	
+personal	SC#	SConrad	OK	
+personal	SD	Shed	OK	
+personal	SE	Monkee	OK	
+personal	SF	phoeunix	OK	
+personal	SG	SadieGamer	OK	
+personal	SH	ShadowCop	OK	
+personal	SI	Sirick	OK	
+personal	SJ	Amaurea	OK	
+personal	SK#	Amazor'dra	OK	
+personal	SL	Sir Lancelot	OK	
+personal	SM	Lafein	OK	
+personal	SN#	SousNain	OK	
+personal	SND	Aurphan Intelechid	OK	
+personal	SO	Solamnic	OK	
+personal	SP	Extremist	OK, protected	
+personal	SQ	saigon1983	OK	
+personal	SR	St. Vitruvius	OK	
+personal	SS	Shadow Smuggler	OK	
+personal	ST	Pomacanthus	OK	
+personal	SU	Bons	OK	
+personal	SV	tigerspyke	OK	
+personal	SW	Shadowind	OK	
+personal	SX	Stormx	OK	
+personal	SY	shohy	OK	
+personal	SZ	Simyaz	OK	
+personal	S_	Echo	OK	Conflict with JohnBob
+personal	S_	JohnBob	OK	On behalf of Suy; conflict with Echo
+personal	T!	Trioditis	OK	
+personal	T#	Tess	OK	
+personal	T-	Miloch Tervadh	OK	
+personal	T1	Thimblerig	OK	
+personal	T2	ZenOfAnger	OK	
+personal	T3	twetwe123	OK	
+personal	T@	ThoragS	OK	
+personal	TA	Taleisin	Conflict	Conflict with BobTokyo
+personal	TAC	BobTokyo	Conflict	Conflict with Taleisin
+personal	TAL	Taleisin	OK	
+personal	TB#	the bigg	OK	
+personal	TC	LadeJarl	OK	
+personal	TD	Tameon the Dragoon	Conflict	Conflict with Andy Halfelf
+personal	TDT	Andy Halfelf	Conflict	Conflict with Tameon the Dragoon
+personal	TE	Taverne the l'Elfe	OK	
+personal	TF	Thor Thunderfist	OK	
+personal	TG#	T.G.Maestro	OK	
+personal	TH	Thot	OK	
+personal	TI	Tibicina	OK	
+personal	TJ	Thels	OK	
+personal	TK	Kai	Conflict	Conflict with the Termless Keep mod (project prefix list)
+personal	TL	ToddTeamBG	OK	
+personal	TM	Gort	OK	
+personal	TO	Dduroth	OK	
+personal	TP	Stone Wolf	Conflict	Conflict with The Plot Thickens mod (project prefix list)
+personal	TQ	Rianess	OK	
+personal	TR	Tar-Tirith	OK	
+personal	TSJ	Sillara of the Tamari	OK	
+personal	TT	Tsabo_Tavok	Conflict	Conflict with Vlad
+personal	TT	Vlad	Conflict	Conflict with Tsabo_Tavok
+personal	TU	Turambar	OK	
+personal	TV	Papalegba	OK	
+personal	TZ	TS25	OK	
+personal	T_	The_Nonman	OK	
+personal	U#	Moonfruit	OK	
+personal	U-	Tantalus	OK	
+personal	UB	Ulb	OK	
+personal	UC	Deimos	OK	
+personal	UM	Morvannec	OK	
+personal	UR	zenblack	OK	on behalf of Urd from G3 forums
+personal	US	Cahir	OK	on the behalf of semiticgod
+personal	UT	shohy	OK	on behalf of trow.cc
+personal	UU	cdx	OK	Changed from #U to UU by request of owner on 30.10.2019
+personal	UX	ahungry	OK	
+personal	UZ	Norman Knight	OK	
+personal	U_	TDouglas	OK	
+personal	V!	Neferit	OK	
+personal	V#	Zvijer	OK	
+personal	V-	v_k	OK	
+personal	V1	AvA	OK	
+personal	V3	kyudosha	OK	
+personal	V8	Draconis The Red	OK	
+personal	V9	ChanWakhan	OK	
+personal	VA	Valiant	OK	
+personal	VB	evelie	OK	
+personal	VF	dragoon	OK	
+personal	VG	Apocalypse Razel	OK	
+personal	VI	balduran	OK	
+personal	VK	Vaskez	OK	
+personal	VL	L`f	OK	
+personal	VM	VaxMini	OK	
+personal	VN	Cygnea	OK	
+personal	VO	Vogonvor	OK	
+personal	VP	Vlad	OK	
+personal	VQ	Calliea	OK	
+personal	VR	Silrana	OK	
+personal	VS	Silmarien	OK	
+personal	VT	ValaTarsis	OK	
+personal	VV	SailorCat	OK	
+personal	VW	Velk@	OK	
+personal	VX	Vortex	OK	
+personal	VY	Astinos	OK	
+personal	VZ	Vadász	OK	
+personal	V_	hannibal555	OK	
+personal	W!	William Imm	OK	
+personal	W#	Winterine	OK	
+personal	W-	Amote	OK	
+personal	W1	witya	OK	
+personal	W3	WrongOnTheInternet	OK	
+personal	w5	LiellaMod	OK	
+personal	W7	MaLa	OK	
+personal	WA	White Agnus	OK	
+personal	WB	Bearwere	OK	
+personal	WD	WillingDespot	OK	
+personal	WE	Manveru	OK	
+personal	WG	WildGirl	OK	
+personal	WH	MaltanarTeamBG	OK	
+personal	WI	AWizardDidIt	OK	
+personal	WK	Hagen	OK	
+personal	WL	Allbrother	OK	
+personal	WM	Ineth	OK	on behalf of Wild Mage Additions
+personal	WN	Llewren	OK	
+personal	WO	Marla Wolfblade	OK	
+personal	WR	Werewolf	OK	
+personal	WS	Wizard Styles	OK	
+personal	WT	Chevar	OK	
+personal	WU	Wutan	OK	
+personal	WV	Thauron	OK	
+personal	WW	Westley Weimer	Conflict	Conflict with Alaron
+personal	WW	Alaron	Conflict	Conflict with Westley Weimer
+personal	WX	WizWom	OK	
+personal	WY	blackdevil0742	OK	
+personal	W_	whwilliams	OK	
+personal	X!	Ineth	OK	
+personal	X-	Bubb	OK	
+personal	X3	Skitia	OK	
+personal	X8	Melancholie	OK	
+personal	XA	dvalle686	OK	
+personal	XB	Xaos Bob	OK	
+personal	XD	Kitana	OK	
+personal	XE	Xenageo	OK	
+personal	XG	prozh	OK	
+personal	XI	Xiphias	OK	
+personal	XL	Dragon Lord	OK	
+personal	XO	Chaplain	OK	Prefix owner also known as: Lollorian
+personal	XP	Monkee	OK	
+personal	XT	The Imp	OK	on behalf of Reddbane
+personal	XX	Terrowyrm	OK	
+personal	XY	Kestral	OK	
+personal	X_	naughty101	OK	
+personal	Y!	Cargolin	OK	
+personal	Y#	Yacomo	OK	
+personal	YA	yarpen	OK	
+personal	YE	alceryes	OK	
+personal	YF	MephistoSatanDevil	OK	
+personal	YI	Sinaherib	OK	
+personal	YOR	Yorleen	OK	
+personal	YR	Yorleen	OK	
+personal	YS	Yovaneth	OK	
+personal	YU	garfield	OK	
+personal	YV	Kelenthial	OK	
+personal	YY	athies	OK	
+personal	YZ	HERD	OK	
+personal	Y_	yato	OK	
+personal	Z!	Zed Nocear	OK	
+personal	Z#	Zyraen	OK	
+personal	Z%	Lucidfire	OK	
+personal	Z)	DaQueenBean	OK	
+personal	Z0	Kamikaze	OK	
+personal	Z7	ZFR	OK	
+personal	Z9	Zutroy	OK	
+personal	ZAL	zalabar	OK	
+personal	ZB	zenblack	OK	
+personal	ZD	zenblack	OK	on behalf of dark0dave
+personal	ZF	Zranoff	OK	
+personal	ZG	Graion Dilach	OK	
+personal	ZI	Zireael	OK	
+personal	ZK	Arunsun	OK	
+personal	ZN	Zayn	OK	
+personal	ZP	Parker	OK	
+personal	ZQ	Peterstigers	OK	
+personal	ZR	rapsam2003	OK	
+personal	ZS	szaumoor	OK	
+personal	ZT	zarffyn	OK	
+personal	ZU	StandardAwesome	OK	
+personal	ZV	Zvalat	OK	
+personal	ZX	Zoox	OK	
+personal	ZY	Zyraen	OK	
+personal	ZZ	Boris5000	OK	
+personal	Z_	Bardess	OK	
+personal	_A	Ameranthftw	OK	
+personal	_B	BCaesar	OK	
+personal	_L	LaughingMan	OK	
+personal	_M	Shaxx	OK	
+personal	_R	BCaesar	OK	
+personal	_S	ShadowfireAngel	OK	
+personal	_T	JohnBob	OK	on behalf of testlum from Gibberlings3
+personal	__	The Bigg	OK	Used only for EFF files

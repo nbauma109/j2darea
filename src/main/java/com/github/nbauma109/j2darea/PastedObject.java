@@ -233,6 +233,13 @@ public class PastedObject implements Externalizable {
             copied.entranceData.setOrientation(entranceData.getOrientation());
             copied.entranceData.setDestinationArea(entranceData.getDestinationArea());
             copied.entranceData.setDestinationEntrance(entranceData.getDestinationEntrance());
+            copied.entranceData.setDestinationAreaType(entranceData.getDestinationAreaType());
+            copied.entranceData.setCreateDestinationReturnTransition(entranceData.isCreateDestinationReturnTransition());
+            copied.entranceData.setDestinationPointX(entranceData.getDestinationPointX());
+            copied.entranceData.setDestinationPointY(entranceData.getDestinationPointY());
+            copied.entranceData.setDestinationPointOrientation(entranceData.getDestinationPointOrientation());
+            copied.entranceData.setDestinationPreviewImagePath(entranceData.getDestinationPreviewImagePath());
+            copied.entranceData.setDestinationReturnPolygon(entranceData.getDestinationReturnPolygon());
         }
         return copied;
     }

@@ -1,71 +1,71 @@
 package com.github.nbauma109.j2darea.ie;
 
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.awt.image.BufferedImage;
-import java.awt.Graphics2D;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Represents a Baldur's Gate TIS (Tileset Image Set) file.
- * This is a simplified version that creates palette-based TIS v1 files.
- * For PVRZ-based TIS v2, additional DXT compression libraries would be needed.
+ * Palette-based TIS V1 writer.
+ *
+ * This remains a classic TIS exporter. PVRZ-backed TIS for EE still requires a
+ * DXT compressor that is not bundled in this project.
  */
 public class TISFile {
 
-    private static final int TILE_WIDTH = 64;
-    private static final int TILE_HEIGHT = 64;
+    public static final int TILE_WIDTH = 64;
+    public static final int TILE_HEIGHT = 64;
     private static final int PALETTE_SIZE = 256;
+    private static final int TILE_RECORD_SIZE = 1024 + (TILE_WIDTH * TILE_HEIGHT);
 
-    private BufferedImage[] tiles;
+    private final List<BufferedImage> tiles;
 
     public TISFile(BufferedImage sourceImage) {
-        // Calculate number of tiles needed
-        int tilesX = (sourceImage.getWidth() + TILE_WIDTH - 1) / TILE_WIDTH;
-        int tilesY = (sourceImage.getHeight() + TILE_HEIGHT - 1) / TILE_HEIGHT;
-        int totalTiles = tilesX * tilesY;
-
-        tiles = new BufferedImage[totalTiles];
-
-        // Split image into tiles
-        int tileIndex = 0;
-        for (int ty = 0; ty < tilesY; ty++) {
-            for (int tx = 0; tx < tilesX; tx++) {
-                int x = tx * TILE_WIDTH;
-                int y = ty * TILE_HEIGHT;
-                int w = Math.min(TILE_WIDTH, sourceImage.getWidth() - x);
-                int h = Math.min(TILE_HEIGHT, sourceImage.getHeight() - y);
-
-                BufferedImage tile = new BufferedImage(TILE_WIDTH, TILE_HEIGHT, BufferedImage.TYPE_INT_RGB);
-                Graphics2D g = tile.createGraphics();
-                g.drawImage(sourceImage, 0, 0, w, h, x, y, x + w, y + h, null);
-                g.dispose();
-
-                tiles[tileIndex++] = tile;
-            }
-        }
+        this(splitImage(sourceImage));
     }
 
-    public byte[] toBytesSimplified() throws IOException {
+    public TISFile(List<BufferedImage> tiles) {
+        this.tiles = new ArrayList<>(tiles);
+    }
+
+    public static List<BufferedImage> splitImage(BufferedImage sourceImage) {
+        if (sourceImage == null) {
+            return Collections.emptyList();
+        }
+        int tilesX = (sourceImage.getWidth() + TILE_WIDTH - 1) / TILE_WIDTH;
+        int tilesY = (sourceImage.getHeight() + TILE_HEIGHT - 1) / TILE_HEIGHT;
+        List<BufferedImage> result = new ArrayList<>(tilesX * tilesY);
+        for (int ty = 0; ty < tilesY; ty++) {
+            for (int tx = 0; tx < tilesX; tx++) {
+                int srcX = tx * TILE_WIDTH;
+                int srcY = ty * TILE_HEIGHT;
+                int width = Math.min(TILE_WIDTH, sourceImage.getWidth() - srcX);
+                int height = Math.min(TILE_HEIGHT, sourceImage.getHeight() - srcY);
+                BufferedImage tile = new BufferedImage(TILE_WIDTH, TILE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+                Graphics2D graphics = tile.createGraphics();
+                graphics.drawImage(sourceImage, 0, 0, width, height, srcX, srcY, srcX + width, srcY + height, null);
+                graphics.dispose();
+                result.add(tile);
+            }
+        }
+        return result;
+    }
+
+    public byte[] toBytes() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream dos = new DataOutputStream(baos);
 
-        // Write header (signature + version)
-        writeFixedString(dos, "TIS V1  ", 8);
-
-        // Write tile count
-        dos.writeInt(Integer.reverseBytes(tiles.length));
-
-        // Write tile size
-        dos.writeInt(Integer.reverseBytes(0x1400)); // 5120 bytes per tile (64x64 + palette)
-
-        // Write header size
+        writeFixedString(dos, "TIS ", 4);
+        writeFixedString(dos, "V1  ", 4);
+        dos.writeInt(Integer.reverseBytes(tiles.size()));
+        dos.writeInt(Integer.reverseBytes(TILE_RECORD_SIZE));
         dos.writeInt(Integer.reverseBytes(0x18));
-
-        // Write dimension (64x64)
         dos.writeInt(Integer.reverseBytes(TILE_WIDTH));
 
-        // Write each tile
         for (BufferedImage tile : tiles) {
             writeTile(dos, tile);
         }
@@ -75,32 +75,24 @@ public class TISFile {
     }
 
     private void writeTile(DataOutputStream dos, BufferedImage tile) throws IOException {
-        // Create simple palette (this is a simplified approach)
-        int[][] palette = new int[PALETTE_SIZE][3]; // RGB for each color
-
-        // Generate a simple palette from the tile
-        // In a real implementation, this would use proper quantization
         for (int i = 0; i < PALETTE_SIZE; i++) {
-            int rgb = (i << 16) | (i << 8) | i; // Simple grayscale palette
-            palette[i][0] = (rgb >> 16) & 0xFF; // R
-            palette[i][1] = (rgb >> 8) & 0xFF;  // G
-            palette[i][2] = rgb & 0xFF;          // B
+            int red = ((i >> 5) & 0x07) * 255 / 7;
+            int green = ((i >> 2) & 0x07) * 255 / 7;
+            int blue = (i & 0x03) * 255 / 3;
+            dos.writeByte(blue);
+            dos.writeByte(green);
+            dos.writeByte(red);
+            dos.writeByte(0);
         }
 
-        // Write palette (256 colors * 4 bytes RGBA)
-        for (int i = 0; i < PALETTE_SIZE; i++) {
-            dos.writeByte(palette[i][2]); // B
-            dos.writeByte(palette[i][1]); // G
-            dos.writeByte(palette[i][0]); // R
-            dos.writeByte(0);              // A
-        }
-
-        // Write pixel data (64x64 = 4096 bytes of palette indices)
         for (int y = 0; y < TILE_HEIGHT; y++) {
             for (int x = 0; x < TILE_WIDTH; x++) {
                 int rgb = tile.getRGB(x, y);
-                int gray = ((rgb >> 16) & 0xFF + (rgb >> 8) & 0xFF + (rgb & 0xFF)) / 3;
-                dos.writeByte(gray); // Use grayscale value as palette index
+                int red = (rgb >>> 16) & 0xFF;
+                int green = (rgb >>> 8) & 0xFF;
+                int blue = rgb & 0xFF;
+                int index = ((red * 7 / 255) << 5) | ((green * 7 / 255) << 2) | (blue * 3 / 255);
+                dos.writeByte(index);
             }
         }
     }
@@ -114,6 +106,6 @@ public class TISFile {
     }
 
     public int getTileCount() {
-        return tiles.length;
+        return tiles.size();
     }
 }

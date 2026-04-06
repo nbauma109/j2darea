@@ -24,6 +24,9 @@ import javax.swing.JFrame;
 import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JCheckBox;
+import javax.swing.JLabel;
+import javax.swing.BoxLayout;
 
 import static com.github.nbauma109.j2darea.J2DArea.BUTTON_SIZE;
 
@@ -60,11 +63,16 @@ public class PolygonSelectionView extends JFrame {
             @Override
             public void mousePressed(MouseEvent e) {
                 JEditorPane scriptPane = new JEditorPane();
+                scriptPane.setContentType("text/plain");
                 scriptPane.setFont(new Font("Consolas", Font.PLAIN, 12));
                 StringWriter sw = new StringWriter();
                 PrintWriter pw = new PrintWriter(sw);
+                boolean createEntrance = shouldCreateEntranceSnippet();
+                logHeader(pw, createEntrance);
                 logPolygon(relativePolygon, location, pw);
-                logPoint(e, location, pw);
+                if (createEntrance) {
+                    logPoint(e, location, pw);
+                }
                 scriptPane.setText(sw.toString());
                 JFrame scriptFrame = new JFrame("Weidu script");
                 scriptFrame.add(scriptPane);
@@ -108,6 +116,40 @@ public class PolygonSelectionView extends JFrame {
         pack();
         setVisible(true);
     }
+
+    private boolean shouldCreateEntranceSnippet() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(new JLabel("<html>Create entrance and destination-side return patch snippet for the destination area?<br>"
+            + "Recommended to keep entry and exit pairs consistent.</html>"));
+        panel.add(new JLabel("<html><small>For areas you own, create the entrance directly in the project and export it.<br>"
+            + "Use these snippets when patching existing game areas you do not own.</small></html>"));
+
+        Object[] options = {"Yes", "No"};
+        int choice = JOptionPane.showOptionDialog(
+            this,
+            panel,
+            "Create entrance and destination-side return patch?",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE,
+            null,
+            options,
+            options[0]
+        );
+
+        return choice != JOptionPane.NO_OPTION;
+    }
+
+    private static void logHeader(PrintWriter out, boolean createEntrance) {
+        out.println("// WeiDU patch snippets for an existing area you do not own.");
+        out.println("// For areas you own, create the exit region and entrance directly in the project and export them.");
+        if (createEntrance) {
+            out.println("// Includes both the exit polygon and the matching re-entry entrance point.");
+        } else {
+            out.println("// Includes only the exit polygon.");
+        }
+        out.println();
+    }
     
     private static void logPolygon(Polygon polygon, Point location, PrintWriter out) {
         Rectangle r = polygon.getBounds();
@@ -134,6 +176,7 @@ public class PolygonSelectionView extends JFrame {
     }
 
     private static void logPoint(MouseEvent e, Point location, PrintWriter out) {
+        out.println();
         out.println("  LPF fj_are_structure");
         out.println("    INT_VAR");
         out.println("    fj_loc_x             = " + (location.x + e.getX()));

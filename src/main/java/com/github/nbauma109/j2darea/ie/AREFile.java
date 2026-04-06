@@ -1,203 +1,143 @@
 package com.github.nbauma109.j2darea.ie;
 
+import java.awt.Point;
+import java.awt.Polygon;
+import java.awt.Rectangle;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.github.nbauma109.j2darea.AreaAttributes;
+
 /**
- * Represents a Baldur's Gate ARE (Area) file.
- * ARE files define area metadata: regions, spawn points, actors, containers, doors, etc.
+ * ARE V1.0 writer focused on editor-authored areas: regions, entrances,
+ * containers and doors.
  */
 public class AREFile {
 
+    private static final int HEADER_SIZE = 0x011C;
+    private static final int REGION_SIZE = 0x00C4;
+    private static final int ENTRANCE_SIZE = 0x0068;
+    private static final int CONTAINER_SIZE = 0x00C0;
+    private static final int DOOR_SIZE = 0x00C8;
+
     private String wedResource = "";
-    private int lastSaved = 0;
-    private int areaFlags = 0;
     private String areaResRef = "";
-    private int areaType = 0;
-    private String rain = "";
-    private String snow = "";
-    private String fog = "";
-    private String lightning = "";
-    private int windSpeed = 0;
-    private String areaScript = "";
-    private int explorationBitmapSize = 0;
     private int width = 0;
     private int height = 0;
+    private int explorationBitmapSize = 0;
+    private AreaAttributes areaAttributes = new AreaAttributes();
 
-    private List<AREActor> actors = new ArrayList<>();
-    private List<ARERegion> regions = new ArrayList<>();
-    private List<ARESpawnPoint> spawnPoints = new ArrayList<>();
-    private List<AREEntrance> entrances = new ArrayList<>();
-    private List<AREContainer> containers = new ArrayList<>();
-    private List<AREDoor> doors = new ArrayList<>();
-    private List<AREAmbient> ambients = new ArrayList<>();
+    private final List<ARERegion> regions = new ArrayList<>();
+    private final List<AREEntrance> entrances = new ArrayList<>();
+    private final List<AREContainer> containers = new ArrayList<>();
+    private final List<AREDoor> doors = new ArrayList<>();
 
     public byte[] toBytes() throws IOException {
+        List<Vertex> vertices = new ArrayList<>();
+        for (ARERegion region : regions) {
+            region.assignVertices(vertices);
+        }
+        for (AREContainer container : containers) {
+            container.assignVertices(vertices);
+        }
+        for (AREDoor door : doors) {
+            door.assignVertices(vertices);
+        }
+
+        int regionOffset = HEADER_SIZE;
+        int entranceOffset = regionOffset + (regions.size() * REGION_SIZE);
+        int containerOffset = entranceOffset + (entrances.size() * ENTRANCE_SIZE);
+        int vertexOffset = containerOffset + (containers.size() * CONTAINER_SIZE);
+        int exploredBitmaskOffset = vertexOffset + (vertices.size() * 4);
+        int doorOffset = exploredBitmaskOffset + explorationBitmapSize;
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream dos = new DataOutputStream(baos);
 
-        // Write header
-        writeFixedString(dos, "AREAV1.0", 8);
+        writeFixedString(dos, "AREA", 4);
+        writeFixedString(dos, "V1.0", 4);
+        writeResRef(dos, wedResource);
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(areaAttributes.getAreaFlags()));
 
-        // Write WED resource
-        writeFixedStringNullPadded(dos, wedResource, 8);
-
-        // Write last saved (4 bytes)
-        dos.writeInt(Integer.reverseBytes(lastSaved));
-
-        // Write area flags (4 bytes)
-        dos.writeInt(Integer.reverseBytes(areaFlags));
-
-        // Write area ResRef (8 bytes - north)
-        writeFixedStringNullPadded(dos, areaResRef, 8);
-
-        // Write area flags and type (8 bytes total - repeated north/east/south/west)
         for (int i = 0; i < 4; i++) {
-            dos.writeInt(Integer.reverseBytes(0)); // No adjacent areas
+            writeResRef(dos, "");
+            dos.writeInt(Integer.reverseBytes(0));
         }
 
-        // Write area type (2 bytes)
-        dos.writeShort(Short.reverseBytes((short) areaType));
+        dos.writeShort(Short.reverseBytes((short) areaAttributes.getAreaTypeFlags()));
+        dos.writeShort(Short.reverseBytes((short) areaAttributes.getRainProbability()));
+        dos.writeShort(Short.reverseBytes((short) areaAttributes.getSnowProbability()));
+        dos.writeShort(Short.reverseBytes((short) areaAttributes.getFogProbability()));
+        dos.writeShort(Short.reverseBytes((short) areaAttributes.getLightningProbability()));
+        dos.writeShort(Short.reverseBytes((short) areaAttributes.getOverlayTransparency()));
 
-        // Write rain/snow/fog/lightning chance (4 bytes each)
-        writeFixedStringNullPadded(dos, rain, 8);
-        writeFixedStringNullPadded(dos, snow, 8);
-        writeFixedStringNullPadded(dos, fog, 8);
-        writeFixedStringNullPadded(dos, lightning, 8);
-
-        // Write wind speed (4 bytes)
-        dos.writeInt(Integer.reverseBytes(windSpeed));
-
-        // Calculate total vertex count and assign indices
-        int totalVertices = 0;
-        for (ARERegion region : regions) {
-            region.setVertexIndex(totalVertices);
-            totalVertices += region.getVertexCount();
-        }
-        for (AREDoor door : doors) {
-            door.setVertexIndex(totalVertices);
-            totalVertices += door.getVertexCount();
-        }
-
-        // Calculate offsets (these will be updated after we know sizes)
-        int actorOffset = 0x011C; // Standard ARE header size
-        int regionOffset = actorOffset + (actors.size() * 272); // Actor size = 272 bytes
-        int spawnPointOffset = regionOffset + (regions.size() * 196); // Region size = 196 bytes
-        int entranceOffset = spawnPointOffset + (spawnPoints.size() * 200); // Spawn point size = 200 bytes
-        int containerOffset = entranceOffset + (entrances.size() * 104); // Entrance size = 104 bytes
-        int doorOffset = containerOffset + (containers.size() * 192); // Container size = 192 bytes
-        int ambientOffset = doorOffset + (doors.size() * 200); // Door size = 200 bytes
-        int vertexOffset = ambientOffset + (ambients.size() * 212); // Ambient size = 212 bytes
-
-        // Write counts and offsets (at offset 0x0048)
-        dos.writeShort(Short.reverseBytes((short) actors.size()));
-        dos.writeShort(Short.reverseBytes((short) actors.size()));
-        dos.writeInt(Integer.reverseBytes(actorOffset));
-
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeShort(Short.reverseBytes((short) 0));
         dos.writeShort(Short.reverseBytes((short) regions.size()));
-        dos.writeShort(Short.reverseBytes((short) 0)); // Info point count
         dos.writeInt(Integer.reverseBytes(regionOffset));
-        dos.writeInt(Integer.reverseBytes(0)); // Info point offset
-
-        dos.writeShort(Short.reverseBytes((short) spawnPoints.size()));
-        dos.writeInt(Integer.reverseBytes(spawnPointOffset));
-
-        dos.writeShort(Short.reverseBytes((short) entrances.size()));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(0));
         dos.writeInt(Integer.reverseBytes(entranceOffset));
-
-        dos.writeShort(Short.reverseBytes((short) containers.size()));
-        dos.writeShort(Short.reverseBytes((short) 0)); // Item count
+        dos.writeInt(Integer.reverseBytes(entrances.size()));
         dos.writeInt(Integer.reverseBytes(containerOffset));
-        dos.writeInt(Integer.reverseBytes(0)); // Item offset
-
-        dos.writeShort(Short.reverseBytes((short) totalVertices)); // Vertex count
-        dos.writeShort(Short.reverseBytes((short) 0)); // Ambient count
-        dos.writeInt(Integer.reverseBytes(vertexOffset)); // Vertex offset
-        dos.writeInt(Integer.reverseBytes(ambientOffset));
-
-        dos.writeShort(Short.reverseBytes((short) 0)); // Variable count
-        dos.writeInt(Integer.reverseBytes(0)); // Variable offset
-
+        dos.writeShort(Short.reverseBytes((short) containers.size()));
+        dos.writeShort(Short.reverseBytes((short) 0));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(vertexOffset));
+        dos.writeShort(Short.reverseBytes((short) vertices.size()));
+        dos.writeShort(Short.reverseBytes((short) 0));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeShort(Short.reverseBytes((short) 0));
+        dos.writeShort(Short.reverseBytes((short) 0));
+        writeResRef(dos, areaAttributes.getAreaScript());
         dos.writeInt(Integer.reverseBytes(explorationBitmapSize));
-        dos.writeInt(Integer.reverseBytes(0)); // Exploration bitmap offset
-
-        dos.writeShort(Short.reverseBytes((short) doors.size()));
-        dos.writeShort(Short.reverseBytes((short) 0)); // Animation count
+        dos.writeInt(Integer.reverseBytes(exploredBitmaskOffset));
+        dos.writeInt(Integer.reverseBytes(doors.size()));
         dos.writeInt(Integer.reverseBytes(doorOffset));
-        dos.writeInt(Integer.reverseBytes(0)); // Animation offset
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(0));
+        dos.writeInt(Integer.reverseBytes(0));
+        writeResRef(dos, "");
+        writeResRef(dos, "");
 
-        dos.writeShort(Short.reverseBytes((short) 0)); // Tiled object count
-        dos.writeInt(Integer.reverseBytes(0)); // Tiled object offset
-        dos.writeInt(Integer.reverseBytes(0)); // Song entries offset
-        dos.writeInt(Integer.reverseBytes(0)); // Rest interruption offset
-
-        // Pad to header size (0x011C)
-        while (baos.size() < 0x011C) {
+        while (baos.size() < HEADER_SIZE) {
             dos.writeByte(0);
         }
 
-        // Write actors
-        for (AREActor actor : actors) {
-            actor.write(dos);
-        }
-
-        // Write regions
         for (ARERegion region : regions) {
             region.write(dos);
         }
-
-        // Write spawn points
-        for (ARESpawnPoint spawnPoint : spawnPoints) {
-            spawnPoint.write(dos);
-        }
-
-        // Write entrances
         for (AREEntrance entrance : entrances) {
             entrance.write(dos);
         }
-
-        // Write containers
         for (AREContainer container : containers) {
             container.write(dos);
         }
-
-        // Write doors
+        for (Vertex vertex : vertices) {
+            dos.writeShort(Short.reverseBytes((short) vertex.x));
+            dos.writeShort(Short.reverseBytes((short) vertex.y));
+        }
+        for (int i = 0; i < explorationBitmapSize; i++) {
+            dos.writeByte((byte) 0xFF);
+        }
         for (AREDoor door : doors) {
             door.write(dos);
-        }
-
-        // Write vertices (shared pool for regions and doors)
-        for (ARERegion region : regions) {
-            region.writeVertices(dos);
-        }
-        for (AREDoor door : doors) {
-            door.writeVertices(dos);
         }
 
         dos.flush();
         return baos.toByteArray();
     }
 
-    private void writeFixedString(DataOutputStream dos, String str, int length) throws IOException {
-        byte[] bytes = str.getBytes("US-ASCII");
-        dos.write(bytes, 0, Math.min(bytes.length, length));
-        for (int i = bytes.length; i < length; i++) {
-            dos.writeByte(' ');
-        }
-    }
-
-    private void writeFixedStringNullPadded(DataOutputStream dos, String str, int length) throws IOException {
-        byte[] bytes = str.getBytes("US-ASCII");
-        dos.write(bytes, 0, Math.min(bytes.length, length));
-        for (int i = bytes.length; i < length; i++) {
-            dos.writeByte(0);
-        }
-    }
-
-    // Getters and setters
     public void setWedResource(String wedResource) {
         this.wedResource = wedResource;
     }
@@ -206,14 +146,24 @@ public class AREFile {
         this.areaResRef = areaResRef;
     }
 
+    public void setAreaAttributes(AreaAttributes areaAttributes) {
+        this.areaAttributes = areaAttributes != null ? areaAttributes : new AreaAttributes();
+    }
+
     public void setWidth(int width) {
         this.width = width;
-        this.explorationBitmapSize = ((width / 32) + 1) * ((height / 32) + 1);
+        updateExplorationBitmapSize();
     }
 
     public void setHeight(int height) {
         this.height = height;
-        this.explorationBitmapSize = ((width / 32) + 1) * ((height / 32) + 1);
+        updateExplorationBitmapSize();
+    }
+
+    private void updateExplorationBitmapSize() {
+        int cellsWide = (width / 32) + 1;
+        int cellsHigh = (height / 32) + 1;
+        explorationBitmapSize = ((cellsWide * cellsHigh) + 7) / 8;
     }
 
     public void addDoor(AREDoor door) {
@@ -232,98 +182,150 @@ public class AREFile {
         containers.add(container);
     }
 
-    public static class AREActor {
-        public void write(DataOutputStream dos) throws IOException {
-            // Actor structure (272 bytes)
-            for (int i = 0; i < 272; i++) {
-                dos.writeByte(0);
-            }
+    private void writeFixedString(DataOutputStream dos, String str, int length) throws IOException {
+        byte[] bytes = str.getBytes("US-ASCII");
+        dos.write(bytes, 0, Math.min(bytes.length, length));
+        for (int i = bytes.length; i < length; i++) {
+            dos.writeByte(' ');
+        }
+    }
+
+    private void writeResRef(DataOutputStream dos, String str) throws IOException {
+        byte[] bytes = str.getBytes("US-ASCII");
+        dos.write(bytes, 0, Math.min(bytes.length, 8));
+        for (int i = bytes.length; i < 8; i++) {
+            dos.writeByte(0);
         }
     }
 
     public static class ARERegion {
-        private String name = "";
-        private int type = 0;
-        private int boundingBoxLeft = 0;
-        private int boundingBoxTop = 0;
-        private int boundingBoxRight = 0;
-        private int boundingBoxBottom = 0;
-        private List<Point> vertices = new ArrayList<>();
-        private int vertexIndex = 0; // Index into global vertex pool
+        private final String name;
+        private final int type;
+        private final Polygon polygon;
+        private String destinationArea = "";
+        private String destinationEntrance = "";
+        private String script = "";
+        private String keyItem = "";
+        private int flags = 0;
+        private int triggerValue = 0;
+        private int cursorIndex = 0;
+        private int trapDetectionDifficulty = 0;
+        private int trapRemovalDifficulty = 0;
+        private boolean trapped = false;
+        private boolean trapDetected = false;
+        private int vertexStartIndex = 0;
 
-        public void setName(String name) {
+        public ARERegion(String name, int type, Polygon polygon) {
             this.name = name;
-        }
-
-        public void setType(int type) {
             this.type = type;
+            this.polygon = polygon;
         }
 
-        public void setBoundingBox(int left, int top, int right, int bottom) {
-            this.boundingBoxLeft = left;
-            this.boundingBoxTop = top;
-            this.boundingBoxRight = right;
-            this.boundingBoxBottom = bottom;
+        public void setDestinationArea(String destinationArea) {
+            this.destinationArea = destinationArea;
         }
 
-        public void addVertex(int x, int y) {
-            vertices.add(new Point(x, y));
+        public void setDestinationEntrance(String destinationEntrance) {
+            this.destinationEntrance = destinationEntrance;
         }
 
-        public int getVertexCount() {
-            return vertices.size();
+        public void setScript(String script) {
+            this.script = script;
         }
 
-        public void setVertexIndex(int index) {
-            this.vertexIndex = index;
+        public void setFlags(int flags) {
+            this.flags = flags;
         }
 
-        public void write(DataOutputStream dos) throws IOException {
-            // Region structure (196 bytes minimum)
-            writeFixedStringNullPadded(dos, name, 32);
+        public void setTriggerValue(int triggerValue) {
+            this.triggerValue = triggerValue;
+        }
+
+        public void setCursorIndex(int cursorIndex) {
+            this.cursorIndex = cursorIndex;
+        }
+
+        public void setTrapDetectionDifficulty(int trapDetectionDifficulty) {
+            this.trapDetectionDifficulty = trapDetectionDifficulty;
+        }
+
+        public void setTrapRemovalDifficulty(int trapRemovalDifficulty) {
+            this.trapRemovalDifficulty = trapRemovalDifficulty;
+        }
+
+        public void setTrapped(boolean trapped) {
+            this.trapped = trapped;
+        }
+
+        public void setTrapDetected(boolean trapDetected) {
+            this.trapDetected = trapDetected;
+        }
+
+        private void assignVertices(List<Vertex> vertices) {
+            vertexStartIndex = vertices.size();
+            for (int i = 0; i < polygon.npoints; i++) {
+                vertices.add(new Vertex(polygon.xpoints[i], polygon.ypoints[i]));
+            }
+        }
+
+        private void write(DataOutputStream dos) throws IOException {
+            Rectangle bounds = polygon.getBounds();
+            writeName(dos, name, 32);
             dos.writeShort(Short.reverseBytes((short) type));
-            dos.writeShort(Short.reverseBytes((short) boundingBoxLeft));
-            dos.writeShort(Short.reverseBytes((short) boundingBoxTop));
-            dos.writeShort(Short.reverseBytes((short) boundingBoxRight));
-            dos.writeShort(Short.reverseBytes((short) boundingBoxBottom));
-            dos.writeShort(Short.reverseBytes((short) vertices.size()));
-            dos.writeInt(Integer.reverseBytes(vertexIndex)); // Vertex index in global pool
-            // Pad to 196 bytes
-            for (int i = 50; i < 196; i++) {
+            dos.writeShort(Short.reverseBytes((short) bounds.x));
+            dos.writeShort(Short.reverseBytes((short) bounds.y));
+            dos.writeShort(Short.reverseBytes((short) (bounds.x + bounds.width)));
+            dos.writeShort(Short.reverseBytes((short) (bounds.y + bounds.height)));
+            dos.writeShort(Short.reverseBytes((short) polygon.npoints));
+            dos.writeInt(Integer.reverseBytes(vertexStartIndex));
+            dos.writeInt(Integer.reverseBytes(triggerValue));
+            dos.writeInt(Integer.reverseBytes(cursorIndex));
+            writeResRef(dos, destinationArea);
+            writeName(dos, destinationEntrance, 32);
+            dos.writeInt(Integer.reverseBytes(flags));
+            dos.writeInt(Integer.reverseBytes(0));
+            dos.writeShort(Short.reverseBytes((short) trapDetectionDifficulty));
+            dos.writeShort(Short.reverseBytes((short) trapRemovalDifficulty));
+            dos.writeShort(Short.reverseBytes((short) (trapped ? 1 : 0)));
+            dos.writeShort(Short.reverseBytes((short) (trapDetected ? 1 : 0)));
+            dos.writeInt(Integer.reverseBytes(0));
+            writeResRef(dos, keyItem);
+            writeResRef(dos, script);
+            dos.writeShort(Short.reverseBytes((short) bounds.x));
+            dos.writeShort(Short.reverseBytes((short) bounds.y));
+            dos.writeInt(Integer.reverseBytes(0));
+            for (int i = 0; i < 32; i++) {
                 dos.writeByte(0);
             }
+            writeResRef(dos, "");
+            dos.writeShort(Short.reverseBytes((short) 0));
+            dos.writeShort(Short.reverseBytes((short) 0));
+            dos.writeInt(Integer.reverseBytes(0));
+            writeResRef(dos, "");
         }
 
-        public void writeVertices(DataOutputStream dos) throws IOException {
-            for (Point vertex : vertices) {
-                dos.writeShort(Short.reverseBytes((short) vertex.x));
-                dos.writeShort(Short.reverseBytes((short) vertex.y));
-            }
-        }
-
-        private void writeFixedStringNullPadded(DataOutputStream dos, String str, int length) throws IOException {
-            byte[] bytes = str.getBytes("US-ASCII");
+        private void writeName(DataOutputStream dos, String value, int length) throws IOException {
+            byte[] bytes = value.getBytes("US-ASCII");
             dos.write(bytes, 0, Math.min(bytes.length, length));
             for (int i = bytes.length; i < length; i++) {
                 dos.writeByte(0);
             }
         }
-    }
 
-    public static class ARESpawnPoint {
-        public void write(DataOutputStream dos) throws IOException {
-            // Spawn point structure (200 bytes)
-            for (int i = 0; i < 200; i++) {
+        private void writeResRef(DataOutputStream dos, String value) throws IOException {
+            byte[] bytes = value.getBytes("US-ASCII");
+            dos.write(bytes, 0, Math.min(bytes.length, 8));
+            for (int i = bytes.length; i < 8; i++) {
                 dos.writeByte(0);
             }
         }
     }
 
     public static class AREEntrance {
-        private String name = "";
-        private int x = 0;
-        private int y = 0;
-        private int orientation = 0;
+        private final String name;
+        private final int x;
+        private final int y;
+        private final int orientation;
 
         public AREEntrance(String name, int x, int y, int orientation) {
             this.name = name;
@@ -332,20 +334,18 @@ public class AREFile {
             this.orientation = orientation;
         }
 
-        public void write(DataOutputStream dos) throws IOException {
-            // Entrance structure (104 bytes)
-            writeFixedStringNullPadded(dos, name, 32);
+        private void write(DataOutputStream dos) throws IOException {
+            writeName(dos, name, 32);
             dos.writeShort(Short.reverseBytes((short) x));
             dos.writeShort(Short.reverseBytes((short) y));
             dos.writeShort(Short.reverseBytes((short) orientation));
-            // Pad to 104 bytes
-            for (int i = 38; i < 104; i++) {
+            for (int i = 0; i < 66; i++) {
                 dos.writeByte(0);
             }
         }
 
-        private void writeFixedStringNullPadded(DataOutputStream dos, String str, int length) throws IOException {
-            byte[] bytes = str.getBytes("US-ASCII");
+        private void writeName(DataOutputStream dos, String value, int length) throws IOException {
+            byte[] bytes = value.getBytes("US-ASCII");
             dos.write(bytes, 0, Math.min(bytes.length, length));
             for (int i = bytes.length; i < length; i++) {
                 dos.writeByte(0);
@@ -354,135 +354,284 @@ public class AREFile {
     }
 
     public static class AREContainer {
-        private String name = "";
-        private int x = 0;
-        private int y = 0;
-        private int containerType = 1; // Default to chest
+        private final String name;
+        private final int x;
+        private final int y;
+        private final int containerType;
+        private final Polygon polygon;
         private int flags = 0;
-        private boolean locked = false;
+        private int lockDifficulty = 0;
+        private int trapDetectionDifficulty = 0;
+        private int trapRemovalDifficulty = 0;
+        private boolean trapped = false;
+        private boolean trapDetected = false;
+        private String keyItem = "";
+        private String script = "";
+        private int vertexStartIndex = 0;
 
-        public AREContainer() {
-        }
-
-        public AREContainer(String name, int x, int y, int containerType, boolean locked) {
+        public AREContainer(String name, int x, int y, int containerType, Polygon polygon) {
             this.name = name;
             this.x = x;
             this.y = y;
             this.containerType = containerType;
-            this.locked = locked;
-            if (locked) {
-                flags |= 0x0001; // Set locked flag
+            this.polygon = polygon;
+        }
+
+        public void setFlags(int flags) {
+            this.flags = flags;
+        }
+
+        public void setLockDifficulty(int lockDifficulty) {
+            this.lockDifficulty = lockDifficulty;
+        }
+
+        public void setTrapDetectionDifficulty(int trapDetectionDifficulty) {
+            this.trapDetectionDifficulty = trapDetectionDifficulty;
+        }
+
+        public void setTrapRemovalDifficulty(int trapRemovalDifficulty) {
+            this.trapRemovalDifficulty = trapRemovalDifficulty;
+        }
+
+        public void setTrapped(boolean trapped) {
+            this.trapped = trapped;
+        }
+
+        public void setTrapDetected(boolean trapDetected) {
+            this.trapDetected = trapDetected;
+        }
+
+        public void setKeyItem(String keyItem) {
+            this.keyItem = keyItem;
+        }
+
+        public void setScript(String script) {
+            this.script = script;
+        }
+
+        private void assignVertices(List<Vertex> vertices) {
+            vertexStartIndex = vertices.size();
+            for (int i = 0; i < polygon.npoints; i++) {
+                vertices.add(new Vertex(polygon.xpoints[i], polygon.ypoints[i]));
             }
         }
 
-        public void write(DataOutputStream dos) throws IOException {
-            // Container structure (192 bytes)
-            writeFixedStringNullPadded(dos, name, 32);
+        private void write(DataOutputStream dos) throws IOException {
+            Rectangle bounds = polygon.getBounds();
+            writeName(dos, name, 32);
             dos.writeShort(Short.reverseBytes((short) x));
             dos.writeShort(Short.reverseBytes((short) y));
             dos.writeShort(Short.reverseBytes((short) containerType));
-            dos.writeShort(Short.reverseBytes((short) 0)); // Lock difficulty
+            dos.writeShort(Short.reverseBytes((short) lockDifficulty));
             dos.writeInt(Integer.reverseBytes(flags));
-            dos.writeShort(Short.reverseBytes((short) 0)); // Trap detection difficulty
-            dos.writeShort(Short.reverseBytes((short) 0)); // Trap removal difficulty
-            dos.writeShort(Short.reverseBytes((short) 0)); // Trapped flag
-            dos.writeShort(Short.reverseBytes((short) 0)); // Trap detected flag
-            dos.writeShort(Short.reverseBytes((short) 0)); // Launch point x
-            dos.writeShort(Short.reverseBytes((short) 0)); // Launch point y
-            // Pad to 192 bytes
-            for (int i = 52; i < 192; i++) {
+            dos.writeShort(Short.reverseBytes((short) trapDetectionDifficulty));
+            dos.writeShort(Short.reverseBytes((short) trapRemovalDifficulty));
+            dos.writeShort(Short.reverseBytes((short) (trapped ? 1 : 0)));
+            dos.writeShort(Short.reverseBytes((short) (trapDetected ? 1 : 0)));
+            dos.writeShort(Short.reverseBytes((short) x));
+            dos.writeShort(Short.reverseBytes((short) y));
+            dos.writeShort(Short.reverseBytes((short) bounds.x));
+            dos.writeShort(Short.reverseBytes((short) bounds.y));
+            dos.writeShort(Short.reverseBytes((short) (bounds.x + bounds.width)));
+            dos.writeShort(Short.reverseBytes((short) (bounds.y + bounds.height)));
+            dos.writeInt(Integer.reverseBytes(0));
+            dos.writeInt(Integer.reverseBytes(0));
+            writeResRef(dos, "");
+            dos.writeInt(Integer.reverseBytes(vertexStartIndex));
+            dos.writeShort(Short.reverseBytes((short) polygon.npoints));
+            dos.writeShort(Short.reverseBytes((short) 24));
+            for (int i = 0; i < 32; i++) {
+                dos.writeByte(0);
+            }
+            writeResRef(dos, keyItem);
+            dos.writeInt(Integer.reverseBytes(0));
+            dos.writeInt(Integer.reverseBytes(0));
+            for (int i = 0; i < 56; i++) {
                 dos.writeByte(0);
             }
         }
 
-        private void writeFixedStringNullPadded(DataOutputStream dos, String str, int length) throws IOException {
-            byte[] bytes = str.getBytes("US-ASCII");
+        private void writeName(DataOutputStream dos, String value, int length) throws IOException {
+            byte[] bytes = value.getBytes("US-ASCII");
             dos.write(bytes, 0, Math.min(bytes.length, length));
             for (int i = bytes.length; i < length; i++) {
+                dos.writeByte(0);
+            }
+        }
+
+        private void writeResRef(DataOutputStream dos, String value) throws IOException {
+            byte[] bytes = value.getBytes("US-ASCII");
+            dos.write(bytes, 0, Math.min(bytes.length, 8));
+            for (int i = bytes.length; i < 8; i++) {
                 dos.writeByte(0);
             }
         }
     }
 
     public static class AREDoor {
-        private String name = "";
-        private String id = "";
-        private int x = 0;
-        private int y = 0;
-        private List<Point> vertices = new ArrayList<>();
-        private int vertexIndex = 0; // Index into global vertex pool
+        private final String name;
+        private final String id;
+        private final Polygon openPolygon;
+        private final Polygon closedPolygon;
+        private final List<Point> openImpededCells = new ArrayList<Point>();
+        private final List<Point> closedImpededCells = new ArrayList<Point>();
+        private int flags = 0;
+        private int openVertexStartIndex = 0;
+        private int closedVertexStartIndex = 0;
+        private int openImpededStartIndex = 0;
+        private int closedImpededStartIndex = 0;
+        private int cursorIndex = 30;
+        private String travelTriggerName = "";
+        private Point openLocationFront = new Point();
+        private Point openLocationBack = new Point();
+        private Point launchPoint = new Point();
 
-        public AREDoor(String name, String id, int x, int y) {
+        public AREDoor(String name, String id, Polygon openPolygon, Polygon closedPolygon) {
             this.name = name;
             this.id = id;
-            this.x = x;
-            this.y = y;
-            // Create a default door entrance polygon (64x64 pixels)
-            addVertex(x, y);
-            addVertex(x + 64, y);
-            addVertex(x + 64, y + 64);
-            addVertex(x, y + 64);
+            this.openPolygon = openPolygon;
+            this.closedPolygon = closedPolygon;
         }
 
-        public void addVertex(int x, int y) {
-            vertices.add(new Point(x, y));
+        public void setFlags(int flags) {
+            this.flags = flags;
         }
 
-        public void clearVertices() {
-            vertices.clear();
+        public void setOpenImpededCells(List<Point> impededCells) {
+            openImpededCells.clear();
+            if (impededCells != null) {
+                for (Point point : impededCells) {
+                    if (point != null) {
+                        openImpededCells.add(new Point(point));
+                    }
+                }
+            }
         }
 
-        public int getVertexCount() {
-            return vertices.size();
+        public void setClosedImpededCells(List<Point> impededCells) {
+            closedImpededCells.clear();
+            if (impededCells != null) {
+                for (Point point : impededCells) {
+                    if (point != null) {
+                        closedImpededCells.add(new Point(point));
+                    }
+                }
+            }
         }
 
-        public void setVertexIndex(int index) {
-            this.vertexIndex = index;
+        public void setTravelTriggerName(String travelTriggerName) {
+            this.travelTriggerName = travelTriggerName != null ? travelTriggerName : "";
         }
 
-        public void write(DataOutputStream dos) throws IOException {
-            // Door structure (200 bytes)
-            writeFixedStringNullPadded(dos, name, 32);
-            writeFixedStringNullPadded(dos, id, 8);
-            dos.writeInt(Integer.reverseBytes(0)); // Flags
-            dos.writeInt(Integer.reverseBytes(vertexIndex)); // Vertex index in global pool
-            dos.writeShort(Short.reverseBytes((short) vertices.size())); // Vertex count
-            dos.writeShort(Short.reverseBytes((short) 0)); // Cell count
-            dos.writeInt(Integer.reverseBytes(0)); // Cell index offset
-            // Pad to 200 bytes
-            for (int i = 54; i < 200; i++) {
+        public void setOpenLocationFront(Point openLocationFront) {
+            this.openLocationFront = openLocationFront != null ? new Point(openLocationFront) : new Point();
+        }
+
+        public void setOpenLocationBack(Point openLocationBack) {
+            this.openLocationBack = openLocationBack != null ? new Point(openLocationBack) : new Point();
+        }
+
+        public void setLaunchPoint(Point launchPoint) {
+            this.launchPoint = launchPoint != null ? new Point(launchPoint) : new Point();
+        }
+
+        public void setCursorIndex(int cursorIndex) {
+            this.cursorIndex = cursorIndex;
+        }
+
+        private void assignVertices(List<Vertex> vertices) {
+            openVertexStartIndex = vertices.size();
+            for (int i = 0; i < openPolygon.npoints; i++) {
+                vertices.add(new Vertex(openPolygon.xpoints[i], openPolygon.ypoints[i]));
+            }
+            closedVertexStartIndex = vertices.size();
+            for (int i = 0; i < closedPolygon.npoints; i++) {
+                vertices.add(new Vertex(closedPolygon.xpoints[i], closedPolygon.ypoints[i]));
+            }
+            openImpededStartIndex = vertices.size();
+            for (Point point : openImpededCells) {
+                vertices.add(new Vertex(point.x, point.y));
+            }
+            closedImpededStartIndex = vertices.size();
+            for (Point point : closedImpededCells) {
+                vertices.add(new Vertex(point.x, point.y));
+            }
+        }
+
+        private void write(DataOutputStream dos) throws IOException {
+            Rectangle openBounds = openPolygon.getBounds();
+            Rectangle closedBounds = closedPolygon.getBounds();
+            writeName(dos, name, 32);
+            writeName(dos, id, 8);
+            dos.writeInt(Integer.reverseBytes(flags));
+            dos.writeInt(Integer.reverseBytes(openVertexStartIndex));
+            dos.writeShort(Short.reverseBytes((short) openPolygon.npoints));
+            dos.writeShort(Short.reverseBytes((short) closedPolygon.npoints));
+            dos.writeInt(Integer.reverseBytes(closedVertexStartIndex));
+            writeRect(dos, openBounds);
+            writeRect(dos, closedBounds);
+            dos.writeInt(Integer.reverseBytes(openImpededStartIndex));
+            dos.writeShort(Short.reverseBytes((short) openImpededCells.size()));
+            dos.writeShort(Short.reverseBytes((short) closedImpededCells.size()));
+            dos.writeInt(Integer.reverseBytes(closedImpededStartIndex));
+            dos.writeShort(Short.reverseBytes((short) 0));
+            dos.writeShort(Short.reverseBytes((short) 0));
+            writeResRef(dos, "");
+            writeResRef(dos, "");
+            dos.writeInt(Integer.reverseBytes(cursorIndex));
+            dos.writeShort(Short.reverseBytes((short) 0));
+            dos.writeShort(Short.reverseBytes((short) 0));
+            dos.writeShort(Short.reverseBytes((short) 0));
+            dos.writeShort(Short.reverseBytes((short) 0));
+            dos.writeShort(Short.reverseBytes((short) launchPoint.x));
+            dos.writeShort(Short.reverseBytes((short) launchPoint.y));
+            writeResRef(dos, "");
+            writeResRef(dos, "");
+            dos.writeInt(Integer.reverseBytes(0));
+            writeRect(dos, new Rectangle(
+                openLocationFront.x,
+                openLocationFront.y,
+                openLocationBack.x - openLocationFront.x,
+                openLocationBack.y - openLocationFront.y
+            ));
+            dos.writeInt(Integer.reverseBytes(0));
+            writeName(dos, travelTriggerName, 24);
+            dos.writeInt(Integer.reverseBytes(0));
+            writeResRef(dos, "");
+            for (int i = 0; i < 8; i++) {
                 dos.writeByte(0);
             }
         }
 
-        public void writeVertices(DataOutputStream dos) throws IOException {
-            for (Point vertex : vertices) {
-                dos.writeShort(Short.reverseBytes((short) vertex.x));
-                dos.writeShort(Short.reverseBytes((short) vertex.y));
-            }
+        private void writeRect(DataOutputStream dos, Rectangle rectangle) throws IOException {
+            dos.writeShort(Short.reverseBytes((short) rectangle.x));
+            dos.writeShort(Short.reverseBytes((short) rectangle.y));
+            dos.writeShort(Short.reverseBytes((short) (rectangle.x + rectangle.width)));
+            dos.writeShort(Short.reverseBytes((short) (rectangle.y + rectangle.height)));
         }
 
-        private void writeFixedStringNullPadded(DataOutputStream dos, String str, int length) throws IOException {
-            byte[] bytes = str.getBytes("US-ASCII");
+        private void writeName(DataOutputStream dos, String value, int length) throws IOException {
+            byte[] bytes = value.getBytes("US-ASCII");
             dos.write(bytes, 0, Math.min(bytes.length, length));
             for (int i = bytes.length; i < length; i++) {
                 dos.writeByte(0);
             }
         }
-    }
 
-    public static class AREAmbient {
-        public void write(DataOutputStream dos) throws IOException {
-            // Ambient structure
-            for (int i = 0; i < 212; i++) {
+        private void writeResRef(DataOutputStream dos, String value) throws IOException {
+            byte[] bytes = value.getBytes("US-ASCII");
+            dos.write(bytes, 0, Math.min(bytes.length, 8));
+            for (int i = bytes.length; i < 8; i++) {
                 dos.writeByte(0);
             }
         }
     }
 
-    private static class Point {
-        int x, y;
-        Point(int x, int y) {
+    private static class Vertex {
+        private final int x;
+        private final int y;
+
+        private Vertex(int x, int y) {
             this.x = x;
             this.y = y;
         }
