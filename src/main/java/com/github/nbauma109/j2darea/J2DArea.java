@@ -121,6 +121,9 @@ public class J2DArea extends JFrame {
     private int objectToMoveIdx = -1;
     private int deltaX;
     private int deltaY;
+    private transient String movingCompositeGroupId;
+    private transient LinkedHashMap<PastedObject, Point> movingCompositeBaseLocations = new LinkedHashMap<PastedObject, Point>();
+    private transient Point movingCompositeAnchorLocation;
     private boolean drawClosed;
     private boolean night;
     private boolean editingBlackParallelogram;
@@ -167,6 +170,7 @@ public class J2DArea extends JFrame {
     private transient JButton subtractBackgroundToolbarButton;
     private transient JButton regionsToolbarButton;
     private transient JButton pasteFromToolbarButton;
+    private transient JButton pasteCompositeToolbarButton;
     private transient JButton parallelogramBlackToolbarButton;
     private transient JButton parallelogramTextureToolbarButton;
     private transient JButton pasteFromOpenDoorToolbarButton;
@@ -541,6 +545,7 @@ public class J2DArea extends JFrame {
                                 Rectangle anchorRect = getPastedObjectBounds(pastedObject);
                                 deltaX = scaledEvent.getX() - anchorRect.x;
                                 deltaY = scaledEvent.getY() - anchorRect.y;
+                                beginCompositeMove(pastedObject);
                             }
                             idx++;
                         }
@@ -550,11 +555,13 @@ public class J2DArea extends JFrame {
                             objectToMoveIdx = pastedObjects.size() - 1;
                             deltaX = 0;
                             deltaY = 0;
+                            beginCompositeMove(objectToMove);
                         }
                     } else {
                         objectToMove = null;
                         objectToMoveIdx = -1;
                         movingRectangle = null;
+                        clearCompositeMove();
                     }
                 }
                 buildPanel.repaint();
@@ -586,19 +593,19 @@ public class J2DArea extends JFrame {
                 Point areaPoint = toAreaPoint(e, buildZoom);
                 mousePosition.move(areaPoint.x, areaPoint.y);
                 if (objectToMove != null) {
-                    Rectangle anchorRect = getPastedObjectBounds(objectToMove);
                     int newRectX = areaPoint.x - deltaX;
                     int newRectY = areaPoint.y - deltaY;
-                    if (objectToMove.getPastedObjectType() == PastedObjectType.ENTRANCE && objectToMove.getEntranceData() != null) {
-                        int centeredX = newRectX + (objectToMove.getWidth() / 2);
-                        int centeredY = newRectY + (objectToMove.getHeight() / 2);
-                        objectToMove.getEntranceData().setX(centeredX);
-                        objectToMove.getEntranceData().setY(centeredY);
-                        syncEntranceMarker(objectToMove);
+                    if (movingCompositeGroupId != null && movingCompositeAnchorLocation != null && !movingCompositeBaseLocations.isEmpty()) {
+                        int offsetX = newRectX - movingCompositeAnchorLocation.x;
+                        int offsetY = newRectY - movingCompositeAnchorLocation.y;
+                        for (Map.Entry<PastedObject, Point> entry : movingCompositeBaseLocations.entrySet()) {
+                            Point baseLocation = entry.getValue();
+                            setPastedObjectLocation(entry.getKey(), baseLocation.x + offsetX, baseLocation.y + offsetY);
+                        }
                     } else {
-                        objectToMove.setLocation(new Point(newRectX, newRectY));
+                        setPastedObjectLocation(objectToMove, newRectX, newRectY);
                     }
-                    anchorRect = getPastedObjectBounds(objectToMove);
+                    Rectangle anchorRect = getPastedObjectBounds(objectToMove);
                     movingRectangle = new Rectangle(anchorRect.x, anchorRect.y, anchorRect.width, anchorRect.height);
                 }
                 buildPanel.repaint();
@@ -680,6 +687,7 @@ public class J2DArea extends JFrame {
                     movingRectangle = null;
                     objectToMove = null;
                     objectToMoveIdx = -1;
+                    clearCompositeMove();
                     buildPanel.repaint();
                 }
             }
@@ -800,6 +808,7 @@ public class J2DArea extends JFrame {
                         objectToMove = null;
                         objectToMoveIdx = -1;
                         movingRectangle = null;
+                        clearCompositeMove();
                         polygon.reset();
                         setExtendedState(Frame.MAXIMIZED_BOTH);
                         repaint();
@@ -814,6 +823,22 @@ public class J2DArea extends JFrame {
         JMenuItem newMenuItem = new JMenuItem(newButton.getAction());
         newMenuItem.setText("New Area");
         fileMenu.add(newMenuItem);
+        JMenuItem newCompositeMenuItem = new JMenuItem("New Composite Object...");
+        newCompositeMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                openCompositeObjectEditor();
+            }
+        });
+        fileMenu.add(newCompositeMenuItem);
+        JMenuItem openCompositeMenuItem = new JMenuItem("Open Composite Object...");
+        openCompositeMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                openExistingCompositeObjectEditor();
+            }
+        });
+        fileMenu.add(openCompositeMenuItem);
 
         JButton fillButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/background.png"))) {
 
@@ -869,6 +894,7 @@ public class J2DArea extends JFrame {
                         objectToMove = null;
                         objectToMoveIdx = -1;
                         movingRectangle = null;
+                        clearCompositeMove();
                         setExtendedState(Frame.MAXIMIZED_BOTH);
                         repaint();
                     } catch (IOException | ClassNotFoundException ex) {
@@ -1166,6 +1192,23 @@ public class J2DArea extends JFrame {
         JMenuItem pasteFromMenuItem = new JMenuItem(pasteFromButton.getAction());
         pasteFromMenuItem.setText("Paste Image...");
         insertMenu.add(pasteFromMenuItem);
+
+        JButton pasteCompositeButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/composite.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                pasteCompositeObjectFromFile();
+            }
+        });
+        pasteCompositeButton.setMaximumSize(BUTTON_SIZE);
+        pasteCompositeButton.setToolTipText("Paste a composite object file");
+        configureToolbarButton(pasteCompositeButton);
+        pasteCompositeToolbarButton = pasteCompositeButton;
+        JMenuItem pasteCompositeMenuItem = new JMenuItem(pasteCompositeButton.getAction());
+        pasteCompositeMenuItem.setText("Paste Composite Object...");
+        insertMenu.add(pasteCompositeMenuItem);
 
         JButton parallelogramBlackButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/parallelogram-black.png"))) {
 
@@ -1564,6 +1607,7 @@ public class J2DArea extends JFrame {
         menubar.add(openBrushTextureToolbarButton);
         menubar.add(regionsToolbarButton);
         menubar.add(pasteFromToolbarButton);
+        menubar.add(pasteCompositeToolbarButton);
         menubar.add(parallelogramBlackToolbarButton);
         menubar.add(parallelogramTextureToolbarButton);
         menubar.add(pasteFromOpenDoorToolbarButton);
@@ -1585,6 +1629,7 @@ public class J2DArea extends JFrame {
         buildOnlyToolbarButtons.add(openBrushTextureToolbarButton);
         buildOnlyToolbarButtons.add(regionsToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromToolbarButton);
+        buildOnlyToolbarButtons.add(pasteCompositeToolbarButton);
         buildOnlyToolbarButtons.add(parallelogramBlackToolbarButton);
         buildOnlyToolbarButtons.add(parallelogramTextureToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromOpenDoorToolbarButton);
@@ -1689,6 +1734,70 @@ public class J2DArea extends JFrame {
             }
         }
         return null;
+    }
+
+    private CompositeObjectData chooseCompositeObjectFile() {
+        File file = chooseFile(this, FileDialog.LOAD, FileChooserLocation.COMPOSITE_OBJECT);
+        if (file == null) {
+            return null;
+        }
+        try {
+            FileInputStream fileInputStream = new FileInputStream(file);
+            GZIPInputStream gzipInputStream = new GZIPInputStream(fileInputStream);
+            ObjectInputStream objectInputStream = new ObjectInputStream(gzipInputStream);
+            try {
+                CompositeObjectData compositeObjectData = new CompositeObjectData();
+                compositeObjectData.readExternal(objectInputStream);
+                return compositeObjectData;
+            } finally {
+                objectInputStream.close();
+            }
+        } catch (IOException | ClassNotFoundException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error opening composite object file.", ERROR, JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+    }
+
+    private void openCompositeObjectEditor() {
+        BufferedImage initialImage = chooseImageFile(FileChooserLocation.OBJECT);
+        if (initialImage != null) {
+            CompositeObjectEditorDialog dialog = new CompositeObjectEditorDialog(this, initialImage);
+            dialog.setLocationRelativeTo(this);
+            dialog.setVisible(true);
+        }
+    }
+
+    private void openExistingCompositeObjectEditor() {
+        CompositeObjectData compositeObjectData = chooseCompositeObjectFile();
+        if (compositeObjectData != null) {
+            CompositeObjectEditorDialog dialog = new CompositeObjectEditorDialog(this, compositeObjectData);
+            dialog.setLocationRelativeTo(this);
+            dialog.setVisible(true);
+        }
+    }
+
+    private void pasteCompositeObjectFromFile() {
+        CompositeObjectData compositeObjectData = chooseCompositeObjectFile();
+        if (compositeObjectData == null) {
+            return;
+        }
+        String compositeGroupId = newCompositeGroupId();
+        List<PastedObject> instances = compositeObjectData.instantiate(new Point(mousePosition), compositeGroupId);
+        if (instances.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Composite object is empty.", ERROR, JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        pastedObjects.addAll(instances);
+        objectToMove = instances.get(instances.size() - 1);
+        objectToMoveIdx = pastedObjects.size() - 1;
+        beginCompositeMove(objectToMove);
+        Rectangle anchorRect = getPastedObjectBounds(objectToMove);
+        deltaX = mousePosition.x - anchorRect.x;
+        deltaY = mousePosition.y - anchorRect.y;
+        movingRectangle = new Rectangle(anchorRect.x, anchorRect.y, anchorRect.width, anchorRect.height);
+        refreshEntranceMarkers();
+        repaint();
     }
 
     public static File chooseFile(Frame parent, int mode, FileChooserLocation fileChooserLocation) {
@@ -3029,6 +3138,47 @@ public class J2DArea extends JFrame {
         objectToMove = null;
         objectToMoveIdx = -1;
         movingRectangle = null;
+        clearCompositeMove();
+    }
+
+    private void beginCompositeMove(PastedObject anchorObject) {
+        clearCompositeMove();
+        if (anchorObject == null) {
+            return;
+        }
+        movingCompositeGroupId = anchorObject.getCompositeGroupId();
+        movingCompositeAnchorLocation = new Point(anchorObject.getLocation());
+        if (movingCompositeGroupId == null) {
+            return;
+        }
+        for (PastedObject pastedObject : pastedObjects) {
+            if (movingCompositeGroupId.equals(pastedObject.getCompositeGroupId())) {
+                movingCompositeBaseLocations.put(pastedObject, new Point(pastedObject.getLocation()));
+            }
+        }
+    }
+
+    private void clearCompositeMove() {
+        movingCompositeGroupId = null;
+        movingCompositeAnchorLocation = null;
+        movingCompositeBaseLocations.clear();
+    }
+
+    private void setPastedObjectLocation(PastedObject pastedObject, int x, int y) {
+        if (pastedObject == null) {
+            return;
+        }
+        if (pastedObject.getPastedObjectType() == PastedObjectType.ENTRANCE && pastedObject.getEntranceData() != null) {
+            pastedObject.getEntranceData().setX(x + (pastedObject.getWidth() / 2));
+            pastedObject.getEntranceData().setY(y + (pastedObject.getHeight() / 2));
+            syncEntranceMarker(pastedObject);
+        } else {
+            pastedObject.setLocation(new Point(x, y));
+        }
+    }
+
+    private String newCompositeGroupId() {
+        return "composite-" + System.nanoTime();
     }
 
     private void setDrawClosedState(boolean drawClosed) {

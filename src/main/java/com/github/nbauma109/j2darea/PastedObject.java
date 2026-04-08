@@ -4,6 +4,7 @@ import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.Externalizable;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
@@ -18,6 +19,7 @@ public class PastedObject implements Externalizable {
     private int[][] transformed;
     private PastedObjectType pastedObjectType;
     private EntranceData entranceData; // Only used when pastedObjectType == ENTRANCE
+    private String compositeGroupId;
 
     public PastedObject() {
     }
@@ -51,6 +53,7 @@ public class PastedObject implements Externalizable {
         } else {
             out.writeBoolean(false);
         }
+        out.writeUTF(compositeGroupId != null ? compositeGroupId : "");
     }
 
     @Override
@@ -68,6 +71,11 @@ public class PastedObject implements Externalizable {
         if (hasEntranceData) {
             entranceData = new EntranceData();
             entranceData.readExternal(in);
+        }
+        try {
+            setCompositeGroupId(in.readUTF());
+        } catch (EOFException ex) {
+            compositeGroupId = null;
         }
         initBuffers();
     }
@@ -241,6 +249,7 @@ public class PastedObject implements Externalizable {
             copied.entranceData.setDestinationPreviewImagePath(entranceData.getDestinationPreviewImagePath());
             copied.entranceData.setDestinationReturnPolygon(entranceData.getDestinationReturnPolygon());
         }
+        copied.compositeGroupId = null;
         return copied;
     }
 
@@ -250,5 +259,17 @@ public class PastedObject implements Externalizable {
 
     public void setEntranceData(EntranceData entranceData) {
         this.entranceData = entranceData;
+    }
+
+    public String getCompositeGroupId() {
+        return compositeGroupId;
+    }
+
+    public void setCompositeGroupId(String compositeGroupId) {
+        if (compositeGroupId == null || compositeGroupId.trim().isEmpty()) {
+            this.compositeGroupId = null;
+        } else {
+            this.compositeGroupId = compositeGroupId;
+        }
     }
 }
