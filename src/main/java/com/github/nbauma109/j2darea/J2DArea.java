@@ -1475,7 +1475,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                painting = true;
+                painting = ensureBrushTextureSelected();
                 syncCursorModeUi();
             }
         });
@@ -1489,7 +1489,7 @@ public class J2DArea extends JFrame {
         brushModeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                painting = true;
+                painting = ensureBrushTextureSelected();
                 syncCursorModeUi();
             }
         });
@@ -1734,6 +1734,29 @@ public class J2DArea extends JFrame {
             }
         }
         return null;
+    }
+
+    private boolean ensureBrushTextureSelected() {
+        if (brushTexture != null) {
+            return true;
+        }
+        int choice = JOptionPane.showConfirmDialog(
+            this,
+            "No texture brush is selected. Choose one from an image file now ?",
+            "Texture Brush",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE
+        );
+        if (choice != JOptionPane.YES_OPTION) {
+            return false;
+        }
+        BufferedImage selectedTexture = chooseImageFile(FileChooserLocation.TEXTURE);
+        if (selectedTexture == null) {
+            return false;
+        }
+        brushTexture = selectedTexture;
+        buildBrushPreview();
+        return true;
     }
 
     private CompositeObjectData chooseCompositeObjectFile() {
