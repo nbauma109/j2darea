@@ -2,6 +2,7 @@ package com.github.nbauma109.j2darea;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FileDialog;
 import java.awt.Frame;
@@ -47,12 +48,14 @@ import java.util.zip.GZIPOutputStream;
 
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
+import javax.swing.AbstractButton;
 import javax.swing.Box;
 import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
+import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -66,14 +69,13 @@ import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
-import javax.swing.JEditorPane;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
+import javax.swing.JViewport;
 import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.JViewport;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import com.github.nbauma109.j2darea.ie.AREFile;
@@ -136,9 +138,43 @@ public class J2DArea extends JFrame {
     private transient JPanel buildPanel;
     private transient JScrollPane buildScrollPane;
     private transient JScrollPane extractScrollPane;
+    private transient JTabbedPane tabPane;
+    private transient JMenuBar menubar;
+    private transient JMenu backgroundMenu;
+    private transient JMenu insertMenu;
+    private transient JMenu cursorModeMenu;
+    private transient JMenu viewMenu;
+    private transient JMenu toolsMenu;
+    private transient JMenuItem fillMenuItem;
+    private transient JMenuItem openBrushTextureMenuItem;
+    private transient JMenuItem tileSeamlessMenuItem;
+    private transient JMenuItem saveDoorsMenuItem;
+    private transient JMenuItem paint3dMenuItem;
+    private transient JMenuItem subtractBackgroundMenuItem;
+    private transient JRadioButtonMenuItem cursorSelectMenuItem;
+    private transient JRadioButtonMenuItem brushModeMenuItem;
+    private transient JCheckBoxMenuItem polygonModeMenuItem;
     private transient LocalTransitionPlacementDialog localTransitionPlacementDialog;
     private transient JCheckBoxMenuItem drawClosedDoorMenuItem;
     private transient JCheckBoxMenuItem nightMenuItem;
+    private transient JButton openBackgroundToolbarButton;
+    private transient JButton fillToolbarButton;
+    private transient JButton openBrushTextureToolbarButton;
+    private transient JButton exportDoorTilesToolbarButton;
+    private transient JButton tileSeamlessToolbarButton;
+    private transient JButton paint3dToolbarButton;
+    private transient JButton subtractBackgroundToolbarButton;
+    private transient JButton regionsToolbarButton;
+    private transient JButton pasteFromToolbarButton;
+    private transient JButton parallelogramBlackToolbarButton;
+    private transient JButton parallelogramTextureToolbarButton;
+    private transient JButton pasteFromOpenDoorToolbarButton;
+    private transient JButton pasteFromClosedDoorToolbarButton;
+    private transient JButton pasteFromNightLightToolbarButton;
+    private transient JButton entranceToolbarButton;
+    private transient JButton cursorToolbarButton;
+    private transient JButton brushToolbarButton;
+    private transient JButton polygonToolbarButton;
     private transient JToggleButton drawClosedDoorToggleButton;
     private transient JToggleButton nightToggleButton;
     private transient boolean buildPanning;
@@ -146,6 +182,7 @@ public class J2DArea extends JFrame {
     private transient boolean suppressNextBuildClickAfterPan;
     private transient Point buildPanStartMouseScreen;
     private transient Point buildPanStartView;
+    private transient List<Component> buildOnlyToolbarButtons = new ArrayList<Component>();
     private TransitionPlacementSession transitionPlacementSession;
 
     private int brushRadius = 30;
@@ -159,7 +196,7 @@ public class J2DArea extends JFrame {
         super("J2DArea");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
-        JTabbedPane tabPane = new JTabbedPane(SwingConstants.BOTTOM);
+        tabPane = new JTabbedPane(SwingConstants.BOTTOM);
         tabPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
 
         buildPanel = new JPanel(false) {
@@ -677,14 +714,14 @@ public class J2DArea extends JFrame {
         tabPane.addTab("Extraction Area", extractScrollPane);
         tabPane.addTab("Texture Preview", new JScrollPane(texturePreviewPanel));
 
-        JMenuBar menubar = new JMenuBar();
+        menubar = new JMenuBar();
         setJMenuBar(menubar);
         JMenu fileMenu = new JMenu("File");
-        JMenu backgroundMenu = new JMenu("Background");
-        JMenu insertMenu = new JMenu("Insert");
-        JMenu cursorModeMenu = new JMenu("Cursor Mode");
-        JMenu viewMenu = new JMenu("View");
-        JMenu toolsMenu = new JMenu("Tools");
+        backgroundMenu = new JMenu("Background");
+        insertMenu = new JMenu("Insert");
+        cursorModeMenu = new JMenu("Cursor Mode");
+        viewMenu = new JMenu("View");
+        toolsMenu = new JMenu("Tools");
         JMenu settingsMenu = new JMenu("Settings");
         JMenu helpMenu = new JMenu("Help");
         menubar.add(fileMenu);
@@ -695,6 +732,7 @@ public class J2DArea extends JFrame {
         menubar.add(toolsMenu);
         menubar.add(settingsMenu);
         menubar.add(helpMenu);
+        menubar.add(Box.createHorizontalStrut(8));
         menubar.add(Box.createHorizontalGlue());
         JButton newButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/new.png"))) {
 
@@ -752,7 +790,9 @@ public class J2DArea extends JFrame {
         });
         fillButton.setMaximumSize(BUTTON_SIZE);
         fillButton.setToolTipText("Fill background with a seamless pattern image");
-        JMenuItem fillMenuItem = new JMenuItem(fillButton.getAction());
+        configureToolbarButton(fillButton);
+        fillToolbarButton = fillButton;
+        fillMenuItem = new JMenuItem(fillButton.getAction());
         fillMenuItem.setText("Fill With Pattern...");
         backgroundMenu.add(fillMenuItem);
 
@@ -824,6 +864,8 @@ public class J2DArea extends JFrame {
         });
         openBackgroundButton.setMaximumSize(BUTTON_SIZE);
         openBackgroundButton.setToolTipText("Open a background image file");
+        configureToolbarButton(openBackgroundButton);
+        openBackgroundToolbarButton = openBackgroundButton;
         JMenuItem openBackgroundMenuItem = new JMenuItem(openBackgroundButton.getAction());
         openBackgroundMenuItem.setText("Open Background Image...");
         backgroundMenu.add(openBackgroundMenuItem);
@@ -840,7 +882,9 @@ public class J2DArea extends JFrame {
         });
         openBrushTextureButton.setMaximumSize(BUTTON_SIZE);
         openBrushTextureButton.setToolTipText("Choose texture for brush");
-        JMenuItem openBrushTextureMenuItem = new JMenuItem(openBrushTextureButton.getAction());
+        configureToolbarButton(openBrushTextureButton);
+        openBrushTextureToolbarButton = openBrushTextureButton;
+        openBrushTextureMenuItem = new JMenuItem(openBrushTextureButton.getAction());
         openBrushTextureMenuItem.setText("Choose Brush Texture...");
         backgroundMenu.add(openBrushTextureMenuItem);
 
@@ -963,7 +1007,7 @@ public class J2DArea extends JFrame {
         preferencesMenuItem.setText("Preferences...");
         settingsMenu.add(preferencesMenuItem);
 
-        JButton regionsButton = new JButton(new AbstractAction("Regions") {
+        JButton regionsButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/polygon.png"))) {
 
             private static final long serialVersionUID = 1L;
 
@@ -973,6 +1017,8 @@ public class J2DArea extends JFrame {
             }
         });
         regionsButton.setToolTipText("Create and edit polygon regions, including destination-side travel geometry");
+        configureToolbarButton(regionsButton);
+        regionsToolbarButton = regionsButton;
         JMenuItem regionsMenuItem = new JMenuItem(regionsButton.getAction());
         regionsMenuItem.setText("Regions...");
         insertMenu.add(regionsMenuItem);
@@ -1012,7 +1058,9 @@ public class J2DArea extends JFrame {
         });
         tileSeamlessButton.setMaximumSize(BUTTON_SIZE);
         tileSeamlessButton.setToolTipText("Create and export seamless tile from selection to PNG image");
-        JMenuItem tileSeamlessMenuItem = new JMenuItem(tileSeamlessButton.getAction());
+        configureToolbarButton(tileSeamlessButton);
+        tileSeamlessToolbarButton = tileSeamlessButton;
+        tileSeamlessMenuItem = new JMenuItem(tileSeamlessButton.getAction());
         tileSeamlessMenuItem.setText("Export Seamless Tile...");
         toolsMenu.add(tileSeamlessMenuItem);
         
@@ -1039,7 +1087,9 @@ public class J2DArea extends JFrame {
         });
         saveDoorsButton.setMaximumSize(BUTTON_SIZE);
         saveDoorsButton.setToolTipText("Export all door tiles");
-        JMenuItem saveDoorsMenuItem = new JMenuItem(saveDoorsButton.getAction());
+        configureToolbarButton(saveDoorsButton);
+        exportDoorTilesToolbarButton = saveDoorsButton;
+        saveDoorsMenuItem = new JMenuItem(saveDoorsButton.getAction());
         saveDoorsMenuItem.setText("Export Door Tiles...");
         toolsMenu.add(saveDoorsMenuItem);
 
@@ -1064,6 +1114,8 @@ public class J2DArea extends JFrame {
         });
         pasteFromButton.setMaximumSize(BUTTON_SIZE);
         pasteFromButton.setToolTipText("Paste from an image file");
+        configureToolbarButton(pasteFromButton);
+        pasteFromToolbarButton = pasteFromButton;
         JMenuItem pasteFromMenuItem = new JMenuItem(pasteFromButton.getAction());
         pasteFromMenuItem.setText("Paste Image...");
         insertMenu.add(pasteFromMenuItem);
@@ -1081,6 +1133,8 @@ public class J2DArea extends JFrame {
         });
         parallelogramBlackButton.setMaximumSize(BUTTON_SIZE);
         parallelogramBlackButton.setToolTipText("Draw and fill a new black parallelogram");
+        configureToolbarButton(parallelogramBlackButton);
+        parallelogramBlackToolbarButton = parallelogramBlackButton;
         insertMenu.addSeparator();
         JMenuItem parallelogramBlackMenuItem = new JMenuItem(parallelogramBlackButton.getAction());
         parallelogramBlackMenuItem.setText("Black Parallelogram");
@@ -1099,6 +1153,8 @@ public class J2DArea extends JFrame {
         });
         parallelogramTextureButton.setMaximumSize(BUTTON_SIZE);
         parallelogramTextureButton.setToolTipText("Draw and fill a new parallelogram with a texture");
+        configureToolbarButton(parallelogramTextureButton);
+        parallelogramTextureToolbarButton = parallelogramTextureButton;
         JMenuItem parallelogramTextureMenuItem = new JMenuItem(parallelogramTextureButton.getAction());
         parallelogramTextureMenuItem.setText("Textured Parallelogram");
         insertMenu.add(parallelogramTextureMenuItem);
@@ -1134,6 +1190,8 @@ public class J2DArea extends JFrame {
         });
         pasteFromOpenDoorButton.setMaximumSize(BUTTON_SIZE);
         pasteFromOpenDoorButton.setToolTipText("Paste from an image file of opened door");
+        configureToolbarButton(pasteFromOpenDoorButton);
+        pasteFromOpenDoorToolbarButton = pasteFromOpenDoorButton;
         JMenuItem pasteFromOpenDoorMenuItem = new JMenuItem(pasteFromOpenDoorButton.getAction());
         pasteFromOpenDoorMenuItem.setText("Paste Open Door...");
         insertMenu.add(pasteFromOpenDoorMenuItem);
@@ -1160,6 +1218,8 @@ public class J2DArea extends JFrame {
         });
         pasteFromClosedDoorButton.setMaximumSize(BUTTON_SIZE);
         pasteFromClosedDoorButton.setToolTipText("Paste from an image file of closed door");
+        configureToolbarButton(pasteFromClosedDoorButton);
+        pasteFromClosedDoorToolbarButton = pasteFromClosedDoorButton;
         JMenuItem pasteFromClosedDoorMenuItem = new JMenuItem(pasteFromClosedDoorButton.getAction());
         pasteFromClosedDoorMenuItem.setText("Paste Closed Door...");
         insertMenu.add(pasteFromClosedDoorMenuItem);
@@ -1186,6 +1246,8 @@ public class J2DArea extends JFrame {
         });
         pasteFromNightLightButton.setMaximumSize(BUTTON_SIZE);
         pasteFromNightLightButton.setToolTipText("Paste from an image file of night time light");
+        configureToolbarButton(pasteFromNightLightButton);
+        pasteFromNightLightToolbarButton = pasteFromNightLightButton;
         JMenuItem pasteFromNightLightMenuItem = new JMenuItem(pasteFromNightLightButton.getAction());
         pasteFromNightLightMenuItem.setText("Paste Night Light...");
         insertMenu.add(pasteFromNightLightMenuItem);
@@ -1206,6 +1268,8 @@ public class J2DArea extends JFrame {
         });
         entranceButton.setMaximumSize(BUTTON_SIZE);
         entranceButton.setToolTipText("Place an entrance/exit point for area transitions");
+        configureToolbarButton(entranceButton);
+        entranceToolbarButton = entranceButton;
         insertMenu.addSeparator();
         JMenuItem entranceMenuItem = new JMenuItem(entranceButton.getAction());
         entranceMenuItem.setText("New Transition Entry/Exit...");
@@ -1271,8 +1335,7 @@ public class J2DArea extends JFrame {
                 setDrawClosedState(drawClosedDoorToggleButton.isSelected());
             }
         });
-        menubar.add(drawClosedDoorToggleButton);
-
+        configureToolbarButton(drawClosedDoorToggleButton);
         nightToggleButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/night.png")));
         nightToggleButton.setSelected(night);
         nightToggleButton.setToolTipText("Toggle day/night");
@@ -1284,8 +1347,7 @@ public class J2DArea extends JFrame {
                 setNightModeState(nightToggleButton.isSelected());
             }
         });
-        menubar.add(nightToggleButton);
-
+        configureToolbarButton(nightToggleButton);
         JButton polygonButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/polygon.png"))) {
 
             private static final long serialVersionUID = 1L;
@@ -1293,6 +1355,8 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 editingPolygon = true;
+                painting = false;
+                syncCursorModeUi();
                 if (tabPane.getSelectedComponent() == buildScrollPane) {
                     tabPane.setSelectedComponent(extractScrollPane);
                 }
@@ -1300,21 +1364,24 @@ public class J2DArea extends JFrame {
         });
         polygonButton.setMaximumSize(BUTTON_SIZE);
         polygonButton.setToolTipText("Polygon selection");
+        configureToolbarButton(polygonButton);
+        polygonToolbarButton = polygonButton;
         viewMenu.addSeparator();
         ButtonGroup cursorModeGroup = new ButtonGroup();
-        JRadioButtonMenuItem cursorMenuItem = new JRadioButtonMenuItem("Select Objects", !painting && !editingPolygon);
-        cursorMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/cursor.png")));
-        cursorMenuItem.setToolTipText("Select objects");
-        cursorMenuItem.addActionListener(new ActionListener() {
+        cursorSelectMenuItem = new JRadioButtonMenuItem("Select Objects", !painting && !editingPolygon);
+        cursorSelectMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/cursor.png")));
+        cursorSelectMenuItem.setToolTipText("Select objects");
+        cursorSelectMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 painting = false;
                 editingPolygon = false;
+                syncCursorModeUi();
                 repaint();
             }
         });
-        cursorModeGroup.add(cursorMenuItem);
-        cursorModeMenu.add(cursorMenuItem);
+        cursorModeGroup.add(cursorSelectMenuItem);
+        cursorModeMenu.add(cursorSelectMenuItem);
 
         JButton brushButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/pencil.png"))) {
 
@@ -1323,22 +1390,27 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 painting = true;
+                editingPolygon = false;
+                syncCursorModeUi();
             }
         });
         brushButton.setMaximumSize(BUTTON_SIZE);
         brushButton.setToolTipText("Use texture brush");
-        JRadioButtonMenuItem brushMenuItem = new JRadioButtonMenuItem("Texture Brush", painting);
-        brushMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/pencil.png")));
-        brushMenuItem.setToolTipText("Use texture brush");
-        brushMenuItem.addActionListener(new ActionListener() {
+        configureToolbarButton(brushButton);
+        brushToolbarButton = brushButton;
+        brushModeMenuItem = new JRadioButtonMenuItem("Texture Brush", painting);
+        brushModeMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/pencil.png")));
+        brushModeMenuItem.setToolTipText("Use texture brush");
+        brushModeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 painting = true;
                 editingPolygon = false;
+                syncCursorModeUi();
             }
         });
-        cursorModeGroup.add(brushMenuItem);
-        cursorModeMenu.add(brushMenuItem);
+        cursorModeGroup.add(brushModeMenuItem);
+        cursorModeMenu.add(brushModeMenuItem);
 
         JButton cursorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/cursor.png"))) {
 
@@ -1347,26 +1419,32 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 painting = false;
+                editingPolygon = false;
+                syncCursorModeUi();
                 repaint();
             }
         });
         cursorButton.setMaximumSize(BUTTON_SIZE);
         cursorButton.setToolTipText("Select objects");
-        JRadioButtonMenuItem polygonMenuItem = new JRadioButtonMenuItem("Polygon Selection", editingPolygon);
-        polygonMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/polygon.png")));
-        polygonMenuItem.setToolTipText("Polygon selection");
-        polygonMenuItem.addActionListener(new ActionListener() {
+        configureToolbarButton(cursorButton);
+        cursorToolbarButton = cursorButton;
+        polygonModeMenuItem = new JCheckBoxMenuItem("Polygon Selection", editingPolygon);
+        polygonModeMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/polygon.png")));
+        polygonModeMenuItem.setToolTipText("Polygon selection");
+        polygonModeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                editingPolygon = true;
-                painting = false;
-                if (tabPane.getSelectedComponent() == buildScrollPane) {
+                editingPolygon = polygonModeMenuItem.isSelected();
+                if (editingPolygon) {
+                    painting = false;
+                }
+                if (editingPolygon && tabPane.getSelectedComponent() == buildScrollPane) {
                     tabPane.setSelectedComponent(extractScrollPane);
                 }
+                syncCursorModeUi();
             }
         });
-        cursorModeGroup.add(polygonMenuItem);
-        cursorModeMenu.add(polygonMenuItem);
+        cursorModeMenu.add(polygonModeMenuItem);
 
         JButton paint3dButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/paint3d.png"))) {
 
@@ -1388,8 +1466,10 @@ public class J2DArea extends JFrame {
         });
         paint3dButton.setMaximumSize(BUTTON_SIZE);
         paint3dButton.setToolTipText("Edit selection in Paint 3D");
+        configureToolbarButton(paint3dButton);
+        paint3dToolbarButton = paint3dButton;
         toolsMenu.addSeparator();
-        JMenuItem paint3dMenuItem = new JMenuItem(paint3dButton.getAction());
+        paint3dMenuItem = new JMenuItem(paint3dButton.getAction());
         paint3dMenuItem.setText("Edit Selection in Paint 3D");
         toolsMenu.add(paint3dMenuItem);
 
@@ -1407,9 +1487,47 @@ public class J2DArea extends JFrame {
         });
         subtractBackgroundButton.setMaximumSize(BUTTON_SIZE);
         subtractBackgroundButton.setToolTipText("Subtract background from selection");
-        JMenuItem subtractBackgroundMenuItem = new JMenuItem(subtractBackgroundButton.getAction());
+        configureToolbarButton(subtractBackgroundButton);
+        subtractBackgroundToolbarButton = subtractBackgroundButton;
+        subtractBackgroundMenuItem = new JMenuItem(subtractBackgroundButton.getAction());
         subtractBackgroundMenuItem.setText("Subtract Background");
         toolsMenu.add(subtractBackgroundMenuItem);
+
+        menubar.add(openBackgroundToolbarButton);
+        menubar.add(fillToolbarButton);
+        menubar.add(openBrushTextureToolbarButton);
+        menubar.add(regionsToolbarButton);
+        menubar.add(pasteFromToolbarButton);
+        menubar.add(parallelogramBlackToolbarButton);
+        menubar.add(parallelogramTextureToolbarButton);
+        menubar.add(pasteFromOpenDoorToolbarButton);
+        menubar.add(pasteFromClosedDoorToolbarButton);
+        menubar.add(pasteFromNightLightToolbarButton);
+        menubar.add(entranceToolbarButton);
+        menubar.add(cursorToolbarButton);
+        menubar.add(brushToolbarButton);
+        menubar.add(polygonToolbarButton);
+        menubar.add(exportDoorTilesToolbarButton);
+        menubar.add(tileSeamlessToolbarButton);
+        menubar.add(paint3dToolbarButton);
+        menubar.add(subtractBackgroundToolbarButton);
+        menubar.add(drawClosedDoorToggleButton);
+        menubar.add(nightToggleButton);
+        buildOnlyToolbarButtons.clear();
+        buildOnlyToolbarButtons.add(fillToolbarButton);
+        buildOnlyToolbarButtons.add(openBrushTextureToolbarButton);
+        buildOnlyToolbarButtons.add(regionsToolbarButton);
+        buildOnlyToolbarButtons.add(pasteFromToolbarButton);
+        buildOnlyToolbarButtons.add(parallelogramBlackToolbarButton);
+        buildOnlyToolbarButtons.add(parallelogramTextureToolbarButton);
+        buildOnlyToolbarButtons.add(pasteFromOpenDoorToolbarButton);
+        buildOnlyToolbarButtons.add(pasteFromClosedDoorToolbarButton);
+        buildOnlyToolbarButtons.add(pasteFromNightLightToolbarButton);
+        buildOnlyToolbarButtons.add(entranceToolbarButton);
+        buildOnlyToolbarButtons.add(cursorToolbarButton);
+        buildOnlyToolbarButtons.add(brushToolbarButton);
+        buildOnlyToolbarButtons.add(drawClosedDoorToggleButton);
+        buildOnlyToolbarButtons.add(nightToggleButton);
 
         JMenuItem commandsMenuItem = new JMenuItem("Commands...");
         commandsMenuItem.setToolTipText("Show mouse, keyboard, and workflow help");
@@ -1420,6 +1538,10 @@ public class J2DArea extends JFrame {
             }
         });
         helpMenu.add(commandsMenuItem);
+
+        tabPane.addChangeListener(e -> updateTabSpecificUi());
+        syncCursorModeUi();
+        updateTabSpecificUi();
 
         getContentPane().setLayout(new BorderLayout());
         getContentPane().add(tabPane, BorderLayout.CENTER);
@@ -2849,6 +2971,76 @@ public class J2DArea extends JFrame {
             nightToggleButton.setSelected(night);
         }
         repaint();
+    }
+
+    private void syncCursorModeUi() {
+        if (cursorSelectMenuItem != null) {
+            cursorSelectMenuItem.setSelected(!painting && !editingPolygon);
+        }
+        if (brushModeMenuItem != null) {
+            brushModeMenuItem.setSelected(painting);
+        }
+        if (polygonModeMenuItem != null && polygonModeMenuItem.isSelected() != editingPolygon) {
+            polygonModeMenuItem.setSelected(editingPolygon);
+        }
+    }
+
+    private void updateTabSpecificUi() {
+        syncCursorModeUi();
+        boolean buildTabSelected = tabPane != null && tabPane.getSelectedComponent() == buildScrollPane;
+        boolean extractionTabSelected = tabPane != null && tabPane.getSelectedComponent() == extractScrollPane;
+        boolean areaEditingTabSelected = buildTabSelected || extractionTabSelected;
+
+        setUiVisible(backgroundMenu, areaEditingTabSelected);
+        setUiVisible(insertMenu, buildTabSelected);
+        setUiVisible(cursorModeMenu, areaEditingTabSelected);
+        setUiVisible(viewMenu, buildTabSelected);
+        setUiVisible(toolsMenu, buildTabSelected || extractionTabSelected);
+
+        setUiVisible(fillMenuItem, buildTabSelected);
+        setUiVisible(openBrushTextureMenuItem, buildTabSelected);
+        setUiVisible(tileSeamlessMenuItem, extractionTabSelected);
+        setUiVisible(saveDoorsMenuItem, buildTabSelected);
+        setUiVisible(paint3dMenuItem, extractionTabSelected);
+        setUiVisible(subtractBackgroundMenuItem, extractionTabSelected);
+        setUiVisible(cursorSelectMenuItem, buildTabSelected);
+        setUiVisible(brushModeMenuItem, buildTabSelected);
+        setUiVisible(polygonModeMenuItem, extractionTabSelected);
+
+        setUiVisible(openBackgroundToolbarButton, areaEditingTabSelected);
+        for (Component component : buildOnlyToolbarButtons) {
+            setUiVisible(component, buildTabSelected);
+        }
+        setUiVisible(exportDoorTilesToolbarButton, buildTabSelected);
+        setUiVisible(tileSeamlessToolbarButton, extractionTabSelected);
+        setUiVisible(paint3dToolbarButton, extractionTabSelected);
+        setUiVisible(subtractBackgroundToolbarButton, extractionTabSelected);
+        setUiVisible(cursorToolbarButton, buildTabSelected);
+        setUiVisible(brushToolbarButton, buildTabSelected);
+        setUiVisible(polygonToolbarButton, extractionTabSelected);
+
+        if (menubar != null) {
+            menubar.revalidate();
+            menubar.repaint();
+        }
+    }
+
+    private void setUiVisible(java.awt.Component component, boolean visible) {
+        if (component != null) {
+            component.setVisible(visible);
+        }
+    }
+
+    private void configureToolbarButton(AbstractButton button) {
+        if (button == null) {
+            return;
+        }
+        button.setFocusable(false);
+        button.setText(null);
+        button.setMargin(new Insets(0, 0, 0, 0));
+        button.setPreferredSize(BUTTON_SIZE);
+        button.setMinimumSize(BUTTON_SIZE);
+        button.setMaximumSize(BUTTON_SIZE);
     }
 
     private Dimension scaleDimension(int width, int height, double zoom) {
