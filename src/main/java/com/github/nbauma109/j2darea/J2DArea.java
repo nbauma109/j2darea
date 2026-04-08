@@ -408,9 +408,6 @@ public class J2DArea extends JFrame {
         extractPanel.addMouseWheelListener(new MouseAdapter() {
             @Override
             public void mouseWheelMoved(MouseWheelEvent e) {
-                if (!e.isControlDown()) {
-                    return;
-                }
                 e.consume();
                 double oldZoom = extractZoom;
                 double zoomFactor = UserPreferences.getZoomFactor();
@@ -645,7 +642,7 @@ public class J2DArea extends JFrame {
                     brushRadius += e.getWheelRotation();
                     buildBrushPreview();
                     buildPanel.repaint();
-                } else if (e.isControlDown()) {
+                } else {
                     e.consume();
                     double oldZoom = buildZoom;
                     double zoomFactor = UserPreferences.getZoomFactor();
@@ -753,9 +750,11 @@ public class J2DArea extends JFrame {
         buildPanel.setLayout(new GridLayout());
         buildPanel.setBackground(Color.BLACK);
         buildScrollPane = new JScrollPane(buildPanel);
+        configureCanvasScrollPane(buildScrollPane);
         extractPanel.setLayout(new GridLayout());
         extractPanel.setBackground(Color.BLACK);
         extractScrollPane = new JScrollPane(extractPanel);
+        configureCanvasScrollPane(extractScrollPane);
         tabPane.addTab("Build Area", buildScrollPane);
         tabPane.addTab("Extraction Area", extractScrollPane);
         tabPane.addTab("Texture Preview", new JScrollPane(texturePreviewPanel));
@@ -2210,8 +2209,7 @@ public class J2DArea extends JFrame {
                 + "<b>Left-drag</b> on a selected object: move it.<br>"
                 + "<b>Ctrl + Click</b> on an object: duplicate it and start moving the copy.<br>"
                 + "<b>Right-click</b> an object or transition marker: open its context menu.<br>"
-                + "<b>Ctrl + Mouse Wheel</b>: zoom.<br>"
-                + "<b>Mouse Wheel</b>: scroll.<br>"
+                + "<b>Mouse Wheel</b>: zoom.<br>"
                 + "<b>Shift + Mouse Wheel</b>: flip the selected object, or change brush size while painting.<br><br>"
                 + "<b>Keyboard</b><br>"
                 + "<b>Delete</b>: remove the selected object.<br>"
@@ -2224,8 +2222,7 @@ public class J2DArea extends JFrame {
                 + "<b>Left-click</b> in Rectangle Selection mode: start the selection, then click again to finish it.<br>"
                 + "<b>Left-click</b> in Polygon Selection mode: add polygon vertices.<br>"
                 + "<b>Right-click</b> or <b>click near the first vertex</b> in Polygon Selection mode: close the polygon.<br>"
-                + "<b>Ctrl + Mouse Wheel</b>: zoom.<br>"
-                + "<b>Mouse Wheel</b>: scroll."
+                + "<b>Mouse Wheel</b>: zoom."
                 + "</body></html>"
         );
         helpTextPane.setEditable(false);
@@ -3141,6 +3138,15 @@ public class J2DArea extends JFrame {
         button.setPreferredSize(BUTTON_SIZE);
         button.setMinimumSize(BUTTON_SIZE);
         button.setMaximumSize(BUTTON_SIZE);
+    }
+
+    private void configureCanvasScrollPane(JScrollPane scrollPane) {
+        if (scrollPane == null) {
+            return;
+        }
+        scrollPane.setWheelScrollingEnabled(false);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
     }
 
     private void setExtractionPolygonMode(boolean editingPolygon) {
