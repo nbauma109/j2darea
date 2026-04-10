@@ -123,6 +123,7 @@ public class J2DArea extends JFrame {
     private int deltaY;
     private transient String movingCompositeGroupId;
     private transient LinkedHashMap<PastedObject, Point> movingCompositeBaseLocations = new LinkedHashMap<PastedObject, Point>();
+    private transient LinkedHashMap<WallGroupData, Polygon> movingCompositeBaseWallPolygons = new LinkedHashMap<WallGroupData, Polygon>();
     private transient Point movingCompositeAnchorLocation;
     private boolean drawClosed;
     private boolean night;
@@ -133,6 +134,7 @@ public class J2DArea extends JFrame {
     // Separate collections for polygon-based area features (not PastedObjects)
     private List<RegionData> regions = new ArrayList<>();
     private List<ContainerData> containers = new ArrayList<>();
+    private List<WallGroupData> wallGroups = new ArrayList<>();
     private AreaAttributes areaAttributes = new AreaAttributes();
 
     private boolean editingPolygon;
@@ -169,6 +171,7 @@ public class J2DArea extends JFrame {
     private transient JButton paint3dToolbarButton;
     private transient JButton subtractBackgroundToolbarButton;
     private transient JButton regionsToolbarButton;
+    private transient JButton wallGroupsToolbarButton;
     private transient JButton pasteFromToolbarButton;
     private transient JButton pasteCompositeToolbarButton;
     private transient JButton parallelogramBlackToolbarButton;
@@ -196,6 +199,7 @@ public class J2DArea extends JFrame {
     private transient Point extractPanStartView;
     private transient List<Component> buildOnlyToolbarButtons = new ArrayList<Component>();
     private TransitionPlacementSession transitionPlacementSession;
+    private transient WallGroupPlacementSession wallGroupPlacementSession;
 
     private int brushRadius = 30;
     private double buildZoom = 1.0;
@@ -238,6 +242,7 @@ public class J2DArea extends JFrame {
                     g2.drawRect(movingRectangle.x, movingRectangle.y, movingRectangle.width, movingRectangle.height);
                 }
                 paintTransitionPlacementDraft(g2);
+                paintWallGroupPlacementDraft(g2);
                 g2.dispose();
             }
 
@@ -429,6 +434,9 @@ public class J2DArea extends JFrame {
             @Override
             public void mousePressed(MouseEvent e) {
                 MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (wallGroupPlacementSession != null) {
+                    return;
+                }
                 if (transitionPlacementSession != null) {
                     return;
                 }
@@ -486,6 +494,10 @@ public class J2DArea extends JFrame {
                 MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
                 if (suppressNextBuildClickAfterPan) {
                     suppressNextBuildClickAfterPan = false;
+                    return;
+                }
+                if (handleWallGroupPlacementCanvasClick(scaledEvent)) {
+                    buildPanel.repaint();
                     return;
                 }
                 if (handleTransitionPlacementCanvasClick(scaledEvent)) {
@@ -580,6 +592,9 @@ public class J2DArea extends JFrame {
                     buildPanDragged = false;
                     return;
                 }
+                if (wallGroupPlacementSession != null) {
+                    return;
+                }
                 if (transitionPlacementSession != null) {
                     return;
                 }
@@ -601,6 +616,9 @@ public class J2DArea extends JFrame {
                         for (Map.Entry<PastedObject, Point> entry : movingCompositeBaseLocations.entrySet()) {
                             Point baseLocation = entry.getValue();
                             setPastedObjectLocation(entry.getKey(), baseLocation.x + offsetX, baseLocation.y + offsetY);
+                        }
+                        for (Map.Entry<WallGroupData, Polygon> entry : movingCompositeBaseWallPolygons.entrySet()) {
+                            entry.getKey().setPolygon(PolygonUtils.translatedPolygon(entry.getValue(), offsetX, offsetY));
                         }
                     } else {
                         setPastedObjectLocation(objectToMove, newRectX, newRectY);
@@ -804,6 +822,7 @@ public class J2DArea extends JFrame {
                         pastedObjects.clear();
                         regions.clear();
                         containers.clear();
+                        wallGroups.clear();
                         areaAttributes = new AreaAttributes();
                         objectToMove = null;
                         objectToMoveIdx = -1;
@@ -889,6 +908,7 @@ public class J2DArea extends JFrame {
                         pastedObjects = exportableArea.getPastedObjects();
                         regions = exportableArea.getRegions();
                         containers = exportableArea.getContainers();
+                        wallGroups = exportableArea.getWallGroups();
                         areaAttributes = exportableArea.getAreaAttributes();
                         refreshEntranceMarkers();
                         objectToMove = null;
@@ -978,6 +998,7 @@ public class J2DArea extends JFrame {
                         pastedObjects,
                         regions,
                         containers,
+                        wallGroups,
                         areaAttributes
                     );
                     try (FileOutputStream fileOutputStream = new FileOutputStream(chooser.getSelectedFile())) {
@@ -1080,7 +1101,7 @@ public class J2DArea extends JFrame {
         preferencesMenuItem.setText("Preferences...");
         settingsMenu.add(preferencesMenuItem);
 
-        JButton regionsButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/polygon.png"))) {
+        JButton regionsButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/region.png"))) {
 
             private static final long serialVersionUID = 1L;
 
@@ -1095,6 +1116,22 @@ public class J2DArea extends JFrame {
         JMenuItem regionsMenuItem = new JMenuItem(regionsButton.getAction());
         regionsMenuItem.setText("Regions...");
         insertMenu.add(regionsMenuItem);
+
+        JButton wallGroupsButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/brick-wall.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                editWallGroups();
+            }
+        });
+        wallGroupsButton.setToolTipText("Create and edit wallgroup polygons");
+        configureToolbarButton(wallGroupsButton);
+        wallGroupsToolbarButton = wallGroupsButton;
+        JMenuItem wallGroupsMenuItem = new JMenuItem(wallGroupsButton.getAction());
+        wallGroupsMenuItem.setText("Wallgroups...");
+        insertMenu.add(wallGroupsMenuItem);
 
         JButton tileSeamlessButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-texture.png"))) {
 
@@ -1606,6 +1643,7 @@ public class J2DArea extends JFrame {
         menubar.add(fillToolbarButton);
         menubar.add(openBrushTextureToolbarButton);
         menubar.add(regionsToolbarButton);
+        menubar.add(wallGroupsToolbarButton);
         menubar.add(pasteFromToolbarButton);
         menubar.add(pasteCompositeToolbarButton);
         menubar.add(parallelogramBlackToolbarButton);
@@ -1628,6 +1666,7 @@ public class J2DArea extends JFrame {
         buildOnlyToolbarButtons.add(fillToolbarButton);
         buildOnlyToolbarButtons.add(openBrushTextureToolbarButton);
         buildOnlyToolbarButtons.add(regionsToolbarButton);
+        buildOnlyToolbarButtons.add(wallGroupsToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromToolbarButton);
         buildOnlyToolbarButtons.add(pasteCompositeToolbarButton);
         buildOnlyToolbarButtons.add(parallelogramBlackToolbarButton);
@@ -1807,11 +1846,13 @@ public class J2DArea extends JFrame {
         }
         String compositeGroupId = newCompositeGroupId();
         List<PastedObject> instances = compositeObjectData.instantiate(new Point(mousePosition), compositeGroupId);
+        List<WallGroupData> wallGroupInstances = compositeObjectData.instantiateWallGroups(new Point(mousePosition), compositeGroupId);
         if (instances.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Composite object is empty.", ERROR, JOptionPane.WARNING_MESSAGE);
             return;
         }
         pastedObjects.addAll(instances);
+        wallGroups.addAll(wallGroupInstances);
         objectToMove = instances.get(instances.size() - 1);
         objectToMoveIdx = pastedObjects.size() - 1;
         beginCompositeMove(objectToMove);
@@ -1835,10 +1876,14 @@ public class J2DArea extends JFrame {
     }
 
     private void paintObjects(Graphics g) {
-        paintObjects(g, drawClosed, night, painting);
+        paintObjects(g, drawClosed, night, painting, true);
     }
 
     private void paintObjects(Graphics g, boolean closedDoors, boolean nightMode, boolean includeBrush) {
+        paintObjects(g, closedDoors, nightMode, includeBrush, false);
+    }
+
+    private void paintObjects(Graphics g, boolean closedDoors, boolean nightMode, boolean includeBrush, boolean includeEditorOverlays) {
         if (buildBackgroundImage != null) {
             if (nightMode) {
                 g.drawImage(buildBackgroundNightImage, 0, 0, null);
@@ -1865,7 +1910,10 @@ public class J2DArea extends JFrame {
                 }
             }
         }
-        drawRegionOverlays(g);
+        if (includeEditorOverlays) {
+            drawRegionOverlays(g);
+            drawWallGroupOverlays(g);
+        }
     }
 
     private void drawRegionOverlays(Graphics g) {
@@ -1888,6 +1936,78 @@ public class J2DArea extends JFrame {
                 Rectangle boundsRect = bounds.getBounds();
                 g.drawString(regionData.getName(), boundsRect.x + 2, boundsRect.y - 2);
             }
+        }
+    }
+
+    private void drawWallGroupOverlays(Graphics g) {
+        for (WallGroupData wallGroup : wallGroups) {
+            Polygon polygonBounds = wallGroup.getPolygon();
+            if (polygonBounds == null || polygonBounds.npoints < 3) {
+                continue;
+            }
+            g.setColor(new Color(0, 180, 255, 40));
+            g.fillPolygon(polygonBounds);
+            drawWallGroupSegments(g, polygonBounds);
+            Rectangle bounds = polygonBounds.getBounds();
+            g.drawString(wallGroup.getDisplayName(), bounds.x + 2, bounds.y - 2);
+        }
+    }
+
+    private void paintWallGroupPlacementDraft(Graphics2D graphics) {
+        if (wallGroupPlacementSession == null) {
+            return;
+        }
+        Polygon draft = wallGroupPlacementSession.polygon;
+        if (draft == null) {
+            return;
+        }
+        Polygon preview = clonePolygon(draft);
+        preview.addPoint(mousePosition.x, mousePosition.y);
+        boolean closeCandidate = draft.npoints > 0
+            && Point2D.distance(mousePosition.x, mousePosition.y, draft.xpoints[0], draft.ypoints[0]) <= 6;
+        if (draft.npoints >= 2) {
+            graphics.setColor(new Color(0, 180, 255, 40));
+            graphics.fillPolygon(preview);
+        }
+        if (draft.npoints > 0) {
+            if (closeCandidate) {
+                drawWallGroupSegments(graphics, preview);
+                graphics.setColor(Color.YELLOW);
+                graphics.drawPolygon(preview);
+            } else {
+                drawWallGroupOpenSegments(graphics, preview);
+            }
+        }
+    }
+
+    private void drawWallGroupSegments(Graphics g, Polygon polygonBounds) {
+        if (polygonBounds == null) {
+            return;
+        }
+        for (int i = 0; i < polygonBounds.npoints; i++) {
+            int next = (i + 1) % polygonBounds.npoints;
+            g.setColor(i == 0 ? new Color(0, 0, 139) : Color.GREEN);
+            g.drawLine(
+                polygonBounds.xpoints[i],
+                polygonBounds.ypoints[i],
+                polygonBounds.xpoints[next],
+                polygonBounds.ypoints[next]
+            );
+        }
+    }
+
+    private void drawWallGroupOpenSegments(Graphics g, Polygon polygonBounds) {
+        if (polygonBounds == null || polygonBounds.npoints < 2) {
+            return;
+        }
+        for (int i = 0; i < polygonBounds.npoints - 1; i++) {
+            g.setColor(i == 0 ? new Color(0, 0, 139) : Color.GREEN);
+            g.drawLine(
+                polygonBounds.xpoints[i],
+                polygonBounds.ypoints[i],
+                polygonBounds.xpoints[i + 1],
+                polygonBounds.ypoints[i + 1]
+            );
         }
     }
 
@@ -2044,6 +2164,21 @@ public class J2DArea extends JFrame {
                     Arrays.asList(doorExport.openPolygon),
                     Arrays.asList(doorExport.closedPolygon)
                 ));
+            }
+            for (WallGroupData wallGroup : wallGroups) {
+                Polygon wallPolygon = wallGroup.getPolygon();
+                if (wallPolygon != null && wallPolygon.npoints >= 3) {
+                    wedFile.addWallPolygon(new WEDFile.WallPolygonDefinition(
+                        wallPolygon,
+                        wallGroup.getFlags(),
+                        0
+                    ));
+                    nightWedFile.addWallPolygon(new WEDFile.WallPolygonDefinition(
+                        wallPolygon,
+                        wallGroup.getFlags(),
+                        0
+                    ));
+                }
             }
 
             AREFile areFile = new AREFile();
@@ -2210,6 +2345,10 @@ public class J2DArea extends JFrame {
             graphics.dispose();
         }
         return image;
+    }
+
+    private BufferedImage renderEditorSnapshot() {
+        return renderArea(drawClosed, night);
     }
 
     private void editExportPrefix() {
@@ -2894,6 +3033,22 @@ public class J2DArea extends JFrame {
         repaint();
     }
 
+    private void editWallGroups() {
+        startWallGroupPlacement(null);
+        if (tabPane != null) {
+            tabPane.setSelectedComponent(buildScrollPane);
+        }
+        repaint();
+    }
+
+    private void editWallGroup(WallGroupData wallGroup) {
+        if (wallGroup == null) {
+            return;
+        }
+        WallGroupEditorDialog dialog = new WallGroupEditorDialog(this, wallGroup);
+        dialog.setVisible(true);
+    }
+
     private List<String> collectEntranceNames() {
         List<String> names = new ArrayList<>();
         for (PastedObject pastedObject : pastedObjects) {
@@ -3110,9 +3265,83 @@ public class J2DArea extends JFrame {
         }
     }
 
+    private boolean handleWallGroupPlacementCanvasClick(MouseEvent e) {
+        if (wallGroupPlacementSession == null) {
+            return false;
+        }
+        if (SwingUtilities.isRightMouseButton(e) || e.isPopupTrigger()) {
+            finishWallGroupPlacement();
+            return true;
+        }
+        if (!SwingUtilities.isLeftMouseButton(e)) {
+            return true;
+        }
+        Polygon draft = wallGroupPlacementSession.polygon;
+        if (draft.npoints > 0 && Point2D.distance(e.getX(), e.getY(), draft.xpoints[0], draft.ypoints[0]) <= 6) {
+            if (draft.npoints >= 3) {
+                finishWallGroupPlacement();
+            }
+            return true;
+        }
+        draft.addPoint(e.getX(), e.getY());
+        return true;
+    }
+
+    private void startWallGroupPlacement(WallGroupData targetWallGroup) {
+        wallGroupPlacementSession = new WallGroupPlacementSession(targetWallGroup);
+        clearObjectMoveSelection();
+        if (transitionPlacementSession != null) {
+            cancelTransitionPlacement(true);
+        }
+    }
+
+    private void finishWallGroupPlacement() {
+        if (wallGroupPlacementSession == null) {
+            return;
+        }
+        Polygon draft = wallGroupPlacementSession.polygon;
+        if (draft.npoints < 3) {
+            wallGroupPlacementSession = null;
+            repaint();
+            return;
+        }
+
+        WallGroupData target = wallGroupPlacementSession.targetWallGroup;
+        boolean creating = target == null;
+        if (creating) {
+            target = new WallGroupData("Wallgroup" + (wallGroups.size() + 1), draft);
+        } else {
+            if (target.isHoveringWall() && draft.npoints < 5) {
+                JOptionPane.showMessageDialog(this,
+                    "Hovering walls need at least five vertices.",
+                    ERROR,
+                    JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            target.setPolygon(draft);
+        }
+
+        if (creating) {
+            WallGroupEditorDialog dialog = new WallGroupEditorDialog(this, target);
+            dialog.setVisible(true);
+            if (dialog.isConfirmed()) {
+                wallGroups.add(target);
+            }
+        }
+        wallGroupPlacementSession = null;
+        repaint();
+    }
+
     private boolean showBuildPanelContextMenu(MouseEvent e) {
         if (e == null || !e.isPopupTrigger()) {
             return false;
+        }
+
+        WallGroupData wallGroup = findWallGroupAtPoint(e.getPoint());
+        if (wallGroup != null) {
+            clearObjectMoveSelection();
+            showWallGroupContextMenu(e, wallGroup);
+            return true;
         }
 
         PastedObject entranceObject = findEntranceAtPoint(e.getX(), e.getY());
@@ -3129,6 +3358,40 @@ public class J2DArea extends JFrame {
             return true;
         }
         return false;
+    }
+
+    private void showWallGroupContextMenu(MouseEvent e, WallGroupData wallGroup) {
+        JPopupMenu menu = new JPopupMenu();
+
+        JMenuItem editWallGroupItem = new JMenuItem("Edit Wallgroup");
+        editWallGroupItem.addActionListener(evt -> {
+            editWallGroup(wallGroup);
+            repaint();
+        });
+        menu.add(editWallGroupItem);
+
+        JMenuItem redrawPolygonItem = new JMenuItem("Redraw Polygon");
+        redrawPolygonItem.addActionListener(evt -> {
+            startWallGroupPlacement(wallGroup);
+            repaint();
+        });
+        menu.add(redrawPolygonItem);
+
+        JMenuItem removeWallGroupItem = new JMenuItem("Remove Wallgroup");
+        removeWallGroupItem.addActionListener(evt -> {
+            if (JOptionPane.showConfirmDialog(
+                    this,
+                    "Remove wallgroup '" + wallGroup.getDisplayName() + "'?",
+                    "Remove Wallgroup",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION) {
+                wallGroups.remove(wallGroup);
+                repaint();
+            }
+        });
+        menu.add(removeWallGroupItem);
+
+        menu.show(e.getComponent(), e.getX(), e.getY());
     }
 
     private void showEntranceContextMenu(MouseEvent e, PastedObject entranceObject) {
@@ -3179,12 +3442,18 @@ public class J2DArea extends JFrame {
                 movingCompositeBaseLocations.put(pastedObject, new Point(pastedObject.getLocation()));
             }
         }
+        for (WallGroupData wallGroup : wallGroups) {
+            if (movingCompositeGroupId.equals(wallGroup.getCompositeGroupId())) {
+                movingCompositeBaseWallPolygons.put(wallGroup, wallGroup.getPolygon());
+            }
+        }
     }
 
     private void clearCompositeMove() {
         movingCompositeGroupId = null;
         movingCompositeAnchorLocation = null;
         movingCompositeBaseLocations.clear();
+        movingCompositeBaseWallPolygons.clear();
     }
 
     private void setPastedObjectLocation(PastedObject pastedObject, int x, int y) {
@@ -3466,6 +3735,20 @@ public class J2DArea extends JFrame {
             Polygon bounds = regionData.getBounds();
             if (regionData.getType() == 2 && bounds != null && bounds.npoints >= 3 && bounds.contains(point)) {
                 return regionData;
+            }
+        }
+        return null;
+    }
+
+    private WallGroupData findWallGroupAtPoint(Point point) {
+        if (point == null) {
+            return null;
+        }
+        for (int i = wallGroups.size() - 1; i >= 0; i--) {
+            WallGroupData wallGroup = wallGroups.get(i);
+            Polygon polygonBounds = wallGroup.getPolygon();
+            if (polygonBounds != null && polygonBounds.npoints >= 3 && polygonBounds.contains(point)) {
+                return wallGroup;
             }
         }
         return null;
@@ -3842,6 +4125,16 @@ public class J2DArea extends JFrame {
             this.orientation = 0;
             this.hasPoint = false;
             this.localPolygon = new Polygon();
+        }
+    }
+
+    private static final class WallGroupPlacementSession {
+        private final WallGroupData targetWallGroup;
+        private Polygon polygon;
+
+        private WallGroupPlacementSession(WallGroupData targetWallGroup) {
+            this.targetWallGroup = targetWallGroup;
+            this.polygon = new Polygon();
         }
     }
 

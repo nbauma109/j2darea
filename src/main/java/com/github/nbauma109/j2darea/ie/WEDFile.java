@@ -28,6 +28,7 @@ public class WEDFile {
     private final String tisResource;
     private final int[] alternateTileIndices;
     private final List<DoorDefinition> doors;
+    private final List<WallPolygonDefinition> wallPolygons;
 
     public WEDFile(int pixelWidth, int pixelHeight, String tisResource) {
         this.widthInTiles = (pixelWidth + TISFile.TILE_WIDTH - 1) / TISFile.TILE_WIDTH;
@@ -38,6 +39,7 @@ public class WEDFile {
             alternateTileIndices[i] = i;
         }
         this.doors = new ArrayList<>();
+        this.wallPolygons = new ArrayList<>();
     }
 
     public void setAlternateTileIndex(int tileCellIndex, int tisTileIndex) {
@@ -48,6 +50,12 @@ public class WEDFile {
 
     public void addDoor(DoorDefinition door) {
         doors.add(door);
+    }
+
+    public void addWallPolygon(WallPolygonDefinition wallPolygon) {
+        if (wallPolygon != null) {
+            wallPolygons.add(wallPolygon);
+        }
     }
 
     public byte[] toBytes() throws IOException {
@@ -72,6 +80,9 @@ public class WEDFile {
             for (Polygon polygon : door.getClosedPolygons()) {
                 polygonRecords.add(PolygonRecord.forDoor(polygon));
             }
+        }
+        for (WallPolygonDefinition wallPolygon : wallPolygons) {
+            polygonRecords.add(PolygonRecord.forWall(wallPolygon));
         }
 
         int polygonOffset = tileIndexLookupOffset + tileIndexLookupSize;
@@ -315,6 +326,30 @@ public class WEDFile {
         }
     }
 
+    public static class WallPolygonDefinition {
+        private final Polygon polygon;
+        private final int flags;
+        private final int height;
+
+        public WallPolygonDefinition(Polygon polygon, int flags, int height) {
+            this.polygon = polygon;
+            this.flags = flags;
+            this.height = height;
+        }
+
+        public Polygon getPolygon() {
+            return polygon;
+        }
+
+        public int getFlags() {
+            return flags;
+        }
+
+        public int getHeight() {
+            return height;
+        }
+    }
+
     private static class WallGroup {
         private final List<Integer> polygonIndices;
         private int lookupStart;
@@ -357,6 +392,15 @@ public class WEDFile {
                 orderedVertices.add(new Point(polygon.xpoints[i], polygon.ypoints[i]));
             }
             return new PolygonRecord(orderedVertices, 0x81, 0, polygon.getBounds());
+        }
+
+        public static PolygonRecord forWall(WallPolygonDefinition wallPolygon) {
+            Polygon polygon = wallPolygon.getPolygon();
+            List<Point> orderedVertices = new ArrayList<>(polygon.npoints);
+            for (int i = 0; i < polygon.npoints; i++) {
+                orderedVertices.add(new Point(polygon.xpoints[i], polygon.ypoints[i]));
+            }
+            return new PolygonRecord(orderedVertices, wallPolygon.getFlags(), wallPolygon.getHeight(), polygon.getBounds());
         }
 
         public int getVertexCount() {

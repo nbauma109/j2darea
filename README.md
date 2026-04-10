@@ -17,14 +17,15 @@ Implemented now:
 - `ARE` export for doors, entrances, travel regions, standalone regions, and standalone containers
   Door data is now stored and edited in the project before export, including linked travel-trigger names, impeded blocks, and launch/open-location points when a travel region sits inside a door's bounds
 - Door alternate-tile export for open/closed states
-- `WED` door polygons and wall groups
+- `WED` door polygons and authored wallgroups
 - WeiDU-ready mod packaging with installer scripts
 - Packaged destination-area WeiDU transition patches for existing areas we do not own
 - Optional remembered prompt for creating destination-area return patches on existing-area transitions
 - Entrance markers now use a spot-and-arrow visual based on facing direction
 - Entrance destination editor with explicit existing-area vs in-mod choice, searchable in-game area descriptions, a registry of already exported owned areas, and destination-side geometry selection loaded from the configured game install
 - Polygon travel regions now have a `Regions` manager, can be paired with an entrance in the current area, and can store explicit destination-side spawn points and return polygons loaded from game area resources
-- Composite object authoring in a dedicated transparent-background editor, plus grouped composite-object paste into the build area
+- Wallgroup authoring in both the main area editor and the composite object editor, including saved wallgroup polygons and WED export
+- Composite object authoring in a dedicated transparent-background editor, plus grouped composite-object paste into the build area with wallgroups preserved
 
 Partially implemented:
 
@@ -79,10 +80,11 @@ Composite object workflow:
 
 1. Use `File -> New Composite Object...` and choose the initial image that defines the starting transparent canvas size.
 2. Add constituent pasted objects in the composite editor with the usual image / door / night-light / entrance tools.
-3. Export the composite object from that editor to a `.j2dcmp` file.
-4. Use `File -> Open Composite Object...` to reopen an existing `.j2dcmp` for later editing.
-5. Use `Insert -> Paste Composite Object...` in the main build area to insert all constituent objects at once.
-6. Moving any pasted constituent in the build area moves the whole imported composite group together.
+3. Add any composite-local wallgroups in that editor when the composite needs occlusion polygons.
+4. Export the composite object from that editor to a `.j2dcmp` file.
+5. Use `File -> Open Composite Object...` to reopen an existing `.j2dcmp` for later editing.
+6. Use `Insert -> Paste Composite Object...` in the main build area to insert all constituent objects at once.
+7. Moving any pasted constituent in the build area moves the whole imported composite group together, including imported wallgroups.
 
 Important naming constraints:
 

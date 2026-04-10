@@ -16,24 +16,27 @@ public class ExportableArea implements Externalizable {
     private List<PastedObject> pastedObjects;
     private List<RegionData> regions;
     private List<ContainerData> containers;
+    private List<WallGroupData> wallGroups;
     private AreaAttributes areaAttributes;
 
     public ExportableArea() {
         this.regions = new ArrayList<>();
         this.containers = new ArrayList<>();
+        this.wallGroups = new ArrayList<>();
         this.areaAttributes = new AreaAttributes();
     }
 
     public ExportableArea(ExportableImage backgroundImage, List<PastedObject> pastedObjects) {
-        this(backgroundImage, pastedObjects, new ArrayList<RegionData>(), new ArrayList<ContainerData>(), new AreaAttributes());
+        this(backgroundImage, pastedObjects, new ArrayList<RegionData>(), new ArrayList<ContainerData>(), new ArrayList<WallGroupData>(), new AreaAttributes());
     }
 
     public ExportableArea(ExportableImage backgroundImage, List<PastedObject> pastedObjects,
-            List<RegionData> regions, List<ContainerData> containers, AreaAttributes areaAttributes) {
+            List<RegionData> regions, List<ContainerData> containers, List<WallGroupData> wallGroups, AreaAttributes areaAttributes) {
         this.backgroundImage = backgroundImage;
         this.pastedObjects = pastedObjects;
         this.regions = regions;
         this.containers = containers;
+        this.wallGroups = wallGroups;
         this.areaAttributes = areaAttributes;
     }
 
@@ -54,6 +57,10 @@ public class ExportableArea implements Externalizable {
             container.writeExternal(out);
         }
         areaAttributes.writeExternal(out);
+        out.writeInt(wallGroups.size());
+        for (WallGroupData wallGroup : wallGroups) {
+            wallGroup.writeExternal(out);
+        }
     }
 
     @Override
@@ -69,6 +76,7 @@ public class ExportableArea implements Externalizable {
         }
         regions = new ArrayList<>();
         containers = new ArrayList<>();
+        wallGroups = new ArrayList<>();
         areaAttributes = new AreaAttributes();
         try {
             int marker = in.readInt();
@@ -86,10 +94,21 @@ public class ExportableArea implements Externalizable {
                     containers.add(container);
                 }
                 areaAttributes.readExternal(in);
+                try {
+                    int wallGroupCount = in.readInt();
+                    for (int i = 0; i < wallGroupCount; i++) {
+                        WallGroupData wallGroup = new WallGroupData();
+                        wallGroup.readExternal(in);
+                        wallGroups.add(wallGroup);
+                    }
+                } catch (EOFException ex) {
+                    wallGroups = new ArrayList<>();
+                }
             }
         } catch (EOFException ex) {
             regions = new ArrayList<>();
             containers = new ArrayList<>();
+            wallGroups = new ArrayList<>();
             areaAttributes = new AreaAttributes();
         }
     }
@@ -132,5 +151,13 @@ public class ExportableArea implements Externalizable {
 
     public void setAreaAttributes(AreaAttributes areaAttributes) {
         this.areaAttributes = areaAttributes;
+    }
+
+    public List<WallGroupData> getWallGroups() {
+        return wallGroups;
+    }
+
+    public void setWallGroups(List<WallGroupData> wallGroups) {
+        this.wallGroups = wallGroups;
     }
 }

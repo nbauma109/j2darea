@@ -87,6 +87,20 @@ Current door export behavior:
 
 This now moves the core DLTCEP-style door wiring into edit-time project data instead of inventing it at export time. The remaining gap is that open/closed door polygons are still seeded from door bounds rather than being drawn with a dedicated polygon editor.
 
+## Wallgroups
+
+Current wallgroup behavior:
+
+- wallgroups are stored in project data as authored polygons rather than being invented during export
+- wallgroups can be created, edited, and deleted from the main area editor
+- composite objects can also carry wallgroups, and pasting that composite into the main build area imports those wallgroups with the same composite group id
+- moving a pasted composite constituent in the build area moves the composite's wallgroups together with the objects
+- export writes authored wallgroup polygons into `WED` alongside door polygons, and wall-group screen buckets are then derived from the combined polygon set
+
+Current limitation:
+
+- the wallgroup editor currently covers polygon drawing, flags, and height, but not DLTCEP-style baseline editing
+
 ## Regions, entrances, and containers
 
 The exporter currently supports:

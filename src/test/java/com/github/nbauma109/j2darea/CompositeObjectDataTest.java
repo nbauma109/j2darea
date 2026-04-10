@@ -21,7 +21,12 @@ public class CompositeObjectDataTest {
     public void roundTripAndInstantiatePreserveRelativeLayout() throws Exception {
         PastedObject first = new PastedObject(new Point(0, 0), new ExportableImage(new BufferedImage(10, 12, BufferedImage.TYPE_INT_ARGB)));
         PastedObject second = new PastedObject(new Point(18, 6), new ExportableImage(new BufferedImage(8, 9, BufferedImage.TYPE_INT_ARGB)), PastedObjectType.CLOSED_DOOR);
-        CompositeObjectData source = new CompositeObjectData(40, 30, Arrays.asList(first, second));
+        WallGroupData wallGroup = new WallGroupData("TreeCover", new java.awt.Polygon(
+            new int[] { 5, 20, 18 },
+            new int[] { 7, 9, 22 },
+            3
+        ));
+        CompositeObjectData source = new CompositeObjectData(40, 30, Arrays.asList(first, second), Arrays.asList(wallGroup));
 
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         ObjectOutputStream output = new ObjectOutputStream(buffer);
@@ -36,14 +41,20 @@ public class CompositeObjectDataTest {
         assertEquals(40, restored.getWidth());
         assertEquals(30, restored.getHeight());
         assertEquals(2, restored.getPastedObjects().size());
+        assertEquals(1, restored.getWallGroups().size());
 
         List<PastedObject> instances = restored.instantiate(new Point(100, 200), "group-1");
+        List<WallGroupData> wallGroupInstances = restored.instantiateWallGroups(new Point(100, 200), "group-1");
         assertEquals(2, instances.size());
         assertEquals(new Point(100, 200), instances.get(0).getLocation());
         assertEquals(new Point(118, 206), instances.get(1).getLocation());
         assertEquals("group-1", instances.get(0).getCompositeGroupId());
         assertEquals("group-1", instances.get(1).getCompositeGroupId());
         assertNull(restored.getPastedObjects().get(0).getCompositeGroupId());
+        assertEquals(1, wallGroupInstances.size());
+        assertEquals("group-1", wallGroupInstances.get(0).getCompositeGroupId());
+        assertEquals(105, wallGroupInstances.get(0).getPolygon().xpoints[0]);
+        assertEquals(207, wallGroupInstances.get(0).getPolygon().ypoints[0]);
     }
 
     @Test
@@ -56,7 +67,7 @@ public class CompositeObjectDataTest {
         entrance.getEntranceData().setName("Entry");
         entrance.getEntranceData().setX(20);
         entrance.getEntranceData().setY(24);
-        CompositeObjectData data = new CompositeObjectData(32, 32, Arrays.asList(entrance));
+        CompositeObjectData data = new CompositeObjectData(32, 32, Arrays.asList(entrance), java.util.Collections.<WallGroupData>emptyList());
 
         List<PastedObject> instances = data.instantiate(new Point(50, 60), "group-2");
         PastedObject imported = instances.get(0);

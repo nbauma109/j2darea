@@ -10,6 +10,7 @@ import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Point;
+import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -51,6 +52,7 @@ public class CompositeObjectEditorDialog extends JDialog {
 
     private final Frame owner;
     private final List<PastedObject> pastedObjects = new ArrayList<PastedObject>();
+    private final List<WallGroupData> wallGroups = new ArrayList<WallGroupData>();
     private final JPanel buildPanel;
     private final JScrollPane scrollPane;
 
@@ -70,6 +72,7 @@ public class CompositeObjectEditorDialog extends JDialog {
     private boolean suppressNextClickAfterPan;
     private Point panStartMouseScreen;
     private Point panStartView;
+    private WallGroupPlacementSession wallGroupPlacementSession;
 
     public CompositeObjectEditorDialog(Frame owner, BufferedImage initialImage) {
         super(owner, "Composite Object Editor", false);
@@ -92,6 +95,7 @@ public class CompositeObjectEditorDialog extends JDialog {
                     g2.setColor(Color.GREEN);
                     g2.drawRect(movingRectangle.x, movingRectangle.y, movingRectangle.width, movingRectangle.height);
                 }
+                paintWallGroupPlacementDraft(g2);
                 g2.dispose();
             }
 
@@ -111,6 +115,9 @@ public class CompositeObjectEditorDialog extends JDialog {
             @Override
             public void mousePressed(MouseEvent e) {
                 MouseEvent scaledEvent = scaleMouseEvent(e);
+                if (wallGroupPlacementSession != null) {
+                    return;
+                }
                 if (objectToMove == null
                         && SwingUtilities.isLeftMouseButton(e)
                         && findPastedObjectAtPoint(scaledEvent.getX(), scaledEvent.getY()) == null) {
@@ -139,6 +146,14 @@ public class CompositeObjectEditorDialog extends JDialog {
                 MouseEvent scaledEvent = scaleMouseEvent(e);
                 if (suppressNextClickAfterPan) {
                     suppressNextClickAfterPan = false;
+                    return;
+                }
+                if (handleWallGroupPlacementCanvasClick(scaledEvent)) {
+                    buildPanel.repaint();
+                    return;
+                }
+                if (showWallGroupContextMenu(scaledEvent)) {
+                    buildPanel.repaint();
                     return;
                 }
                 if (SwingUtilities.isRightMouseButton(scaledEvent) || scaledEvent.isPopupTrigger()) {
@@ -279,10 +294,20 @@ public class CompositeObjectEditorDialog extends JDialog {
                 buildPanel.repaint();
             }
         }));
-        toolbar.add(createToolbarButton("/icons/entrance.png", "Paste entrance marker", new ActionListener() {
+        JButton entranceButton = new JButton(new ImageIcon(getClass().getResource("/icons/entrance.png")));
+        entranceButton.setToolTipText("Paste entrance marker");
+        entranceButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 insertEntrance();
+            }
+        });
+        configureToolbarButton(entranceButton);
+        toolbar.add(entranceButton);
+        toolbar.add(createToolbarButton("/icons/brick-wall.png", "Create and edit wallgroups", new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                editWallGroups();
             }
         }));
         JToggleButton drawClosedButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/draw_closed.png")));
@@ -341,6 +366,7 @@ public class CompositeObjectEditorDialog extends JDialog {
 
     private void loadCompositeObjectData(CompositeObjectData compositeObjectData) {
         pastedObjects.clear();
+        wallGroups.clear();
         objectToMove = null;
         objectToMoveIdx = -1;
         movingRectangle = null;
@@ -363,6 +389,12 @@ public class CompositeObjectEditorDialog extends JDialog {
                     syncEntranceMarker(copy);
                 }
                 pastedObjects.add(copy);
+            }
+            for (WallGroupData wallGroup : compositeObjectData.getWallGroups()) {
+                WallGroupData copy = wallGroup.copy();
+                copy.setPolygon(wallGroup.getPolygon());
+                copy.setCompositeGroupId(null);
+                wallGroups.add(copy);
             }
         }
         buildPanel.revalidate();
@@ -447,7 +479,12 @@ public class CompositeObjectEditorDialog extends JDialog {
         if (!file.getName().contains(".")) {
             file = new File(file.getParentFile(), file.getName() + ".j2dcmp");
         }
-        CompositeObjectData compositeObjectData = new CompositeObjectData(canvasWidth, canvasHeight, copyObjectsForExport());
+        CompositeObjectData compositeObjectData = new CompositeObjectData(
+            canvasWidth,
+            canvasHeight,
+            copyObjectsForExport(),
+            copyWallGroupsForExport()
+        );
         try {
             FileOutputStream fileOutputStream = new FileOutputStream(file);
             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(fileOutputStream);
@@ -473,6 +510,16 @@ public class CompositeObjectEditorDialog extends JDialog {
                 copy.getEntranceData().setX(pastedObject.getEntranceData().getX());
                 copy.getEntranceData().setY(pastedObject.getEntranceData().getY());
             }
+            copies.add(copy);
+        }
+        return copies;
+    }
+
+    private List<WallGroupData> copyWallGroupsForExport() {
+        List<WallGroupData> copies = new ArrayList<WallGroupData>(wallGroups.size());
+        for (WallGroupData wallGroup : wallGroups) {
+            WallGroupData copy = wallGroup.copy();
+            copy.setPolygon(wallGroup.getPolygon());
             copies.add(copy);
         }
         return copies;
@@ -514,6 +561,7 @@ public class CompositeObjectEditorDialog extends JDialog {
                 }
             }
         }
+        drawWallGroupOverlays(graphics);
     }
 
     private void ensureCanvasContains(PastedObject pastedObject) {
@@ -522,6 +570,205 @@ public class CompositeObjectEditorDialog extends JDialog {
         }
         canvasWidth = Math.max(canvasWidth, pastedObject.getX() + pastedObject.getWidth());
         canvasHeight = Math.max(canvasHeight, pastedObject.getY() + pastedObject.getHeight());
+    }
+
+    private void editWallGroups() {
+        wallGroupPlacementSession = new WallGroupPlacementSession(null);
+        buildPanel.repaint();
+    }
+
+    private BufferedImage renderCanvasSnapshot() {
+        BufferedImage image = new BufferedImage(Math.max(1, canvasWidth), Math.max(1, canvasHeight), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            paintCanvas(graphics);
+        } finally {
+            graphics.dispose();
+        }
+        return image;
+    }
+
+    private void drawWallGroupOverlays(Graphics graphics) {
+        for (WallGroupData wallGroup : wallGroups) {
+            Polygon polygon = wallGroup.getPolygon();
+            if (polygon == null || polygon.npoints < 3) {
+                continue;
+            }
+            graphics.setColor(new Color(0, 180, 255, 40));
+            graphics.fillPolygon(polygon);
+            drawWallGroupSegments(graphics, polygon);
+            Rectangle bounds = polygon.getBounds();
+            graphics.drawString(wallGroup.getDisplayName(), bounds.x + 2, bounds.y - 2);
+        }
+    }
+
+    private void paintWallGroupPlacementDraft(Graphics2D graphics) {
+        if (wallGroupPlacementSession == null) {
+            return;
+        }
+        Polygon draft = wallGroupPlacementSession.polygon;
+        Polygon preview = PolygonUtils.clonePolygon(draft);
+        preview.addPoint(mousePosition.x, mousePosition.y);
+        boolean closeCandidate = draft.npoints > 0
+            && Point2D.distance(mousePosition.x, mousePosition.y, draft.xpoints[0], draft.ypoints[0]) <= 6;
+        if (draft.npoints >= 2) {
+            graphics.setColor(new Color(0, 180, 255, 40));
+            graphics.fillPolygon(preview);
+        }
+        if (draft.npoints > 0) {
+            if (closeCandidate) {
+                drawWallGroupSegments(graphics, preview);
+                graphics.setColor(Color.YELLOW);
+                graphics.drawPolygon(preview);
+            } else {
+                drawWallGroupOpenSegments(graphics, preview);
+            }
+        }
+    }
+
+    private void drawWallGroupSegments(Graphics graphics, Polygon polygon) {
+        if (polygon == null) {
+            return;
+        }
+        for (int i = 0; i < polygon.npoints; i++) {
+            int next = (i + 1) % polygon.npoints;
+            graphics.setColor(i == 0 ? new Color(0, 0, 139) : Color.GREEN);
+            graphics.drawLine(
+                polygon.xpoints[i],
+                polygon.ypoints[i],
+                polygon.xpoints[next],
+                polygon.ypoints[next]
+            );
+        }
+    }
+
+    private void drawWallGroupOpenSegments(Graphics graphics, Polygon polygon) {
+        if (polygon == null || polygon.npoints < 2) {
+            return;
+        }
+        for (int i = 0; i < polygon.npoints - 1; i++) {
+            graphics.setColor(i == 0 ? new Color(0, 0, 139) : Color.GREEN);
+            graphics.drawLine(
+                polygon.xpoints[i],
+                polygon.ypoints[i],
+                polygon.xpoints[i + 1],
+                polygon.ypoints[i + 1]
+            );
+        }
+    }
+
+    private boolean handleWallGroupPlacementCanvasClick(MouseEvent event) {
+        if (wallGroupPlacementSession == null) {
+            return false;
+        }
+        if (SwingUtilities.isRightMouseButton(event) || event.isPopupTrigger()) {
+            finishWallGroupPlacement();
+            return true;
+        }
+        if (!SwingUtilities.isLeftMouseButton(event)) {
+            return true;
+        }
+        Polygon draft = wallGroupPlacementSession.polygon;
+        if (draft.npoints > 0 && Point2D.distance(event.getX(), event.getY(), draft.xpoints[0], draft.ypoints[0]) <= 6) {
+            if (draft.npoints >= 3) {
+                finishWallGroupPlacement();
+            }
+            return true;
+        }
+        draft.addPoint(event.getX(), event.getY());
+        return true;
+    }
+
+    private boolean showWallGroupContextMenu(MouseEvent event) {
+        if (!SwingUtilities.isRightMouseButton(event) && !event.isPopupTrigger()) {
+            return false;
+        }
+        WallGroupData wallGroup = findWallGroupAtPoint(new Point(event.getX(), event.getY()));
+        if (wallGroup == null) {
+            return false;
+        }
+        javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+
+        javax.swing.JMenuItem editItem = new javax.swing.JMenuItem("Edit Wallgroup");
+        editItem.addActionListener(e -> {
+            WallGroupEditorDialog dialog = new WallGroupEditorDialog(owner, wallGroup);
+            dialog.setVisible(true);
+            buildPanel.repaint();
+        });
+        menu.add(editItem);
+
+        javax.swing.JMenuItem redrawItem = new javax.swing.JMenuItem("Redraw Polygon");
+        redrawItem.addActionListener(e -> {
+            wallGroupPlacementSession = new WallGroupPlacementSession(wallGroup);
+            buildPanel.repaint();
+        });
+        menu.add(redrawItem);
+
+        javax.swing.JMenuItem removeItem = new javax.swing.JMenuItem("Remove Wallgroup");
+        removeItem.addActionListener(e -> {
+            if (JOptionPane.showConfirmDialog(
+                    this,
+                    "Remove wallgroup '" + wallGroup.getDisplayName() + "'?",
+                    "Remove Wallgroup",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION) {
+                wallGroups.remove(wallGroup);
+                buildPanel.repaint();
+            }
+        });
+        menu.add(removeItem);
+
+        menu.show(event.getComponent(), event.getX(), event.getY());
+        return true;
+    }
+
+    private void finishWallGroupPlacement() {
+        if (wallGroupPlacementSession == null) {
+            return;
+        }
+        Polygon draft = wallGroupPlacementSession.polygon;
+        if (draft.npoints < 3) {
+            wallGroupPlacementSession = null;
+            buildPanel.repaint();
+            return;
+        }
+        WallGroupData target = wallGroupPlacementSession.targetWallGroup;
+        boolean creating = target == null;
+        if (creating) {
+            target = new WallGroupData("Wallgroup" + (wallGroups.size() + 1), draft);
+        } else {
+            if (target.isHoveringWall() && draft.npoints < 5) {
+                JOptionPane.showMessageDialog(this,
+                    "Hovering walls need at least five vertices.",
+                    ERROR,
+                    JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            target.setPolygon(draft);
+        }
+        if (creating) {
+            WallGroupEditorDialog dialog = new WallGroupEditorDialog(owner, target);
+            dialog.setVisible(true);
+            if (dialog.isConfirmed()) {
+                wallGroups.add(target);
+            }
+        }
+        wallGroupPlacementSession = null;
+        buildPanel.repaint();
+    }
+
+    private WallGroupData findWallGroupAtPoint(Point point) {
+        if (point == null) {
+            return null;
+        }
+        for (int i = wallGroups.size() - 1; i >= 0; i--) {
+            WallGroupData wallGroup = wallGroups.get(i);
+            Polygon polygon = wallGroup.getPolygon();
+            if (polygon != null && polygon.npoints >= 3 && polygon.contains(point)) {
+                return wallGroup;
+            }
+        }
+        return null;
     }
 
     private Point toAreaPoint(MouseEvent event) {
@@ -636,5 +883,15 @@ public class CompositeObjectEditorDialog extends JDialog {
             Math.max(1, (int) Math.round(width * scale)),
             Math.max(1, (int) Math.round(height * scale))
         );
+    }
+
+    private static final class WallGroupPlacementSession {
+        private final WallGroupData targetWallGroup;
+        private Polygon polygon;
+
+        private WallGroupPlacementSession(WallGroupData targetWallGroup) {
+            this.targetWallGroup = targetWallGroup;
+            this.polygon = new Polygon();
+        }
     }
 }

@@ -13,15 +13,18 @@ public class CompositeObjectData implements Externalizable {
     private int width;
     private int height;
     private List<PastedObject> pastedObjects;
+    private List<WallGroupData> wallGroups;
 
     public CompositeObjectData() {
         pastedObjects = new ArrayList<PastedObject>();
+        wallGroups = new ArrayList<WallGroupData>();
     }
 
-    public CompositeObjectData(int width, int height, List<PastedObject> pastedObjects) {
+    public CompositeObjectData(int width, int height, List<PastedObject> pastedObjects, List<WallGroupData> wallGroups) {
         this.width = width;
         this.height = height;
         this.pastedObjects = pastedObjects != null ? pastedObjects : new ArrayList<PastedObject>();
+        this.wallGroups = wallGroups != null ? wallGroups : new ArrayList<WallGroupData>();
     }
 
     @Override
@@ -31,6 +34,10 @@ public class CompositeObjectData implements Externalizable {
         out.writeInt(pastedObjects.size());
         for (PastedObject pastedObject : pastedObjects) {
             pastedObject.writeExternal(out);
+        }
+        out.writeInt(wallGroups.size());
+        for (WallGroupData wallGroup : wallGroups) {
+            wallGroup.writeExternal(out);
         }
     }
 
@@ -44,6 +51,17 @@ public class CompositeObjectData implements Externalizable {
             PastedObject pastedObject = new PastedObject();
             pastedObject.readExternal(in);
             pastedObjects.add(pastedObject);
+        }
+        wallGroups = new ArrayList<WallGroupData>();
+        try {
+            int wallGroupCount = in.readInt();
+            for (int i = 0; i < wallGroupCount; i++) {
+                WallGroupData wallGroup = new WallGroupData();
+                wallGroup.readExternal(in);
+                wallGroups.add(wallGroup);
+            }
+        } catch (java.io.EOFException ex) {
+            wallGroups = new ArrayList<WallGroupData>();
         }
     }
 
@@ -66,6 +84,18 @@ public class CompositeObjectData implements Externalizable {
         return instances;
     }
 
+    public List<WallGroupData> instantiateWallGroups(Point anchor, String compositeGroupId) {
+        List<WallGroupData> instances = new ArrayList<WallGroupData>(wallGroups.size());
+        Point safeAnchor = anchor != null ? anchor : new Point();
+        for (WallGroupData source : wallGroups) {
+            WallGroupData copy = source.copy();
+            copy.setPolygon(PolygonUtils.translatedPolygon(source.getPolygon(), safeAnchor.x, safeAnchor.y));
+            copy.setCompositeGroupId(compositeGroupId);
+            instances.add(copy);
+        }
+        return instances;
+    }
+
     public int getWidth() {
         return width;
     }
@@ -76,5 +106,9 @@ public class CompositeObjectData implements Externalizable {
 
     public List<PastedObject> getPastedObjects() {
         return pastedObjects;
+    }
+
+    public List<WallGroupData> getWallGroups() {
+        return wallGroups;
     }
 }
