@@ -949,10 +949,10 @@ public class J2DArea extends JFrame {
         openBackgroundButton.setToolTipText("Open a background image");
         configureToolbarButton(openBackgroundButton);
         openBackgroundToolbarButton = openBackgroundButton;
-        JMenu openBackgroundFolderMenu = new JMenu("Open Background");
+        JMenu openBackgroundFolderMenu = new JMenu("Open From");
         openBackgroundFolderMenu.setIcon(new ImageIcon(getClass().getResource("/icons/open-bg.png")));
         JMenuItem openBackgroundMenuItem = new JMenuItem(openBackgroundButton.getAction());
-        openBackgroundMenuItem.setText("Open Background Image...");
+        openBackgroundMenuItem.setText("Image...");
         openBackgroundMenuItem.setIcon(null);
         openBackgroundFolderMenu.add(openBackgroundMenuItem);
 
@@ -969,7 +969,7 @@ public class J2DArea extends JFrame {
         openGameBackgroundButton.setToolTipText("Open background image from a game area");
         configureToolbarButton(openGameBackgroundButton);
         JMenuItem openGameBackgroundMenuItem = new JMenuItem(openGameBackgroundButton.getAction());
-        openGameBackgroundMenuItem.setText("Open Background From Game ARE...");
+        openGameBackgroundMenuItem.setText("Game ARE...");
         openGameBackgroundMenuItem.setIcon(null);
         openBackgroundFolderMenu.add(openGameBackgroundMenuItem);
         backgroundMenu.add(openBackgroundFolderMenu);
