@@ -844,6 +844,7 @@ public class J2DArea extends JFrame {
         newMenuItem.setText("New Area");
         fileMenu.add(newMenuItem);
         JMenuItem newCompositeMenuItem = new JMenuItem("New Composite Object...");
+        newCompositeMenuItem.setIcon(loadOptionalIcon("/icons/new-composite.png", "/icons/new.png"));
         newCompositeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -852,6 +853,7 @@ public class J2DArea extends JFrame {
         });
         fileMenu.add(newCompositeMenuItem);
         JMenuItem openCompositeMenuItem = new JMenuItem("Open Composite Object...");
+        openCompositeMenuItem.setIcon(loadOptionalIcon("/icons/open-composite.png", "/icons/open.png"));
         openCompositeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -3607,6 +3609,15 @@ public class J2DArea extends JFrame {
         button.setPreferredSize(BUTTON_SIZE);
         button.setMinimumSize(BUTTON_SIZE);
         button.setMaximumSize(BUTTON_SIZE);
+    }
+
+    private ImageIcon loadOptionalIcon(String preferredResourcePath, String fallbackResourcePath) {
+        java.net.URL preferred = getClass().getResource(preferredResourcePath);
+        if (preferred != null) {
+            return new ImageIcon(preferred);
+        }
+        java.net.URL fallback = getClass().getResource(fallbackResourcePath);
+        return fallback != null ? new ImageIcon(fallback) : null;
     }
 
     private void configureCanvasScrollPane(JScrollPane scrollPane) {
