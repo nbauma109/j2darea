@@ -171,7 +171,6 @@ public class J2DArea extends JFrame {
     private transient LocalTransitionPlacementDialog localTransitionPlacementDialog;
     private transient JCheckBoxMenuItem drawClosedDoorMenuItem;
     private transient JCheckBoxMenuItem nightMenuItem;
-    private transient JButton openBackgroundToolbarButton;
     private transient JButton openBackgroundToolbarMenuButton;
     private transient JButton undoToolbarButton;
     private transient JButton redoToolbarButton;
@@ -736,7 +735,7 @@ public class J2DArea extends JFrame {
         menubar.add(helpMenu);
         menubar.add(Box.createHorizontalStrut(8));
         menubar.add(Box.createHorizontalGlue());
-        JButton undoButton = new JButton(new AbstractAction(null, createHistoryIcon(false)) {
+        JButton undoButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/undo.png"))) {
 
             private static final long serialVersionUID = 1L;
 
@@ -753,7 +752,7 @@ public class J2DArea extends JFrame {
         undoMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK));
         editMenu.add(undoMenuItem);
 
-        JButton redoButton = new JButton(new AbstractAction(null, createHistoryIcon(true)) {
+        JButton redoButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/redo.png"))) {
 
             private static final long serialVersionUID = 1L;
 
@@ -923,7 +922,6 @@ public class J2DArea extends JFrame {
         openBackgroundButton.setMaximumSize(BUTTON_SIZE);
         openBackgroundButton.setToolTipText("Open a background image");
         configureToolbarButton(openBackgroundButton);
-        openBackgroundToolbarButton = openBackgroundButton;
         JMenu openBackgroundFolderMenu = new JMenu("Open From");
         openBackgroundFolderMenu.setIcon(new ImageIcon(getClass().getResource("/icons/open-bg.png")));
         JMenuItem openBackgroundMenuItem = new JMenuItem(openBackgroundButton.getAction());
@@ -2551,10 +2549,6 @@ public class J2DArea extends JFrame {
         return image;
     }
 
-    private BufferedImage renderEditorSnapshot() {
-        return renderArea(drawClosed, night);
-    }
-
     private void editExportPrefix() {
         List<PrefixReservation> reservations = loadPrefixReservations("/prefixes/ie-prefix-reservations.tsv");
         if (reservations.isEmpty()) {
@@ -4045,23 +4039,6 @@ public class J2DArea extends JFrame {
         }
     }
 
-    private ImageIcon createHistoryIcon(boolean redo) {
-        BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D graphics = image.createGraphics();
-        try {
-            graphics.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-            graphics.setColor(new Color(45, 110, 190));
-            int[] xPoints = redo ? new int[] { 4, 9, 13, 11, 13, 9, 4 } : new int[] { 12, 7, 3, 5, 3, 7, 12 };
-            int[] yPoints = new int[] { 10, 10, 6, 6, 2, 2, 6 };
-            graphics.fillPolygon(xPoints, yPoints, xPoints.length);
-            graphics.setColor(new Color(25, 70, 130));
-            graphics.drawPolygon(xPoints, yPoints, xPoints.length);
-        } finally {
-            graphics.dispose();
-        }
-        return new ImageIcon(image);
-    }
-
     private Dimension scaleDimension(int width, int height, double zoom) {
         int scaledWidth = Math.max(1, (int) Math.round(width * zoom));
         int scaledHeight = Math.max(1, (int) Math.round(height * zoom));
@@ -4215,132 +4192,6 @@ public class J2DArea extends JFrame {
         return null;
     }
 
-    private boolean editTransitionPair(EntranceData entranceData) {
-        if (entranceData == null || entranceData.getDestinationAreaType() != DestinationAreaType.EXISTING_GAME_AREA) {
-            return false;
-        }
-        RegionData pairedRegion = findRegionPairedWithEntrance(entranceData.getName());
-        return editTransitionPair(entranceData, pairedRegion);
-    }
-
-    private boolean editTransitionPair(RegionData regionData) {
-        if (regionData == null || trimToEmpty(regionData.getPairedEntranceName()).isEmpty()) {
-            return false;
-        }
-        PastedObject entranceObject = findEntranceByName(regionData.getPairedEntranceName());
-        if (entranceObject == null || entranceObject.getEntranceData() == null) {
-            return false;
-        }
-        return editTransitionPair(entranceObject.getEntranceData(), regionData);
-    }
-
-    private boolean editTransitionPair(EntranceData entranceData, RegionData regionData) {
-        if (entranceData == null || entranceData.getDestinationAreaType() != DestinationAreaType.EXISTING_GAME_AREA) {
-            return false;
-        }
-
-        String entranceDestinationArea = trimToEmpty(entranceData.getDestinationArea());
-        String regionDestinationArea = regionData != null ? trimToEmpty(regionData.getDestinationArea()) : "";
-        String destinationArea = !entranceDestinationArea.isEmpty() ? entranceDestinationArea : regionDestinationArea;
-        if (destinationArea.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                "Set the destination area first before editing the destination-side transition pair.",
-                ERROR,
-                JOptionPane.ERROR_MESSAGE);
-            return true;
-        }
-        if (!entranceDestinationArea.isEmpty() && !regionDestinationArea.isEmpty()
-                && !entranceDestinationArea.equalsIgnoreCase(regionDestinationArea)) {
-            JOptionPane.showMessageDialog(this,
-                "The paired entrance and travel region target different destination areas. Fix that mismatch in the editors first.",
-                ERROR,
-                JOptionPane.ERROR_MESSAGE);
-            return true;
-        }
-
-        Polygon localPolygon = regionData != null ? clonePolygon(regionData.getBounds()) : new Polygon();
-        LocalTransitionRegionSelectionDialog localDialog = new LocalTransitionRegionSelectionDialog(
-            this,
-            buildBackgroundImage,
-            localPolygon
-        );
-        localDialog.setVisible(true);
-        if (!localDialog.isConfirmed()) {
-            return true;
-        }
-        localPolygon = localDialog.getPolygon();
-
-        int pointX = entranceData.getDestinationPointX();
-        int pointY = entranceData.getDestinationPointY();
-        int pointOrientation = entranceData.getDestinationPointOrientation();
-        if (pointX == 0 && pointY == 0 && regionData != null) {
-            pointX = regionData.getDestinationPointX();
-            pointY = regionData.getDestinationPointY();
-            pointOrientation = regionData.getDestinationPointOrientation();
-        }
-        Polygon polygon = regionData != null && regionData.getDestinationReturnPolygon().npoints >= 3
-            ? regionData.getDestinationReturnPolygon()
-            : entranceData.getDestinationReturnPolygon();
-        String destinationEntranceName = trimToEmpty(entranceData.getDestinationEntrance());
-        if (destinationEntranceName.isEmpty() && regionData != null) {
-            destinationEntranceName = trimToEmpty(regionData.getDestinationEntrance());
-        }
-
-        DestinationPatchSelectionDialog dialog = new DestinationPatchSelectionDialog(
-            this,
-            destinationArea,
-            pointX,
-            pointY,
-            pointOrientation,
-            destinationEntranceName,
-            polygon
-        );
-        dialog.setVisible(true);
-        if (!dialog.isConfirmed()) {
-            return true;
-        }
-
-        RegionData effectiveRegion = regionData;
-        if (effectiveRegion == null) {
-            effectiveRegion = new RegionData(buildPairedTravelRegionName(entranceData), 2, localPolygon);
-            regions.add(effectiveRegion);
-        } else {
-            effectiveRegion.setBounds(localPolygon);
-            if (trimToEmpty(effectiveRegion.getName()).isEmpty()) {
-                effectiveRegion.setName(buildPairedTravelRegionName(entranceData));
-            }
-        }
-
-        entranceData.setDestinationArea(destinationArea);
-        entranceData.setDestinationEntrance(dialog.getDestinationEntranceName());
-        entranceData.setCreateDestinationReturnTransition(true);
-        entranceData.setDestinationPointX(dialog.getPointX());
-        entranceData.setDestinationPointY(dialog.getPointY());
-        entranceData.setDestinationPointOrientation(dialog.getPointOrientation());
-        entranceData.setDestinationReturnPolygon(dialog.getReturnPolygon());
-        entranceData.setDestinationPreviewImagePath("");
-
-        effectiveRegion.setType(2);
-        effectiveRegion.setBounds(localPolygon);
-        effectiveRegion.setDestinationAreaType(DestinationAreaType.EXISTING_GAME_AREA);
-        effectiveRegion.setDestinationArea(destinationArea);
-        effectiveRegion.setDestinationEntrance(dialog.getDestinationEntranceName());
-        effectiveRegion.setDestinationPointX(dialog.getPointX());
-        effectiveRegion.setDestinationPointY(dialog.getPointY());
-        effectiveRegion.setDestinationPointOrientation(dialog.getPointOrientation());
-        effectiveRegion.setDestinationReturnPolygon(dialog.getReturnPolygon());
-        effectiveRegion.setDestinationPreviewImagePath("");
-        effectiveRegion.setPairedEntranceName(trimToEmpty(entranceData.getName()));
-        recordHistoryState();
-        repaint();
-        return true;
-    }
-
-    private String buildPairedTravelRegionName(EntranceData entranceData) {
-        String entranceName = trimToEmpty(entranceData != null ? entranceData.getName() : "");
-        return buildPairedTravelRegionName(entranceName);
-    }
-
     private String buildPairedTravelRegionName(String entranceName) {
         entranceName = trimToEmpty(entranceName);
         String baseName = entranceName.isEmpty() ? "TravelRegion" : entranceName + "_EXIT";
@@ -4356,34 +4207,6 @@ public class J2DArea extends JFrame {
         System.arraycopy(source.xpoints, 0, xpoints, 0, source.npoints - 1);
         System.arraycopy(source.ypoints, 0, ypoints, 0, source.npoints - 1);
         return new Polygon(xpoints, ypoints, source.npoints - 1);
-    }
-
-    private RegionData findRegionPairedWithEntrance(String entranceName) {
-        String normalizedName = trimToEmpty(entranceName);
-        if (normalizedName.isEmpty()) {
-            return null;
-        }
-        for (RegionData regionData : regions) {
-            if (normalizedName.equals(trimToEmpty(regionData.getPairedEntranceName()))) {
-                return regionData;
-            }
-        }
-        return null;
-    }
-
-    private PastedObject findEntranceByName(String entranceName) {
-        String normalizedName = trimToEmpty(entranceName);
-        if (normalizedName.isEmpty()) {
-            return null;
-        }
-        for (PastedObject pastedObject : pastedObjects) {
-            if (pastedObject.getPastedObjectType() == PastedObjectType.ENTRANCE
-                    && pastedObject.getEntranceData() != null
-                    && normalizedName.equals(trimToEmpty(pastedObject.getEntranceData().getName()))) {
-                return pastedObject;
-            }
-        }
-        return null;
     }
 
     /**
