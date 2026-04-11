@@ -25,6 +25,8 @@ import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -35,8 +37,10 @@ import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -99,6 +103,7 @@ public class J2DArea extends JFrame {
     private static final String USER_HOME = "user.home";
 
     private static final Dimension MIN_SIZE = new Dimension(1200, 800);
+    private static final int MAX_HISTORY_ENTRIES = 50;
 
     public static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
@@ -147,6 +152,7 @@ public class J2DArea extends JFrame {
     private transient JScrollPane extractScrollPane;
     private transient JTabbedPane tabPane;
     private transient JMenuBar menubar;
+    private transient JMenu editMenu;
     private transient JMenu backgroundMenu;
     private transient JMenu insertMenu;
     private transient JMenu cursorModeMenu;
@@ -167,6 +173,8 @@ public class J2DArea extends JFrame {
     private transient JCheckBoxMenuItem nightMenuItem;
     private transient JButton openBackgroundToolbarButton;
     private transient JButton openBackgroundToolbarMenuButton;
+    private transient JButton undoToolbarButton;
+    private transient JButton redoToolbarButton;
     private transient JButton fillToolbarButton;
     private transient JButton openBrushTextureToolbarButton;
     private transient JButton exportDoorTilesToolbarButton;
@@ -192,6 +200,7 @@ public class J2DArea extends JFrame {
     private transient boolean buildPanning;
     private transient boolean buildPanDragged;
     private transient boolean suppressNextBuildClickAfterPan;
+    private transient boolean buildBrushStrokeModified;
     private transient Point buildPanStartMouseScreen;
     private transient Point buildPanStartView;
     private transient boolean extractPanning;
@@ -201,6 +210,9 @@ public class J2DArea extends JFrame {
     private transient Point extractPanStartMouseScreen;
     private transient Point extractPanStartView;
     private transient List<Component> buildOnlyToolbarButtons = new ArrayList<Component>();
+    private transient Deque<byte[]> undoHistory = new ArrayDeque<byte[]>();
+    private transient Deque<byte[]> redoHistory = new ArrayDeque<byte[]>();
+    private transient byte[] currentHistoryState;
     private TransitionPlacementSession transitionPlacementSession;
     private transient WallGroupPlacementSession wallGroupPlacementSession;
 
@@ -422,11 +434,12 @@ public class J2DArea extends JFrame {
                 }
             }
 
-            public void updateBrushStroke(MouseEvent e) {
-                if (brushTexture == null) {
-                    return;
-                }
-                for (int x = e.getX() - brushRadius; x < e.getX() + brushRadius; x++) {
+    public void updateBrushStroke(MouseEvent e) {
+        if (brushTexture == null) {
+            return;
+        }
+        buildBrushStrokeModified = true;
+        for (int x = e.getX() - brushRadius; x < e.getX() + brushRadius; x++) {
                     for (int y = e.getY() - brushRadius; y < e.getY() + brushRadius; y++) {
                         double dist = Point2D.distance(x, y, e.getX(), e.getY());
                         if (dist < brushRadius && x >= 0 && y >= 0 && x < buildBackgroundImage.getWidth() && y < buildBackgroundImage.getHeight()) {
@@ -469,6 +482,13 @@ public class J2DArea extends JFrame {
                     buildPanDragged = false;
                 }
                 if (dragged) {
+                    return;
+                }
+                if (painting) {
+                    if (buildBrushStrokeModified) {
+                        buildBrushStrokeModified = false;
+                        recordHistoryState();
+                    }
                     return;
                 }
                 if (showBuildPanelContextMenu(scaledEvent)) {
@@ -558,6 +578,7 @@ public class J2DArea extends JFrame {
                 if (e.isShiftDown() && objectToMove != null) {
                     e.consume();
                     objectToMove.flip();
+                    recordHistoryState();
                     buildPanel.repaint();
                 } else if (e.isShiftDown() && painting) {                
                     e.consume();
@@ -610,6 +631,7 @@ public class J2DArea extends JFrame {
                     movingRectangle = null;
                     clearCompositeMove();
                 }
+                recordHistoryState();
                 buildPanel.repaint();
             }
         });
@@ -626,6 +648,7 @@ public class J2DArea extends JFrame {
                         pastedObjects.set(objectToMoveIdx, tmp);
                         objectToMoveIdx++;
                     }
+                    recordHistoryState();
                     buildPanel.repaint();
                 }
             }
@@ -643,6 +666,7 @@ public class J2DArea extends JFrame {
                         pastedObjects.set(objectToMoveIdx, tmp);
                         objectToMoveIdx--;
                     }
+                    recordHistoryState();
                     buildPanel.repaint();
                 }
             }
@@ -657,6 +681,7 @@ public class J2DArea extends JFrame {
                     if (objectToMoveIdx > 0 && objectToMoveIdx < pastedObjects.size()) {
                         pastedObjects.get(objectToMoveIdx).adjustUpwards();
                     }
+                    recordHistoryState();
                     buildPanel.repaint();
                 }
             }
@@ -671,6 +696,7 @@ public class J2DArea extends JFrame {
                     if (objectToMoveIdx > 0 && objectToMoveIdx < pastedObjects.size()) {
                         pastedObjects.get(objectToMoveIdx).adjustDownwards();
                     }
+                    recordHistoryState();
                     buildPanel.repaint();
                 }
             }
@@ -691,6 +717,7 @@ public class J2DArea extends JFrame {
         menubar = new JMenuBar();
         setJMenuBar(menubar);
         JMenu fileMenu = new JMenu("File");
+        editMenu = new JMenu("Edit");
         backgroundMenu = new JMenu("Background");
         insertMenu = new JMenu("Insert");
         cursorModeMenu = new JMenu("Cursor Mode");
@@ -699,6 +726,7 @@ public class J2DArea extends JFrame {
         JMenu settingsMenu = new JMenu("Settings");
         JMenu helpMenu = new JMenu("Help");
         menubar.add(fileMenu);
+        menubar.add(editMenu);
         menubar.add(backgroundMenu);
         menubar.add(insertMenu);
         menubar.add(cursorModeMenu);
@@ -708,6 +736,40 @@ public class J2DArea extends JFrame {
         menubar.add(helpMenu);
         menubar.add(Box.createHorizontalStrut(8));
         menubar.add(Box.createHorizontalGlue());
+        JButton undoButton = new JButton(new AbstractAction(null, createHistoryIcon(false)) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                performUndo();
+            }
+        });
+        undoButton.setToolTipText("Undo");
+        configureToolbarButton(undoButton);
+        undoToolbarButton = undoButton;
+        JMenuItem undoMenuItem = new JMenuItem(undoButton.getAction());
+        undoMenuItem.setText("Undo");
+        undoMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK));
+        editMenu.add(undoMenuItem);
+
+        JButton redoButton = new JButton(new AbstractAction(null, createHistoryIcon(true)) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                performRedo();
+            }
+        });
+        redoButton.setToolTipText("Redo");
+        configureToolbarButton(redoButton);
+        redoToolbarButton = redoButton;
+        JMenuItem redoMenuItem = new JMenuItem(redoButton.getAction());
+        redoMenuItem.setText("Redo");
+        redoMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK));
+        editMenu.add(redoMenuItem);
+
         JButton newButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/new.png"))) {
 
             private static final long serialVersionUID = 1L;
@@ -729,6 +791,7 @@ public class J2DArea extends JFrame {
                         areaAttributes = new AreaAttributes();
                         clearObjectMoveSelection();
                         polygon.reset();
+                        resetHistoryToCurrentState();
                         setExtendedState(Frame.MAXIMIZED_BOTH);
                         repaint();
                     } else {
@@ -788,6 +851,7 @@ public class J2DArea extends JFrame {
                         }
                     }
                     buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
+                    recordHistoryState();
                 }
                 repaint();
             }
@@ -827,6 +891,7 @@ public class J2DArea extends JFrame {
                         areaAttributes = exportableArea.getAreaAttributes();
                         refreshEntranceMarkers();
                         clearObjectMoveSelection();
+                        resetHistoryToCurrentState();
                         setExtendedState(Frame.MAXIMIZED_BOTH);
                         repaint();
                     } catch (IOException | ClassNotFoundException ex) {
@@ -1579,6 +1644,8 @@ public class J2DArea extends JFrame {
         subtractBackgroundMenuItem.setText("Subtract Background");
         toolsMenu.add(subtractBackgroundMenuItem);
 
+        menubar.add(undoToolbarButton);
+        menubar.add(redoToolbarButton);
         menubar.add(newButton);
         menubar.add(newCompositeButton);
         menubar.add(openButton);
@@ -1610,6 +1677,8 @@ public class J2DArea extends JFrame {
         menubar.add(drawClosedDoorToggleButton);
         menubar.add(nightToggleButton);
         buildOnlyToolbarButtons.clear();
+        buildOnlyToolbarButtons.add(undoToolbarButton);
+        buildOnlyToolbarButtons.add(redoToolbarButton);
         buildOnlyToolbarButtons.add(newButton);
         buildOnlyToolbarButtons.add(newCompositeButton);
         buildOnlyToolbarButtons.add(openButton);
@@ -1644,7 +1713,31 @@ public class J2DArea extends JFrame {
         });
         helpMenu.add(commandsMenuItem);
 
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+            KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), "Undo");
+        getRootPane().getActionMap().put("Undo", new AbstractAction() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                performUndo();
+            }
+        });
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+            KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK), "Redo");
+        getRootPane().getActionMap().put("Redo", new AbstractAction() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                performRedo();
+            }
+        });
+
         tabPane.addChangeListener(e -> updateTabSpecificUi());
+        resetHistoryToCurrentState();
         syncCursorModeUi();
         updateTabSpecificUi();
 
@@ -2083,6 +2176,7 @@ public class J2DArea extends JFrame {
                         pastedObjects.add(new PastedObject(new Point(p.getBounds().x, p.getBounds().y), new ExportableImage(floorImage)));
                     }
                     parallelograms.remove(parallelograms.size() - 1);
+                    recordHistoryState();
                 }
             }
         } else {
@@ -2134,6 +2228,7 @@ public class J2DArea extends JFrame {
                 movingWallGroupBasePolygon = null;
                 movingRectangle = null;
                 clearCompositeMove();
+                recordHistoryState();
             }
         }
         panel.repaint();
@@ -3101,6 +3196,7 @@ public class J2DArea extends JFrame {
 
         if (dialog.isConfirmed()) {
             syncEntranceMarker(entranceObject);
+            recordHistoryState();
         }
     }
 
@@ -3120,6 +3216,7 @@ public class J2DArea extends JFrame {
             backgroundHeight
         );
         dialog.setVisible(true);
+        recordHistoryState();
     }
 
     private void editRegions() {
@@ -3136,6 +3233,7 @@ public class J2DArea extends JFrame {
             backgroundHeight
         );
         dialog.setVisible(true);
+        recordHistoryState();
         if (dialog.isUsedCurrentSelection()) {
             setExtractionPolygonMode(false);
         }
@@ -3156,6 +3254,7 @@ public class J2DArea extends JFrame {
         }
         WallGroupEditorDialog dialog = new WallGroupEditorDialog(this, wallGroup);
         dialog.setVisible(true);
+        recordHistoryState();
     }
 
     private List<String> collectEntranceNames() {
@@ -3324,6 +3423,7 @@ public class J2DArea extends JFrame {
         regions.add(regionData);
 
         cancelTransitionPlacement(false);
+        recordHistoryState();
         repaint();
     }
 
@@ -3438,6 +3538,7 @@ public class J2DArea extends JFrame {
             }
         }
         wallGroupPlacementSession = null;
+        recordHistoryState();
         repaint();
     }
 
@@ -3506,6 +3607,7 @@ public class J2DArea extends JFrame {
                     clearObjectMoveSelection();
                 }
                 wallGroups.remove(wallGroup);
+                recordHistoryState();
                 repaint();
             }
         });
@@ -3673,6 +3775,7 @@ public class J2DArea extends JFrame {
         boolean areaEditingTabSelected = buildTabSelected || extractionTabSelected;
 
         setUiVisible(backgroundMenu, areaEditingTabSelected);
+        setUiVisible(editMenu, buildTabSelected);
         setUiVisible(insertMenu, buildTabSelected);
         setUiVisible(cursorModeMenu, areaEditingTabSelected);
         setUiVisible(viewMenu, buildTabSelected);
@@ -3792,6 +3895,7 @@ public class J2DArea extends JFrame {
             backgroundWidth = chosenImageFile.getWidth();
             backgroundHeight = chosenImageFile.getHeight();
             buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
+            recordHistoryState();
         }
         if (tabPane.getSelectedComponent() == extractScrollPane) {
             extractionBackgroundImage = chosenImageFile;
@@ -3801,6 +3905,161 @@ public class J2DArea extends JFrame {
         }
         setExtendedState(Frame.MAXIMIZED_BOTH);
         repaint();
+    }
+
+    private void performUndo() {
+        if (undoHistory.isEmpty()) {
+            return;
+        }
+        try {
+            if (currentHistoryState != null) {
+                redoHistory.push(currentHistoryState);
+            }
+            byte[] targetState = undoHistory.pop();
+            applyHistoryState(targetState);
+            currentHistoryState = targetState;
+            updateHistoryButtons();
+        } catch (IOException | ClassNotFoundException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Undo failed.", ERROR, JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void performRedo() {
+        if (redoHistory.isEmpty()) {
+            return;
+        }
+        try {
+            if (currentHistoryState != null) {
+                undoHistory.push(currentHistoryState);
+            }
+            byte[] targetState = redoHistory.pop();
+            applyHistoryState(targetState);
+            currentHistoryState = targetState;
+            updateHistoryButtons();
+        } catch (IOException | ClassNotFoundException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Redo failed.", ERROR, JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void resetHistoryToCurrentState() {
+        try {
+            undoHistory.clear();
+            redoHistory.clear();
+            currentHistoryState = serializeHistoryState();
+            updateHistoryButtons();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private void recordHistoryState() {
+        try {
+            byte[] newState = serializeHistoryState();
+            if (currentHistoryState != null && Arrays.equals(currentHistoryState, newState)) {
+                updateHistoryButtons();
+                return;
+            }
+            if (currentHistoryState != null) {
+                undoHistory.push(currentHistoryState);
+                while (undoHistory.size() > MAX_HISTORY_ENTRIES) {
+                    undoHistory.removeLast();
+                }
+            }
+            currentHistoryState = newState;
+            redoHistory.clear();
+            updateHistoryButtons();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private byte[] serializeHistoryState() throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+        try {
+            ExportableArea exportableArea = new ExportableArea(
+                new ExportableImage(buildBackgroundImage),
+                pastedObjects,
+                regions,
+                containers,
+                wallGroups,
+                areaAttributes
+            );
+            HistoryState historyState = new HistoryState(exportableArea, drawClosed, night);
+            historyState.writeExternal(objectOutputStream);
+            objectOutputStream.flush();
+            return byteArrayOutputStream.toByteArray();
+        } finally {
+            objectOutputStream.close();
+        }
+    }
+
+    private void applyHistoryState(byte[] stateBytes) throws IOException, ClassNotFoundException {
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(stateBytes);
+        ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
+        try {
+            HistoryState historyState = new HistoryState();
+            historyState.readExternal(objectInputStream);
+            ExportableArea exportableArea = historyState.getArea();
+            buildBackgroundImage = exportableArea.getBackgroundImage().getImage();
+            backgroundWidth = buildBackgroundImage.getWidth();
+            backgroundHeight = buildBackgroundImage.getHeight();
+            buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
+            pastedObjects = exportableArea.getPastedObjects();
+            regions = exportableArea.getRegions();
+            containers = exportableArea.getContainers();
+            wallGroups = exportableArea.getWallGroups();
+            areaAttributes = exportableArea.getAreaAttributes();
+            refreshEntranceMarkers();
+            clearObjectMoveSelection();
+            setDrawClosedState(historyState.isDrawClosed());
+            setNightModeState(historyState.isNight());
+            repaint();
+        } finally {
+            objectInputStream.close();
+        }
+    }
+
+    private void updateHistoryButtons() {
+        if (undoToolbarButton != null) {
+            undoToolbarButton.setEnabled(!undoHistory.isEmpty());
+        }
+        if (redoToolbarButton != null) {
+            redoToolbarButton.setEnabled(!redoHistory.isEmpty());
+        }
+        if (editMenu != null) {
+            for (int i = 0; i < editMenu.getItemCount(); i++) {
+                JMenuItem item = editMenu.getItem(i);
+                if (item == null || item.getAction() == null) {
+                    continue;
+                }
+                Object action = item.getAction();
+                if (action == undoToolbarButton.getAction()) {
+                    item.setEnabled(!undoHistory.isEmpty());
+                } else if (action == redoToolbarButton.getAction()) {
+                    item.setEnabled(!redoHistory.isEmpty());
+                }
+            }
+        }
+    }
+
+    private ImageIcon createHistoryIcon(boolean redo) {
+        BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            graphics.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            graphics.setColor(new Color(45, 110, 190));
+            int[] xPoints = redo ? new int[] { 4, 9, 13, 11, 13, 9, 4 } : new int[] { 12, 7, 3, 5, 3, 7, 12 };
+            int[] yPoints = new int[] { 10, 10, 6, 6, 2, 2, 6 };
+            graphics.fillPolygon(xPoints, yPoints, xPoints.length);
+            graphics.setColor(new Color(25, 70, 130));
+            graphics.drawPolygon(xPoints, yPoints, xPoints.length);
+        } finally {
+            graphics.dispose();
+        }
+        return new ImageIcon(image);
     }
 
     private Dimension scaleDimension(int width, int height, double zoom) {
@@ -4072,6 +4331,7 @@ public class J2DArea extends JFrame {
         effectiveRegion.setDestinationReturnPolygon(dialog.getReturnPolygon());
         effectiveRegion.setDestinationPreviewImagePath("");
         effectiveRegion.setPairedEntranceName(trimToEmpty(entranceData.getName()));
+        recordHistoryState();
         repaint();
         return true;
     }
@@ -4312,6 +4572,46 @@ public class J2DArea extends JFrame {
         System.arraycopy(source.xpoints, 0, xpoints, 0, source.npoints);
         System.arraycopy(source.ypoints, 0, ypoints, 0, source.npoints);
         return new Polygon(xpoints, ypoints, source.npoints);
+    }
+
+    private static final class HistoryState {
+        private ExportableArea area;
+        private boolean drawClosed;
+        private boolean night;
+
+        private HistoryState() {
+        }
+
+        private HistoryState(ExportableArea area, boolean drawClosed, boolean night) {
+            this.area = area;
+            this.drawClosed = drawClosed;
+            this.night = night;
+        }
+
+        private void writeExternal(ObjectOutputStream out) throws IOException {
+            area.writeExternal(out);
+            out.writeBoolean(drawClosed);
+            out.writeBoolean(night);
+        }
+
+        private void readExternal(ObjectInputStream in) throws IOException, ClassNotFoundException {
+            area = new ExportableArea();
+            area.readExternal(in);
+            drawClosed = in.readBoolean();
+            night = in.readBoolean();
+        }
+
+        private ExportableArea getArea() {
+            return area;
+        }
+
+        private boolean isDrawClosed() {
+            return drawClosed;
+        }
+
+        private boolean isNight() {
+            return night;
+        }
     }
 
     private static final class TransitionPlacementSession {
