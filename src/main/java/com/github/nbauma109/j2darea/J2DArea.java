@@ -3000,7 +3000,7 @@ public class J2DArea extends JFrame {
     }
 
     private List<DoorExportData> collectDoorExports() {
-        List<DoorExportData> exports = new ArrayList<DoorExportData>();
+        List<DoorExportData> exports = new ArrayList<>();
         int index = 1;
         for (PastedObject pastedObject : pastedObjects) {
             if (pastedObject.getPastedObjectType() == PastedObjectType.OPENED_DOOR

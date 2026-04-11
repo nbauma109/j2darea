@@ -51,8 +51,8 @@ public class CompositeObjectEditorDialog extends JDialog {
     private static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
     private final Frame owner;
-    private final List<PastedObject> pastedObjects = new ArrayList<PastedObject>();
-    private final List<WallGroupData> wallGroups = new ArrayList<WallGroupData>();
+    private final List<PastedObject> pastedObjects = new ArrayList<>();
+    private final List<WallGroupData> wallGroups = new ArrayList<>();
     private final JPanel buildPanel;
     private final JScrollPane scrollPane;
 
@@ -60,7 +60,6 @@ public class CompositeObjectEditorDialog extends JDialog {
     private int canvasHeight;
     private Point mousePosition = new Point();
     private PastedObject objectToMove;
-    private int objectToMoveIdx = -1;
     private Rectangle movingRectangle;
     private int deltaX;
     private int deltaY;
@@ -160,7 +159,6 @@ public class CompositeObjectEditorDialog extends JDialog {
                     return;
                 }
                 if (objectToMove == null) {
-                    int idx = 0;
                     for (PastedObject pastedObject : pastedObjects) {
                         Rectangle rect = getPastedObjectBounds(pastedObject);
                         if (rect.contains(scaledEvent.getX(), scaledEvent.getY())
@@ -168,16 +166,13 @@ public class CompositeObjectEditorDialog extends JDialog {
                                 && pastedObject.isVisible(drawClosed, night)) {
                             movingRectangle = rect;
                             objectToMove = pastedObject;
-                            objectToMoveIdx = idx;
                             deltaX = scaledEvent.getX() - rect.x;
                             deltaY = scaledEvent.getY() - rect.y;
                         }
-                        idx++;
                     }
                     if (scaledEvent.isControlDown() && objectToMove != null) {
                         objectToMove = objectToMove.copy();
                         pastedObjects.add(objectToMove);
-                        objectToMoveIdx = pastedObjects.size() - 1;
                         deltaX = 0;
                         deltaY = 0;
                         Rectangle bounds = getPastedObjectBounds(objectToMove);
@@ -185,7 +180,6 @@ public class CompositeObjectEditorDialog extends JDialog {
                     }
                 } else {
                     objectToMove = null;
-                    objectToMoveIdx = -1;
                     movingRectangle = null;
                 }
                 buildPanel.repaint();
@@ -222,7 +216,6 @@ public class CompositeObjectEditorDialog extends JDialog {
                     int viewX = Math.max(0, Math.min(panStartView.x - dx, maxX));
                     int viewY = Math.max(0, Math.min(panStartView.y - dy, maxY));
                     viewport.setViewPosition(new Point(viewX, viewY));
-                    return;
                 }
             }
 
@@ -258,7 +251,6 @@ public class CompositeObjectEditorDialog extends JDialog {
                 if (objectToMove != null) {
                     pastedObjects.remove(objectToMove);
                     objectToMove = null;
-                    objectToMoveIdx = -1;
                     movingRectangle = null;
                     buildPanel.repaint();
                 }
@@ -368,7 +360,6 @@ public class CompositeObjectEditorDialog extends JDialog {
         pastedObjects.clear();
         wallGroups.clear();
         objectToMove = null;
-        objectToMoveIdx = -1;
         movingRectangle = null;
         mousePosition = new Point();
         drawClosed = false;
@@ -425,7 +416,6 @@ public class CompositeObjectEditorDialog extends JDialog {
         PastedObject pastedObject = new PastedObject(new Point(mousePosition), new ExportableImage(image), pastedObjectType);
         pastedObjects.add(pastedObject);
         objectToMove = pastedObject;
-        objectToMoveIdx = pastedObjects.size() - 1;
         deltaX = 0;
         deltaY = 0;
         ensureCanvasContains(pastedObject);
@@ -448,7 +438,6 @@ public class CompositeObjectEditorDialog extends JDialog {
         syncEntranceMarker(entranceObject);
         pastedObjects.add(entranceObject);
         objectToMove = entranceObject;
-        objectToMoveIdx = pastedObjects.size() - 1;
         deltaX = markerImage.getWidth() / 2;
         deltaY = markerImage.getHeight() / 2;
         ensureCanvasContains(entranceObject);
@@ -575,17 +564,6 @@ public class CompositeObjectEditorDialog extends JDialog {
     private void editWallGroups() {
         wallGroupPlacementSession = new WallGroupPlacementSession(null);
         buildPanel.repaint();
-    }
-
-    private BufferedImage renderCanvasSnapshot() {
-        BufferedImage image = new BufferedImage(Math.max(1, canvasWidth), Math.max(1, canvasHeight), BufferedImage.TYPE_INT_ARGB);
-        Graphics2D graphics = image.createGraphics();
-        try {
-            paintCanvas(graphics);
-        } finally {
-            graphics.dispose();
-        }
-        return image;
     }
 
     private void drawWallGroupOverlays(Graphics graphics) {

@@ -1,6 +1,5 @@
 package com.github.nbauma109.j2darea;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.awt.image.BufferedImage;

@@ -24,7 +24,6 @@ import javax.swing.JFrame;
 import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.BoxLayout;
 
