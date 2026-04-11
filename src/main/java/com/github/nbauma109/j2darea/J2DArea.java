@@ -55,14 +55,17 @@ import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.Box;
 import javax.swing.ButtonGroup;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -169,6 +172,8 @@ public class J2DArea extends JFrame {
     private transient JMenuItem subtractBackgroundMenuItem;
     private transient JRadioButtonMenuItem cursorSelectMenuItem;
     private transient JRadioButtonMenuItem brushModeMenuItem;
+    private transient JRadioButtonMenuItem searchMapPainterModeMenuItem;
+    private transient JRadioButtonMenuItem searchMapEraserModeMenuItem;
     private transient JRadioButtonMenuItem polygonModeMenuItem;
     private transient JRadioButtonMenuItem rectangleModeMenuItem;
     private transient JCheckBoxMenuItem searchMapGridMenuItem;
@@ -197,6 +202,8 @@ public class J2DArea extends JFrame {
     private transient JButton entranceToolbarButton;
     private transient JToggleButton cursorToolbarButton;
     private transient JToggleButton brushToolbarButton;
+    private transient JToggleButton searchMapPainterToolbarButton;
+    private transient JToggleButton searchMapEraserToolbarButton;
     private transient JToggleButton polygonToolbarButton;
     private transient JToggleButton rectangleToolbarButton;
     private transient JToggleButton searchMapGridToggleButton;
@@ -206,6 +213,7 @@ public class J2DArea extends JFrame {
     private transient boolean buildPanDragged;
     private transient boolean suppressNextBuildClickAfterPan;
     private transient boolean buildBrushStrokeModified;
+    private transient boolean buildSearchMapStrokeModified;
     private transient Point buildPanStartMouseScreen;
     private transient Point buildPanStartView;
     private transient boolean extractPanning;
@@ -221,6 +229,8 @@ public class J2DArea extends JFrame {
     private TransitionPlacementSession transitionPlacementSession;
     private transient WallGroupPlacementSession wallGroupPlacementSession;
     private transient SearchMapSelectionSession searchMapSelectionSession;
+    private SearchMapEditMode searchMapEditMode = SearchMapEditMode.NONE;
+    private SearchMapTileType selectedSearchMapPaintType = SearchMapTileType.NON_WALKABLE;
 
     private int brushRadius = 30;
     private double buildZoom = 1.0;
@@ -427,7 +437,7 @@ public class J2DArea extends JFrame {
                     buildPanel.repaint();
                     return;
                 }
-                if (!painting && !editingBlackParallelogram && !editingTextureParallelogram
+                if (!painting && searchMapEditMode == SearchMapEditMode.NONE && !editingBlackParallelogram && !editingTextureParallelogram
                         && objectToMove == null
                     && selectedWallGroup == null
                     && !hasSelectedSearchMapCells()
@@ -443,6 +453,9 @@ public class J2DArea extends JFrame {
                 }
                 if (painting) {
                     updateBrushStroke(scaledEvent);
+                    repaint();
+                } else if (isSearchMapEditMode()) {
+                    updateSearchMapCellStroke(scaledEvent);
                     repaint();
                 }
             }
@@ -480,6 +493,23 @@ public class J2DArea extends JFrame {
                 );
             }
 
+            public void updateSearchMapCellStroke(MouseEvent e) {
+                ensureSearchMapSized();
+                int tileX = e.getX() / SearchMapData.CELL_WIDTH;
+                int tileY = e.getY() / SearchMapData.CELL_HEIGHT;
+                if (tileX < 0 || tileY < 0 || tileX >= searchMapData.getWidthInTiles() || tileY >= searchMapData.getHeightInTiles()) {
+                    return;
+                }
+                clearSelectedSearchMapCells();
+                if (searchMapEditMode == SearchMapEditMode.PAINTER) {
+                    searchMapData.setOverrideTileType(tileX, tileY, selectedSearchMapPaintType);
+                    buildSearchMapStrokeModified = true;
+                } else if (searchMapEditMode == SearchMapEditMode.ERASER) {
+                    searchMapData.resetOverrideTileType(tileX, tileY);
+                    buildSearchMapStrokeModified = true;
+                }
+            }
+
 
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -504,6 +534,13 @@ public class J2DArea extends JFrame {
                 if (painting) {
                     if (buildBrushStrokeModified) {
                         buildBrushStrokeModified = false;
+                        recordHistoryState();
+                    }
+                    return;
+                }
+                if (isSearchMapEditMode()) {
+                    if (buildSearchMapStrokeModified) {
+                        buildSearchMapStrokeModified = false;
                         recordHistoryState();
                     }
                     return;
@@ -587,6 +624,9 @@ public class J2DArea extends JFrame {
                 if (painting) {
                     updateBrushStroke(scaledEvent);
                     repaint();
+                } else if (isSearchMapEditMode()) {
+                    updateSearchMapCellStroke(scaledEvent);
+                    repaint();
                 }
             }
 
@@ -651,7 +691,7 @@ public class J2DArea extends JFrame {
                     clearCompositeMove();
                     removed = true;
                 } else if (hasSelectedSearchMapCells()) {
-                    searchMapData.clearImpededRegion(new ArrayList<Point>(selectedSearchMapCells));
+                    searchMapData.clearResolvedOverrides(new ArrayList<Point>(selectedSearchMapCells));
                     clearSelectedSearchMapCells();
                     removed = true;
                 }
@@ -1579,9 +1619,7 @@ public class J2DArea extends JFrame {
         cursorSelectMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                painting = false;
-                syncCursorModeUi();
-                repaint();
+                setBuildCursorSelectMode();
             }
         });
         buildCursorModeGroup.add(cursorSelectMenuItem);
@@ -1592,8 +1630,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                painting = ensureBrushTextureSelected();
-                syncCursorModeUi();
+                enableTextureBrushMode();
             }
         });
         brushButton.setMaximumSize(BUTTON_SIZE);
@@ -1606,21 +1643,67 @@ public class J2DArea extends JFrame {
         brushModeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                painting = ensureBrushTextureSelected();
-                syncCursorModeUi();
+                enableTextureBrushMode();
             }
         });
         buildCursorModeGroup.add(brushModeMenuItem);
         cursorModeMenu.add(brushModeMenuItem);
+
+        ImageIcon searchMapPainterIcon = createSearchMapPaintToolIcon(selectedSearchMapPaintType);
+        JToggleButton searchMapPainterButton = new JToggleButton(searchMapPainterIcon);
+        searchMapPainterButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                enableSearchMapPainterMode();
+            }
+        });
+        searchMapPainterButton.setMaximumSize(BUTTON_SIZE);
+        searchMapPainterButton.setToolTipText("Paint search-map cells");
+        configureToolbarButton(searchMapPainterButton);
+        searchMapPainterToolbarButton = searchMapPainterButton;
+        searchMapPainterModeMenuItem = new JRadioButtonMenuItem("Search Map Painter", searchMapEditMode == SearchMapEditMode.PAINTER);
+        searchMapPainterModeMenuItem.setIcon(searchMapPainterIcon);
+        searchMapPainterModeMenuItem.setToolTipText("Paint search-map cells");
+        searchMapPainterModeMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                enableSearchMapPainterMode();
+            }
+        });
+        buildCursorModeGroup.add(searchMapPainterModeMenuItem);
+        cursorModeMenu.add(searchMapPainterModeMenuItem);
+
+        JToggleButton searchMapEraserButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/eraser.png")));
+        searchMapEraserButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                enableSearchMapEraserMode();
+            }
+        });
+        searchMapEraserButton.setMaximumSize(BUTTON_SIZE);
+        searchMapEraserButton.setToolTipText("Reset search-map cells to their base terrain");
+        configureToolbarButton(searchMapEraserButton);
+        searchMapEraserToolbarButton = searchMapEraserButton;
+        searchMapEraserModeMenuItem = new JRadioButtonMenuItem("Search Map Eraser", searchMapEditMode == SearchMapEditMode.ERASER);
+        searchMapEraserModeMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/remove-bg.png")));
+        searchMapEraserModeMenuItem.setToolTipText("Reset search-map cells to their base terrain");
+        searchMapEraserModeMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                enableSearchMapEraserMode();
+            }
+        });
+        buildCursorModeGroup.add(searchMapEraserModeMenuItem);
+        cursorModeMenu.add(searchMapEraserModeMenuItem);
 
         JToggleButton cursorButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/cursor.png")));
         cursorButton.addActionListener(new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                painting = false;
-                syncCursorModeUi();
-                repaint();
+                setBuildCursorSelectMode();
             }
         });
         cursorButton.setMaximumSize(BUTTON_SIZE);
@@ -1744,6 +1827,8 @@ public class J2DArea extends JFrame {
         menubar.add(entranceToolbarButton);
         menubar.add(cursorToolbarButton);
         menubar.add(brushToolbarButton);
+        menubar.add(searchMapPainterToolbarButton);
+        menubar.add(searchMapEraserToolbarButton);
         menubar.add(polygonToolbarButton);
         menubar.add(rectangleToolbarButton);
         menubar.add(tileSeamlessToolbarButton);
@@ -1777,6 +1862,8 @@ public class J2DArea extends JFrame {
         buildOnlyToolbarButtons.add(entranceToolbarButton);
         buildOnlyToolbarButtons.add(cursorToolbarButton);
         buildOnlyToolbarButtons.add(brushToolbarButton);
+        buildOnlyToolbarButtons.add(searchMapPainterToolbarButton);
+        buildOnlyToolbarButtons.add(searchMapEraserToolbarButton);
         buildOnlyToolbarButtons.add(searchMapGridToggleButton);
         buildOnlyToolbarButtons.add(drawClosedDoorToggleButton);
         buildOnlyToolbarButtons.add(nightToggleButton);
@@ -2408,6 +2495,7 @@ public class J2DArea extends JFrame {
         ensureSearchMapSized();
         searchMapSelectionSession = new SearchMapSelectionSession();
         painting = false;
+        searchMapEditMode = SearchMapEditMode.NONE;
         clearObjectMoveSelection();
         wallGroupPlacementSession = null;
         if (transitionPlacementSession != null) {
@@ -2416,6 +2504,7 @@ public class J2DArea extends JFrame {
         if (tabPane != null) {
             tabPane.setSelectedComponent(buildScrollPane);
         }
+        syncCursorModeUi();
         repaint();
     }
 
@@ -2918,6 +3007,7 @@ public class J2DArea extends JFrame {
                 + "<b>Left-drag</b> on a selected object: move it.<br>"
                 + "<b>Ctrl + Click</b> on an object: duplicate it and start moving the copy.<br>"
                 + "<b>Right-click</b> an object or transition marker: open its context menu.<br>"
+                + "<b>Left-drag</b> in Search Map Painter / Eraser mode: edit search-map cells.<br>"
                 + "<b>Mouse Wheel</b>: zoom.<br>"
                 + "<b>Shift + Mouse Wheel</b>: flip the selected object, or change brush size while painting.<br><br>"
                 + "<b>Keyboard</b><br>"
@@ -3996,18 +4086,117 @@ public class J2DArea extends JFrame {
         repaint();
     }
 
+    private void setBuildCursorSelectMode() {
+        painting = false;
+        searchMapEditMode = SearchMapEditMode.NONE;
+        searchMapSelectionSession = null;
+        clearSelectedSearchMapCells();
+        syncCursorModeUi();
+        repaint();
+    }
+
+    private void enableTextureBrushMode() {
+        painting = ensureBrushTextureSelected();
+        if (painting) {
+            searchMapEditMode = SearchMapEditMode.NONE;
+            searchMapSelectionSession = null;
+            clearSelectedSearchMapCells();
+        }
+        syncCursorModeUi();
+        repaint();
+    }
+
+    private void enableSearchMapPainterMode() {
+        SearchMapTileType chosenType = chooseSearchMapPaintType();
+        if (chosenType == null) {
+            syncCursorModeUi();
+            return;
+        }
+        selectedSearchMapPaintType = chosenType;
+        painting = false;
+        searchMapEditMode = SearchMapEditMode.PAINTER;
+        searchMapSelectionSession = null;
+        clearSelectedSearchMapCells();
+        setShowSearchMapGridState(true);
+        syncCursorModeUi();
+        repaint();
+    }
+
+    private void enableSearchMapEraserMode() {
+        painting = false;
+        searchMapEditMode = SearchMapEditMode.ERASER;
+        searchMapSelectionSession = null;
+        clearSelectedSearchMapCells();
+        setShowSearchMapGridState(true);
+        syncCursorModeUi();
+        repaint();
+    }
+
+    private SearchMapTileType chooseSearchMapPaintType() {
+        SearchMapTileType[] values = SearchMapTileType.values();
+        JComboBox<SearchMapTileType> comboBox = new JComboBox<SearchMapTileType>(values);
+        comboBox.setSelectedItem(selectedSearchMapPaintType);
+        comboBox.setRenderer(new DefaultListCellRenderer() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                Component component = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof SearchMapTileType) {
+                    setText(humanizeSearchMapTileType((SearchMapTileType) value));
+                }
+                return component;
+            }
+        });
+        int result = JOptionPane.showConfirmDialog(
+            this,
+            comboBox,
+            "Select Search Map Cell Value",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+        return result == JOptionPane.OK_OPTION ? (SearchMapTileType) comboBox.getSelectedItem() : null;
+    }
+
+    private String humanizeSearchMapTileType(SearchMapTileType type) {
+        if (type == null) {
+            return "Base";
+        }
+        return type.name().replace('_', ' ').toLowerCase();
+    }
+
+    private boolean isSearchMapEditMode() {
+        return searchMapEditMode != SearchMapEditMode.NONE;
+    }
+
     private void syncCursorModeUi() {
         if (cursorSelectMenuItem != null) {
-            cursorSelectMenuItem.setSelected(!painting);
+            cursorSelectMenuItem.setSelected(!painting && searchMapEditMode == SearchMapEditMode.NONE);
         }
         if (brushModeMenuItem != null) {
             brushModeMenuItem.setSelected(painting);
         }
+        if (searchMapPainterModeMenuItem != null) {
+            searchMapPainterModeMenuItem.setSelected(searchMapEditMode == SearchMapEditMode.PAINTER);
+            searchMapPainterModeMenuItem.setIcon(createSearchMapPaintToolIcon(selectedSearchMapPaintType));
+            searchMapPainterModeMenuItem.setToolTipText("Paint search-map cells as " + humanizeSearchMapTileType(selectedSearchMapPaintType));
+        }
+        if (searchMapEraserModeMenuItem != null) {
+            searchMapEraserModeMenuItem.setSelected(searchMapEditMode == SearchMapEditMode.ERASER);
+        }
         if (cursorToolbarButton != null) {
-            cursorToolbarButton.setSelected(!painting);
+            cursorToolbarButton.setSelected(!painting && searchMapEditMode == SearchMapEditMode.NONE);
         }
         if (brushToolbarButton != null) {
             brushToolbarButton.setSelected(painting);
+        }
+        if (searchMapPainterToolbarButton != null) {
+            searchMapPainterToolbarButton.setSelected(searchMapEditMode == SearchMapEditMode.PAINTER);
+            searchMapPainterToolbarButton.setIcon(createSearchMapPaintToolIcon(selectedSearchMapPaintType));
+            searchMapPainterToolbarButton.setToolTipText("Paint search-map cells as " + humanizeSearchMapTileType(selectedSearchMapPaintType));
+        }
+        if (searchMapEraserToolbarButton != null) {
+            searchMapEraserToolbarButton.setSelected(searchMapEditMode == SearchMapEditMode.ERASER);
         }
         if (polygonModeMenuItem != null && polygonModeMenuItem.isSelected() != editingPolygon) {
             polygonModeMenuItem.setSelected(editingPolygon);
@@ -4044,6 +4233,8 @@ public class J2DArea extends JFrame {
         setUiVisible(subtractBackgroundMenuItem, extractionTabSelected);
         setUiVisible(cursorSelectMenuItem, buildTabSelected);
         setUiVisible(brushModeMenuItem, buildTabSelected);
+        setUiVisible(searchMapPainterModeMenuItem, buildTabSelected);
+        setUiVisible(searchMapEraserModeMenuItem, buildTabSelected);
         setUiVisible(polygonModeMenuItem, extractionTabSelected);
         setUiVisible(rectangleModeMenuItem, extractionTabSelected);
         setUiVisible(searchMapGridMenuItem, buildTabSelected);
@@ -4058,6 +4249,8 @@ public class J2DArea extends JFrame {
         setUiVisible(subtractBackgroundToolbarButton, extractionTabSelected);
         setUiVisible(cursorToolbarButton, buildTabSelected);
         setUiVisible(brushToolbarButton, buildTabSelected);
+        setUiVisible(searchMapPainterToolbarButton, buildTabSelected);
+        setUiVisible(searchMapEraserToolbarButton, buildTabSelected);
         setUiVisible(polygonToolbarButton, extractionTabSelected);
         setUiVisible(rectangleToolbarButton, extractionTabSelected);
         setUiVisible(searchMapGridToggleButton, buildTabSelected);
@@ -4109,6 +4302,28 @@ public class J2DArea extends JFrame {
             graphics.drawLine(1, 10, 15, 10);
             graphics.setColor(new Color(220, 40, 40));
             graphics.fillRect(10, 10, 5, 5);
+        } finally {
+            graphics.dispose();
+        }
+        return new ImageIcon(image);
+    }
+
+    private ImageIcon createSearchMapPaintToolIcon(SearchMapTileType type) {
+        BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            graphics.setColor(new Color(240, 240, 240));
+            graphics.fillRect(1, 1, 14, 14);
+            graphics.setColor(new Color(160, 160, 160));
+            graphics.drawRect(1, 1, 14, 14);
+            graphics.drawLine(5, 1, 5, 15);
+            graphics.drawLine(10, 1, 10, 15);
+            graphics.drawLine(1, 5, 15, 5);
+            graphics.drawLine(1, 10, 15, 10);
+            graphics.setColor(type != null ? type.getExportColor() : Color.WHITE);
+            graphics.fillRect(9, 9, 5, 5);
+            graphics.setColor(new Color(30, 90, 180));
+            graphics.drawRect(9, 9, 5, 5);
         } finally {
             graphics.dispose();
         }
@@ -4804,6 +5019,12 @@ public class J2DArea extends JFrame {
     private static final class SearchMapSelectionSession {
         private static final int PARALLELOGRAM_CLOSE_RADIUS = 5;
         private Polygon polygon = new Polygon();
+    }
+
+    private static enum SearchMapEditMode {
+        NONE,
+        PAINTER,
+        ERASER
     }
 
     public static void main(String[] args) {

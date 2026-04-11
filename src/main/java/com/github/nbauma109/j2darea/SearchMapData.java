@@ -20,18 +20,18 @@ public class SearchMapData implements Externalizable {
 
     public static final int CELL_WIDTH = 16;
     public static final int CELL_HEIGHT = 12;
-    private static final int FORMAT_MARKER = 0x534D5032;
+    private static final int FORMAT_MARKER = 0x534D5033;
 
     private int widthInTiles;
     private int heightInTiles;
     private byte[] tileTypes;
-    private byte[] impededCells;
+    private byte[] overrideTileTypes;
 
     public SearchMapData() {
         this.widthInTiles = 0;
         this.heightInTiles = 0;
         this.tileTypes = new byte[0];
-        this.impededCells = new byte[0];
+        this.overrideTileTypes = new byte[0];
     }
 
     public SearchMapData(int pixelWidth, int pixelHeight) {
@@ -48,9 +48,9 @@ public class SearchMapData implements Externalizable {
             out.writeByte(tileType);
         }
         out.writeInt(FORMAT_MARKER);
-        out.writeInt(impededCells.length);
-        for (byte impededCell : impededCells) {
-            out.writeByte(impededCell);
+        out.writeInt(overrideTileTypes.length);
+        for (byte overrideTileType : overrideTileTypes) {
+            out.writeByte(overrideTileType);
         }
     }
 
@@ -63,14 +63,23 @@ public class SearchMapData implements Externalizable {
         for (int i = 0; i < count; i++) {
             tileTypes[i] = in.readByte();
         }
-        impededCells = new byte[count];
+        overrideTileTypes = new byte[count];
         try {
             int trailingMarker = in.readInt();
             if (trailingMarker == FORMAT_MARKER) {
+                int overrideCount = in.readInt();
+                overrideTileTypes = new byte[count];
+                for (int i = 0; i < Math.min(overrideCount, count); i++) {
+                    overrideTileTypes[i] = in.readByte();
+                }
+                for (int i = count; i < overrideCount; i++) {
+                    in.readByte();
+                }
+            } else if (trailingMarker == 0x534D5032) {
                 int impededCount = in.readInt();
-                impededCells = new byte[count];
+                overrideTileTypes = new byte[count];
                 for (int i = 0; i < Math.min(impededCount, count); i++) {
-                    impededCells[i] = in.readByte();
+                    overrideTileTypes[i] = in.readByte() != 0 ? encodeOverride(SearchMapTileType.NON_WALKABLE) : 0;
                 }
                 for (int i = count; i < impededCount; i++) {
                     in.readByte();
@@ -79,7 +88,7 @@ public class SearchMapData implements Externalizable {
                 readLegacyPolygonData(in, trailingMarker);
             }
         } catch (EOFException ex) {
-            impededCells = new byte[count];
+            overrideTileTypes = new byte[count];
         }
     }
 
@@ -88,26 +97,26 @@ public class SearchMapData implements Externalizable {
         int newHeightInTiles = Math.max(1, (pixelHeight + CELL_HEIGHT - 1) / CELL_HEIGHT);
         if (newWidthInTiles == widthInTiles && newHeightInTiles == heightInTiles
                 && tileTypes.length == newWidthInTiles * newHeightInTiles
-                && impededCells.length == newWidthInTiles * newHeightInTiles) {
+                && overrideTileTypes.length == newWidthInTiles * newHeightInTiles) {
             return;
         }
         byte[] newTileTypes = new byte[newWidthInTiles * newHeightInTiles];
-        byte[] newImpededCells = new byte[newWidthInTiles * newHeightInTiles];
+        byte[] newOverrideTileTypes = new byte[newWidthInTiles * newHeightInTiles];
         Arrays.fill(newTileTypes, (byte) SearchMapTileType.UNKNOWN.ordinal());
         for (int y = 0; y < Math.min(heightInTiles, newHeightInTiles); y++) {
             for (int x = 0; x < Math.min(widthInTiles, newWidthInTiles); x++) {
                 int oldIndex = (y * widthInTiles) + x;
                 int newIndex = (y * newWidthInTiles) + x;
                 newTileTypes[newIndex] = tileTypes[oldIndex];
-                if (oldIndex < impededCells.length) {
-                    newImpededCells[newIndex] = impededCells[oldIndex];
+                if (oldIndex < overrideTileTypes.length) {
+                    newOverrideTileTypes[newIndex] = overrideTileTypes[oldIndex];
                 }
             }
         }
         widthInTiles = newWidthInTiles;
         heightInTiles = newHeightInTiles;
         tileTypes = newTileTypes;
-        impededCells = newImpededCells;
+        overrideTileTypes = newOverrideTileTypes;
     }
 
     public void setAll(SearchMapTileType type) {
@@ -133,23 +142,36 @@ public class SearchMapData implements Externalizable {
         return ordinal >= 0 && ordinal < values.length ? values[ordinal] : SearchMapTileType.UNKNOWN;
     }
 
-    public void setImpeded(int tileX, int tileY, boolean impeded) {
+    public void setOverrideTileType(int tileX, int tileY, SearchMapTileType type) {
         if (tileX < 0 || tileY < 0 || tileX >= widthInTiles || tileY >= heightInTiles) {
             return;
         }
-        impededCells[(tileY * widthInTiles) + tileX] = (byte) (impeded ? 1 : 0);
+        overrideTileTypes[(tileY * widthInTiles) + tileX] = encodeOverride(type);
+    }
+
+    public void resetOverrideTileType(int tileX, int tileY) {
+        setOverrideTileType(tileX, tileY, null);
+    }
+
+    public SearchMapTileType getOverrideTileType(int tileX, int tileY) {
+        if (tileX < 0 || tileY < 0 || tileX >= widthInTiles || tileY >= heightInTiles) {
+            return null;
+        }
+        return decodeOverride(overrideTileTypes[(tileY * widthInTiles) + tileX]);
+    }
+
+    public boolean isOverridden(int tileX, int tileY) {
+        return getOverrideTileType(tileX, tileY) != null;
     }
 
     public boolean isImpeded(int tileX, int tileY) {
-        if (tileX < 0 || tileY < 0 || tileX >= widthInTiles || tileY >= heightInTiles) {
-            return false;
-        }
-        return impededCells[(tileY * widthInTiles) + tileX] != 0;
+        return getResolvedTileType(tileX, tileY) == SearchMapTileType.NON_WALKABLE;
     }
 
     public SearchMapTileType getResolvedTileType(int tileX, int tileY) {
-        if (isImpeded(tileX, tileY)) {
-            return SearchMapTileType.NON_WALKABLE;
+        SearchMapTileType overrideType = getOverrideTileType(tileX, tileY);
+        if (overrideType != null) {
+            return overrideType;
         }
         return getTileType(tileX, tileY);
     }
@@ -173,15 +195,15 @@ public class SearchMapData implements Externalizable {
         for (int tileY = startTileY; tileY <= endTileY; tileY++) {
             for (int tileX = startTileX; tileX <= endTileX; tileX++) {
                 if (tileIntersectsPolygon(tileX, tileY, polygon)) {
-                    setImpeded(tileX, tileY, true);
+                    setOverrideTileType(tileX, tileY, SearchMapTileType.NON_WALKABLE);
                 }
             }
         }
     }
 
-    public List<Point> findConnectedImpededRegion(int tileX, int tileY) {
+    public List<Point> findConnectedResolvedRegion(int tileX, int tileY, SearchMapTileType type) {
         List<Point> region = new ArrayList<Point>();
-        if (!isImpeded(tileX, tileY)) {
+        if (type == null || getResolvedTileType(tileX, tileY) != type) {
             return region;
         }
         boolean[] visited = new boolean[widthInTiles * heightInTiles];
@@ -191,21 +213,25 @@ public class SearchMapData implements Externalizable {
         while (!queue.isEmpty()) {
             Point point = queue.removeFirst();
             region.add(point);
-            enqueueImpededNeighbor(queue, visited, point.x - 1, point.y);
-            enqueueImpededNeighbor(queue, visited, point.x + 1, point.y);
-            enqueueImpededNeighbor(queue, visited, point.x, point.y - 1);
-            enqueueImpededNeighbor(queue, visited, point.x, point.y + 1);
+            enqueueResolvedNeighbor(queue, visited, point.x - 1, point.y, type);
+            enqueueResolvedNeighbor(queue, visited, point.x + 1, point.y, type);
+            enqueueResolvedNeighbor(queue, visited, point.x, point.y - 1, type);
+            enqueueResolvedNeighbor(queue, visited, point.x, point.y + 1, type);
         }
         return region;
     }
 
-    public void clearImpededRegion(List<Point> region) {
+    public List<Point> findConnectedImpededRegion(int tileX, int tileY) {
+        return findConnectedResolvedRegion(tileX, tileY, SearchMapTileType.NON_WALKABLE);
+    }
+
+    public void clearResolvedOverrides(List<Point> region) {
         if (region == null) {
             return;
         }
         for (Point point : region) {
             if (point != null) {
-                setImpeded(point.x, point.y, false);
+                resetOverrideTileType(point.x, point.y);
             }
         }
     }
@@ -245,12 +271,12 @@ public class SearchMapData implements Externalizable {
         return image;
     }
 
-    private void enqueueImpededNeighbor(Deque<Point> queue, boolean[] visited, int tileX, int tileY) {
+    private void enqueueResolvedNeighbor(Deque<Point> queue, boolean[] visited, int tileX, int tileY, SearchMapTileType type) {
         if (tileX < 0 || tileY < 0 || tileX >= widthInTiles || tileY >= heightInTiles) {
             return;
         }
         int index = (tileY * widthInTiles) + tileX;
-        if (visited[index] || !isImpeded(tileX, tileY)) {
+        if (visited[index] || getResolvedTileType(tileX, tileY) != type) {
             return;
         }
         visited[index] = true;
@@ -258,7 +284,7 @@ public class SearchMapData implements Externalizable {
     }
 
     private void readLegacyPolygonData(ObjectInput in, int polygonCount) throws IOException {
-        impededCells = new byte[tileTypes.length];
+        overrideTileTypes = new byte[tileTypes.length];
         for (int i = 0; i < polygonCount; i++) {
             int pointCount = in.readInt();
             int[] xpoints = new int[pointCount];
@@ -269,6 +295,20 @@ public class SearchMapData implements Externalizable {
             }
             applyPolygonImpeded(new Polygon(xpoints, ypoints, pointCount));
         }
+    }
+
+    private byte encodeOverride(SearchMapTileType type) {
+        return (byte) (type == null ? 0 : type.ordinal() + 1);
+    }
+
+    private SearchMapTileType decodeOverride(byte encodedValue) {
+        int value = encodedValue & 0xFF;
+        if (value == 0) {
+            return null;
+        }
+        SearchMapTileType[] values = SearchMapTileType.values();
+        int ordinal = value - 1;
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : null;
     }
 
     private boolean tileIntersectsPolygon(int tileX, int tileY, Polygon polygon) {

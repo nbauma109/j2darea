@@ -37,13 +37,27 @@ public class SearchMapDataTest {
     }
 
     @Test
-    public void connectedRegionSelectionAndDeleteRestoreBaseTerrain() {
+    public void manualOverrideCanBeResetToBaseTerrain() {
         SearchMapData searchMapData = new SearchMapData(128, 128);
         searchMapData.setAll(SearchMapTileType.GRASS);
-        searchMapData.setImpeded(0, 0, true);
-        searchMapData.setImpeded(1, 0, true);
-        searchMapData.setImpeded(1, 1, true);
-        searchMapData.setImpeded(3, 3, true);
+
+        searchMapData.setOverrideTileType(0, 0, SearchMapTileType.STONE);
+
+        assertEquals(SearchMapTileType.STONE, searchMapData.getResolvedTileType(0, 0));
+
+        searchMapData.resetOverrideTileType(0, 0);
+
+        assertEquals(SearchMapTileType.GRASS, searchMapData.getResolvedTileType(0, 0));
+    }
+
+    @Test
+    public void connectedImpededRegionSelectionAndDeleteRestoreBaseTerrain() {
+        SearchMapData searchMapData = new SearchMapData(128, 128);
+        searchMapData.setAll(SearchMapTileType.GRASS);
+        searchMapData.setOverrideTileType(0, 0, SearchMapTileType.NON_WALKABLE);
+        searchMapData.setOverrideTileType(1, 0, SearchMapTileType.NON_WALKABLE);
+        searchMapData.setOverrideTileType(1, 1, SearchMapTileType.NON_WALKABLE);
+        searchMapData.setOverrideTileType(3, 3, SearchMapTileType.NON_WALKABLE);
 
         List<Point> region = searchMapData.findConnectedImpededRegion(1, 1);
 
@@ -54,7 +68,7 @@ public class SearchMapDataTest {
         assertFalse(region.contains(new Point(3, 3)));
         assertEquals(SearchMapTileType.NON_WALKABLE, searchMapData.getResolvedTileType(1, 1));
 
-        searchMapData.clearImpededRegion(region);
+        searchMapData.clearResolvedOverrides(region);
 
         assertEquals(SearchMapTileType.GRASS, searchMapData.getResolvedTileType(0, 0));
         assertEquals(SearchMapTileType.GRASS, searchMapData.getResolvedTileType(1, 0));
