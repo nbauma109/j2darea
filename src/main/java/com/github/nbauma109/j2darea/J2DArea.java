@@ -1687,7 +1687,7 @@ public class J2DArea extends JFrame {
         configureToolbarButton(searchMapEraserButton);
         searchMapEraserToolbarButton = searchMapEraserButton;
         searchMapEraserModeMenuItem = new JRadioButtonMenuItem("Search Map Eraser", searchMapEditMode == SearchMapEditMode.ERASER);
-        searchMapEraserModeMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/remove-bg.png")));
+        searchMapEraserModeMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/eraser.png")));
         searchMapEraserModeMenuItem.setToolTipText("Reset search-map cells to their base terrain");
         searchMapEraserModeMenuItem.addActionListener(new ActionListener() {
             @Override
