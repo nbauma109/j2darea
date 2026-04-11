@@ -1102,7 +1102,7 @@ public class J2DArea extends JFrame {
         exportModMenuItem.setText("Export Mod Package...");
         fileMenu.add(exportModMenuItem);
 
-        JButton prefixButton = new JButton(new AbstractAction("Prefix") {
+        JButton prefixButton = new JButton(new AbstractAction("Prefix", new ImageIcon(getClass().getResource("/icons/blackwyrmlair.png"))) {
 
             private static final long serialVersionUID = 1L;
 
@@ -1113,7 +1113,7 @@ public class J2DArea extends JFrame {
         });
         prefixButton.setToolTipText("Select the reserved resource prefix used for exports");
         JMenuItem prefixMenuItem = new JMenuItem(prefixButton.getAction());
-        prefixMenuItem.setText("Export Prefix...");
+        prefixMenuItem.setText("Prefix...");
         settingsMenu.add(prefixMenuItem);
 
         JButton preferencesButton = new JButton(new AbstractAction("Prefs") {

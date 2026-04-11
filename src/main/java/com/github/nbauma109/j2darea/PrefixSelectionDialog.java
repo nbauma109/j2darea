@@ -1,11 +1,16 @@
 package com.github.nbauma109.j2darea;
 
 import java.awt.BorderLayout;
+import java.awt.Cursor;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,13 +19,16 @@ import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.HyperlinkEvent;
 
 /**
  * Searchable selector for reserved IE filename prefixes.
@@ -28,6 +36,8 @@ import javax.swing.event.DocumentListener;
 public class PrefixSelectionDialog extends JDialog {
 
     private static final long serialVersionUID = 1L;
+    private static final String PREFIX_REGISTRATION_URL = "http://forums.blackwyrmlair.net/index.php?showtopic=113";
+    private static final String PREFIX_LISTING_URL = "http://www.blackwyrmlair.net/prefixes";
 
     private final List<PrefixReservation> allPrefixes;
     private final DefaultListModel<PrefixReservation> filteredModel = new DefaultListModel<>();
@@ -83,6 +93,23 @@ public class PrefixSelectionDialog extends JDialog {
         });
         add(new JScrollPane(prefixList), BorderLayout.CENTER);
 
+        JEditorPane helpPane = new JEditorPane("text/html",
+                "<html><body style='font-family:sans-serif;font-size:10px;padding:4px'>"
+                        + "Need to verify or register a prefix? "
+                        + "<a href='" + PREFIX_REGISTRATION_URL + "'>Black Wyrm Lair</a>"
+                        + " | "
+                        + "<a href='" + PREFIX_LISTING_URL + "'>Prefix listing</a>"
+                        + "</body></html>");
+        helpPane.setEditable(false);
+        helpPane.setOpaque(false);
+        helpPane.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+        helpPane.setCursor(Cursor.getDefaultCursor());
+        helpPane.addHyperlinkListener(e -> {
+            if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+                openExternalLink(e.getURL().toString());
+            }
+        });
+
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton okButton = new JButton("Select");
         okButton.addActionListener(e -> confirmSelection());
@@ -91,7 +118,11 @@ public class PrefixSelectionDialog extends JDialog {
         JButton cancelButton = new JButton("Cancel");
         cancelButton.addActionListener(e -> dispose());
         buttonPanel.add(cancelButton);
-        add(buttonPanel, BorderLayout.SOUTH);
+
+        JPanel southPanel = new JPanel(new BorderLayout(0, 4));
+        southPanel.add(helpPane, BorderLayout.CENTER);
+        southPanel.add(buttonPanel, BorderLayout.SOUTH);
+        add(southPanel, BorderLayout.SOUTH);
 
         filterField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -135,6 +166,18 @@ public class PrefixSelectionDialog extends JDialog {
         selectedPrefix = prefixList.getSelectedValue();
         if (selectedPrefix != null) {
             dispose();
+        }
+    }
+
+    private void openExternalLink(String url) {
+        if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+            JOptionPane.showMessageDialog(this, url, "Open This Link In Your Browser", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        try {
+            Desktop.getDesktop().browse(new URI(url));
+        } catch (IOException | URISyntaxException ex) {
+            JOptionPane.showMessageDialog(this, url, "Open This Link In Your Browser", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 }
