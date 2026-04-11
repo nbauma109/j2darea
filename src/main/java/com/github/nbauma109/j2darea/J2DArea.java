@@ -1520,7 +1520,6 @@ public class J2DArea extends JFrame {
         polygonButton.setToolTipText("Polygon selection");
         configureToolbarButton(polygonButton);
         polygonToolbarButton = polygonButton;
-        viewMenu.addSeparator();
         ButtonGroup buildCursorModeGroup = new ButtonGroup();
         cursorSelectMenuItem = new JRadioButtonMenuItem("Select Objects", !painting);
         cursorSelectMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/cursor.png")));
@@ -1643,7 +1642,6 @@ public class J2DArea extends JFrame {
         paint3dButton.setToolTipText("Edit selection in Paint 3D");
         configureToolbarButton(paint3dButton);
         paint3dToolbarButton = paint3dButton;
-        toolsMenu.addSeparator();
         paint3dMenuItem = new JMenuItem(paint3dButton.getAction());
         paint3dMenuItem.setText("Edit Selection in Paint 3D");
         toolsMenu.add(paint3dMenuItem);
