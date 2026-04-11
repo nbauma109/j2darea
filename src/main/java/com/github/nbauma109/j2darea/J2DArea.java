@@ -151,6 +151,7 @@ public class J2DArea extends JFrame {
     private transient JMenu viewMenu;
     private transient JMenu toolsMenu;
     private transient JMenuItem fillMenuItem;
+    private transient JMenuItem openGameBackgroundMenuItem;
     private transient JMenuItem openBrushTextureMenuItem;
     private transient JMenuItem tileSeamlessMenuItem;
     private transient JMenuItem saveDoorsMenuItem;
@@ -164,6 +165,7 @@ public class J2DArea extends JFrame {
     private transient JCheckBoxMenuItem drawClosedDoorMenuItem;
     private transient JCheckBoxMenuItem nightMenuItem;
     private transient JButton openBackgroundToolbarButton;
+    private transient JButton openGameBackgroundToolbarButton;
     private transient JButton fillToolbarButton;
     private transient JButton openBrushTextureToolbarButton;
     private transient JButton exportDoorTilesToolbarButton;
@@ -938,20 +940,7 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 BufferedImage chosenImageFile = chooseImageFile(FileChooserLocation.OPEN_BG);
                 if (chosenImageFile != null) {
-                    if (tabPane.getSelectedComponent() == buildScrollPane) {
-                        buildBackgroundImage = chosenImageFile;
-                        backgroundWidth = chosenImageFile.getWidth();
-                        backgroundHeight = chosenImageFile.getHeight();
-                        buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
-                    }
-                    if (tabPane.getSelectedComponent() == extractScrollPane) {
-                        extractionBackgroundImage = chosenImageFile;
-                        polygon.reset();
-                        tile.reset();
-                        extractRectangleSelectionInProgress = false;
-                    }
-                    setExtendedState(Frame.MAXIMIZED_BOTH);
-                    repaint();
+                    applyBackgroundImageToSelectedTab(chosenImageFile);
                 }
             }
         });
@@ -962,6 +951,23 @@ public class J2DArea extends JFrame {
         JMenuItem openBackgroundMenuItem = new JMenuItem(openBackgroundButton.getAction());
         openBackgroundMenuItem.setText("Open Background Image...");
         backgroundMenu.add(openBackgroundMenuItem);
+
+        JButton openGameBackgroundButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open-bg.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                loadBackgroundFromGameArea();
+            }
+        });
+        openGameBackgroundButton.setMaximumSize(BUTTON_SIZE);
+        openGameBackgroundButton.setToolTipText("Load background image from a game area");
+        configureToolbarButton(openGameBackgroundButton);
+        openGameBackgroundToolbarButton = openGameBackgroundButton;
+        openGameBackgroundMenuItem = new JMenuItem(openGameBackgroundButton.getAction());
+        openGameBackgroundMenuItem.setText("Load Background From Game ARE...");
+        backgroundMenu.add(openGameBackgroundMenuItem);
 
         JButton openBrushTextureButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open-texture.png"))) {
 
@@ -1640,6 +1646,7 @@ public class J2DArea extends JFrame {
         toolsMenu.add(subtractBackgroundMenuItem);
 
         menubar.add(openBackgroundToolbarButton);
+        menubar.add(openGameBackgroundToolbarButton);
         menubar.add(fillToolbarButton);
         menubar.add(openBrushTextureToolbarButton);
         menubar.add(regionsToolbarButton);
@@ -3535,6 +3542,7 @@ public class J2DArea extends JFrame {
         setUiVisible(toolsMenu, buildTabSelected || extractionTabSelected);
 
         setUiVisible(fillMenuItem, buildTabSelected);
+        setUiVisible(openGameBackgroundMenuItem, areaEditingTabSelected);
         setUiVisible(openBrushTextureMenuItem, buildTabSelected);
         setUiVisible(tileSeamlessMenuItem, extractionTabSelected);
         setUiVisible(saveDoorsMenuItem, buildTabSelected);
@@ -3546,6 +3554,7 @@ public class J2DArea extends JFrame {
         setUiVisible(rectangleModeMenuItem, extractionTabSelected);
 
         setUiVisible(openBackgroundToolbarButton, areaEditingTabSelected);
+        setUiVisible(openGameBackgroundToolbarButton, areaEditingTabSelected);
         for (Component component : buildOnlyToolbarButtons) {
             setUiVisible(component, buildTabSelected);
         }
@@ -3599,6 +3608,55 @@ public class J2DArea extends JFrame {
         } else {
             polygon.reset();
         }
+    }
+
+    private void loadBackgroundFromGameArea() {
+        String gameInstallPath = UserPreferences.getGameInstallPath();
+        if (gameInstallPath == null || gameInstallPath.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                "Configure the game install path in preferences first.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        AreaSelectionDialog dialog = new AreaSelectionDialog(this, "Select Game Area Background", collectAvailableAreas(), "");
+        dialog.setVisible(true);
+        AreaReference selectedArea = dialog.getSelectedArea();
+        if (selectedArea == null) {
+            return;
+        }
+
+        try {
+            BufferedImage loadedImage = GameAreaImageLoader.loadAreaImage(gameInstallPath, selectedArea.getResref());
+            applyBackgroundImageToSelectedTab(loadedImage);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                ex.getMessage() != null ? ex.getMessage() : "Error loading game area background.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void applyBackgroundImageToSelectedTab(BufferedImage chosenImageFile) {
+        if (chosenImageFile == null) {
+            return;
+        }
+        if (tabPane.getSelectedComponent() == buildScrollPane) {
+            buildBackgroundImage = chosenImageFile;
+            backgroundWidth = chosenImageFile.getWidth();
+            backgroundHeight = chosenImageFile.getHeight();
+            buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
+        }
+        if (tabPane.getSelectedComponent() == extractScrollPane) {
+            extractionBackgroundImage = chosenImageFile;
+            polygon.reset();
+            tile.reset();
+            extractRectangleSelectionInProgress = false;
+        }
+        setExtendedState(Frame.MAXIMIZED_BOTH);
+        repaint();
     }
 
     private Dimension scaleDimension(int width, int height, double zoom) {
