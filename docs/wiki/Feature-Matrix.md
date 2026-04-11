@@ -22,11 +22,11 @@ Status values:
 | Standalone polygon regions | Partial | Saved and exported; broader editor workflow and advanced field editing remain incomplete. |
 | Standalone polygon containers | Partial | Saved and exported; richer UI for contents and types is still missing. |
 | Area export attributes | Partial | Core flags/weather/script values serialize and export, but there is no finished UI for them. |
-| Search map export | Partial | Export currently writes a flat white placeholder map. |
+| Search map export and editing | Partial | Build-area search-map tiles are now authored in project data: whole-background fill classifies grass/stone/wood from the source texture, texture brushing updates covered tiles the same way, polygon-based non-walkable marking is available as a helper workflow, and export writes the authored `SR` map. Dedicated per-tile editing and richer terrain semantics are still missing. |
 | Light map export | Partial | Export currently writes a flat gray placeholder map. |
 | Height map export | Partial | Export currently writes a flat black placeholder map. |
 | WeiDU-ready mod packaging | Partial | Owned areas export packaged resources, and the same package can include generated `COPY_EXISTING` transition patches for referenced existing destination areas. WeiDU binary bundling and broader project-specific integration are still missing. |
-| Ground attribute polygon editing | Planned | Needed for grass, wood, walkable, and related terrain semantics. |
+| Ground attribute polygon editing | Partial | Search-map authoring now covers grass / stone / wood classification plus polygon-marked non-walkable areas. More terrain types and a fuller editing workflow are still needed. |
 | NPC / monster placement and customization | Planned | No actor or creature authoring workflow yet. |
 | Dialog and quest authoring | Planned | Not started. |
 | Merchant and store editing | Planned | Not started. |
@@ -36,5 +36,5 @@ Status values:
 ## Notes
 
 - The project should be considered export-capable, not yet full-authoring-capable.
-- `SR`, `LM`, and `HT` are currently structural placeholders and must be treated as a priority for future area-quality work.
+- `LM` and `HT` are still structural placeholders and remain a priority for future area-quality work.
 - When a feature changes state, update this table in the same commit as the code change.

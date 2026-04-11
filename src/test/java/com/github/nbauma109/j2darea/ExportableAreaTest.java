@@ -23,13 +23,18 @@ public class ExportableAreaTest {
             3
         ));
         wallGroup.setCoverAnimations(true);
+        SearchMapData searchMapData = new SearchMapData(128, 128);
+        searchMapData.setTileType(1, 0, SearchMapTileType.WOOD);
+        searchMapData.setImpeded(0, 0, true);
+        searchMapData.setImpeded(1, 0, true);
         ExportableArea source = new ExportableArea(
             new ExportableImage(new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB)),
             Collections.<PastedObject>emptyList(),
             Collections.<RegionData>emptyList(),
             Collections.<ContainerData>emptyList(),
             Arrays.asList(wallGroup),
-            new AreaAttributes()
+            new AreaAttributes(),
+            searchMapData
         );
 
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -45,5 +50,8 @@ public class ExportableAreaTest {
         assertEquals(1, restored.getWallGroups().size());
         assertEquals("Pillar", restored.getWallGroups().get(0).getName());
         assertEquals(WallGroupData.FLAG_WALL | WallGroupData.FLAG_COVER_ANIMATIONS, restored.getWallGroups().get(0).getFlags());
+        assertEquals(SearchMapTileType.WOOD, restored.getSearchMapData().getTileType(1, 0));
+        assertEquals(SearchMapTileType.NON_WALKABLE, restored.getSearchMapData().getResolvedTileType(0, 0));
+        assertEquals(SearchMapTileType.NON_WALKABLE, restored.getSearchMapData().getResolvedTileType(1, 0));
     }
 }

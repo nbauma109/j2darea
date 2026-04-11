@@ -26,10 +26,12 @@ Implemented now:
 - Polygon travel regions now have a `Regions` manager, can be paired with an entrance in the current area, and can store explicit destination-side spawn points and return polygons loaded from game area resources
 - Wallgroup authoring in both the main area editor and the composite object editor, including saved wallgroup polygons and WED export
 - Composite object authoring in a dedicated transparent-background editor, plus grouped composite-object paste into the build area with wallgroups preserved
+- Search-map authoring on the build canvas, including automatic tile typing from fill/brush textures, polygon-based non-walkable marking, and a grid overlay toggle
 
 Partially implemented:
 
 - Search, light, and height map export
+  Search-map export now uses authored tile data, while light and height maps are still placeholders
 - Area weather/script flags in exported `ARE`
 - Region/container editing flows already started in the editor, but not finished as production-grade tools
 

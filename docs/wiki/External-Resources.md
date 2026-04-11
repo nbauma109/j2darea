@@ -43,6 +43,7 @@ These resource files are part of the product behavior:
 
 - [Tutorial index](../../external/dltceptutorial/index.htm)
 - [Doors](../../external/dltceptutorial/doors/main.htm)
+- [Area making / search-map section](../../external/dltceptutorial/areamaking/main.htm)
 - [Wallgroups](../../external/dltceptutorial/areamaking/wallgroups.htm)
 - [Travel regions](../../external/dltceptutorial/travelregions/main.htm)
 - [Containers](../../external/dltceptutorial/containers/main.htm)
@@ -56,6 +57,7 @@ These pages are especially important for:
 - search/light/height map expectations
 - travel region and entrance setup
 - polygon-based containers
+- reduced search-map editing dimensions as displayed by DLTCEP
 
 ### IETME documentation
 
@@ -94,6 +96,7 @@ Why it matters for this project:
 - Regions and containers cannot be restricted to pasted-object-only modeling.
 - Wallgroups, search maps, light maps, and height maps are all first-class area assets, not optional extras.
 - EET area selection needs a single catalog that spans BG-side `BG` areas, BG2-side `AR` areas, and EE expansion resrefs.
+- Search-map cell geometry was verified from Near Infinity grid overlays plus shipped game resources; see [Search Map Geometry](Search-Map-Geometry.md).
 
 ## Maintenance
 

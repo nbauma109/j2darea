@@ -13,6 +13,7 @@ Use it as the current project truth for:
 - [Feature Matrix](Feature-Matrix.md)
 - [Exporter Notes](Exporter.md)
 - [External Resources](External-Resources.md)
+- [Search Map Geometry](Search-Map-Geometry.md)
 
 ## Current direction
 

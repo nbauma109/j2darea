@@ -132,13 +132,16 @@ This is intentionally broader than a pasted-object-only model. Regions and conta
 
 ## Search, light, and height maps
 
-The exporter writes the required bitmap files, but they are placeholders today:
+The exporter writes the required bitmap files, with the following current behavior:
 
-- search map: solid white
+- search map: authored from build-area search-map tiles
+  Fill With Pattern classifies the chosen texture as grass, stone, or wood from dominant color
+  Texture Brush updates covered tiles with the same classification
+  Mark Non-Walkable Area applies polygon-derived non-walkable tiles without creating a persistent polygon object
 - light map: solid medium gray
 - height map: solid black
 
-That keeps the package structurally complete, but it is not enough for production-quality area behavior. Proper editing for terrain, lighting, and elevation remains a priority feature gap.
+That keeps the package structurally complete, and the search map is now editor-driven rather than a placeholder. Lighting and elevation editing remain a priority feature gap.
 
 ## Packaging
 

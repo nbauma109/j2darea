@@ -125,6 +125,7 @@ public class J2DArea extends JFrame {
     private PastedObject objectToMove;
     private int objectToMoveIdx = -1;
     private transient WallGroupData selectedWallGroup;
+    private transient Set<Point> selectedSearchMapCells = new LinkedHashSet<Point>();
     private transient Polygon movingWallGroupBasePolygon;
     private int deltaX;
     private int deltaY;
@@ -143,8 +144,10 @@ public class J2DArea extends JFrame {
     private List<ContainerData> containers = new ArrayList<>();
     private List<WallGroupData> wallGroups = new ArrayList<>();
     private AreaAttributes areaAttributes = new AreaAttributes();
+    private SearchMapData searchMapData = new SearchMapData(backgroundWidth, backgroundHeight);
 
     private boolean editingPolygon;
+    private boolean showSearchMapGrid;
 
     private boolean painting;
     private transient JPanel buildPanel;
@@ -168,6 +171,7 @@ public class J2DArea extends JFrame {
     private transient JRadioButtonMenuItem brushModeMenuItem;
     private transient JRadioButtonMenuItem polygonModeMenuItem;
     private transient JRadioButtonMenuItem rectangleModeMenuItem;
+    private transient JCheckBoxMenuItem searchMapGridMenuItem;
     private transient LocalTransitionPlacementDialog localTransitionPlacementDialog;
     private transient JCheckBoxMenuItem drawClosedDoorMenuItem;
     private transient JCheckBoxMenuItem nightMenuItem;
@@ -182,6 +186,7 @@ public class J2DArea extends JFrame {
     private transient JButton subtractBackgroundToolbarButton;
     private transient JButton regionsToolbarButton;
     private transient JButton wallGroupsToolbarButton;
+    private transient JButton nonWalkableToolbarButton;
     private transient JButton pasteFromToolbarButton;
     private transient JButton pasteCompositeToolbarButton;
     private transient JButton parallelogramBlackToolbarButton;
@@ -194,6 +199,7 @@ public class J2DArea extends JFrame {
     private transient JToggleButton brushToolbarButton;
     private transient JToggleButton polygonToolbarButton;
     private transient JToggleButton rectangleToolbarButton;
+    private transient JToggleButton searchMapGridToggleButton;
     private transient JToggleButton drawClosedDoorToggleButton;
     private transient JToggleButton nightToggleButton;
     private transient boolean buildPanning;
@@ -214,6 +220,7 @@ public class J2DArea extends JFrame {
     private transient byte[] currentHistoryState;
     private TransitionPlacementSession transitionPlacementSession;
     private transient WallGroupPlacementSession wallGroupPlacementSession;
+    private transient SearchMapSelectionSession searchMapSelectionSession;
 
     private int brushRadius = 30;
     private double buildZoom = 1.0;
@@ -239,6 +246,7 @@ public class J2DArea extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.scale(buildZoom, buildZoom);
                 paintObjects(g2);
+                paintSearchMapOverlay(g2);
                 g2.setColor(Color.GREEN);
                 for (Polygon parallelogram : parallelograms) {
                     if (parallelogram.npoints < 3) {
@@ -257,6 +265,7 @@ public class J2DArea extends JFrame {
                 }
                 paintTransitionPlacementDraft(g2);
                 paintWallGroupPlacementDraft(g2);
+                paintSearchMapSelectionDraft(g2);
                 g2.dispose();
             }
 
@@ -405,6 +414,9 @@ public class J2DArea extends JFrame {
             @Override
             public void mousePressed(MouseEvent e) {
                 MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (searchMapSelectionSession != null) {
+                    return;
+                }
                 if (wallGroupPlacementSession != null) {
                     return;
                 }
@@ -417,10 +429,12 @@ public class J2DArea extends JFrame {
                 }
                 if (!painting && !editingBlackParallelogram && !editingTextureParallelogram
                         && objectToMove == null
-                        && selectedWallGroup == null
-                        && SwingUtilities.isLeftMouseButton(e)
-                        && findPastedObjectAtPoint(scaledEvent.getX(), scaledEvent.getY()) == null
-                        && findWallGroupAtPoint(scaledEvent.getPoint()) == null) {
+                    && selectedWallGroup == null
+                    && !hasSelectedSearchMapCells()
+                    && SwingUtilities.isLeftMouseButton(e)
+                    && findPastedObjectAtPoint(scaledEvent.getX(), scaledEvent.getY()) == null
+                    && findWallGroupAtPoint(scaledEvent.getPoint()) == null
+                    && !isImpededSearchMapCellAtPoint(scaledEvent.getPoint())) {
                     buildPanning = true;
                     buildPanDragged = false;
                     buildPanStartMouseScreen = new Point(e.getXOnScreen(), e.getYOnScreen());
@@ -433,33 +447,37 @@ public class J2DArea extends JFrame {
                 }
             }
 
-    public void updateBrushStroke(MouseEvent e) {
-        if (brushTexture == null) {
-            return;
-        }
-        buildBrushStrokeModified = true;
-        for (int x = e.getX() - brushRadius; x < e.getX() + brushRadius; x++) {
+            public void updateBrushStroke(MouseEvent e) {
+                if (brushTexture == null) {
+                    return;
+                }
+                ensureSearchMapSized();
+                buildBrushStrokeModified = true;
+                for (int x = e.getX() - brushRadius; x < e.getX() + brushRadius; x++) {
                     for (int y = e.getY() - brushRadius; y < e.getY() + brushRadius; y++) {
                         double dist = Point2D.distance(x, y, e.getX(), e.getY());
                         if (dist < brushRadius && x >= 0 && y >= 0 && x < buildBackgroundImage.getWidth() && y < buildBackgroundImage.getHeight()) {
-                            // Calculate blend factor based on distance to edge of brush.
-                            // This will be 1.0 at the center of the brush and 0.0 at the edge.
                             double blend = 1.0 - dist / brushRadius;
 
                             Color background = new Color(buildBackgroundImage.getRGB(x, y));
                             Color brush = new Color(brushTexture.getRGB(x % brushTexture.getWidth(), y % brushTexture.getHeight()));
 
-                            // Linearly interpolate between the background and brush colors based on the blend factor.
-                            int r = (int)(background.getRed() * (1.0 - blend) + brush.getRed() * blend);
-                            int g = (int)(background.getGreen() * (1.0 - blend) + brush.getGreen() * blend);
-                            int b = (int)(background.getBlue() * (1.0 - blend) + brush.getBlue() * blend);
-                            int a = (int)(background.getAlpha() * (1.0 - blend) + brush.getAlpha() * blend);
-                            
+                            int r = (int) (background.getRed() * (1.0 - blend) + brush.getRed() * blend);
+                            int g = (int) (background.getGreen() * (1.0 - blend) + brush.getGreen() * blend);
+                            int b = (int) (background.getBlue() * (1.0 - blend) + brush.getBlue() * blend);
+                            int a = (int) (background.getAlpha() * (1.0 - blend) + brush.getAlpha() * blend);
+
                             buildBackgroundImage.setRGB(x, y, new Color(r, g, b, a).getRGB());
                             buildBackgroundNightImage.setRGB(x, y, new Color((int) (0.45 * r), (int) (0.45 * g), (int) (0.85 * b), a).getRGB());
                         }
                     }
                 }
+                searchMapData.applyCircleType(
+                    e.getX(),
+                    e.getY(),
+                    brushRadius,
+                    SearchMapTileType.classifyTexture(brushTexture)
+                );
             }
 
 
@@ -617,21 +635,30 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
+                boolean removed = false;
                 if (objectToMove != null) {
                     pastedObjects.remove(objectToMove);
                     movingRectangle = null;
                     objectToMove = null;
                     objectToMoveIdx = -1;
                     clearCompositeMove();
+                    removed = true;
                 } else if (selectedWallGroup != null) {
                     wallGroups.remove(selectedWallGroup);
                     selectedWallGroup = null;
                     movingWallGroupBasePolygon = null;
                     movingRectangle = null;
                     clearCompositeMove();
+                    removed = true;
+                } else if (hasSelectedSearchMapCells()) {
+                    searchMapData.clearImpededRegion(new ArrayList<Point>(selectedSearchMapCells));
+                    clearSelectedSearchMapCells();
+                    removed = true;
                 }
-                recordHistoryState();
-                buildPanel.repaint();
+                if (removed) {
+                    recordHistoryState();
+                    buildPanel.repaint();
+                }
             }
         });
         buildPanel.getActionMap().put(PLUS, new AbstractAction() {
@@ -783,11 +810,14 @@ public class J2DArea extends JFrame {
                         backgroundHeight = Integer.parseInt(tokens[1]);
                         buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
                         buildBackgroundNightImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+                        searchMapData = new SearchMapData(backgroundWidth, backgroundHeight);
                         pastedObjects.clear();
                         regions.clear();
                         containers.clear();
                         wallGroups.clear();
                         areaAttributes = new AreaAttributes();
+                        searchMapSelectionSession = null;
+                        wallGroupPlacementSession = null;
                         clearObjectMoveSelection();
                         polygon.reset();
                         resetHistoryToCurrentState();
@@ -850,6 +880,7 @@ public class J2DArea extends JFrame {
                         }
                     }
                     buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
+                    applyWholeBackgroundSearchType(textureImage);
                     recordHistoryState();
                 }
                 repaint();
@@ -888,6 +919,12 @@ public class J2DArea extends JFrame {
                         containers = exportableArea.getContainers();
                         wallGroups = exportableArea.getWallGroups();
                         areaAttributes = exportableArea.getAreaAttributes();
+                        searchMapData = exportableArea.getSearchMapData() != null
+                            ? exportableArea.getSearchMapData()
+                            : new SearchMapData(backgroundWidth, backgroundHeight);
+                        searchMapData.resizeForPixels(backgroundWidth, backgroundHeight);
+                        searchMapSelectionSession = null;
+                        wallGroupPlacementSession = null;
                         refreshEntranceMarkers();
                         clearObjectMoveSelection();
                         resetHistoryToCurrentState();
@@ -1001,7 +1038,8 @@ public class J2DArea extends JFrame {
                         regions,
                         containers,
                         wallGroups,
-                        areaAttributes
+                        areaAttributes,
+                        searchMapData
                     );
                     try (FileOutputStream fileOutputStream = new FileOutputStream(chooser.getSelectedFile())) {
                         try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(fileOutputStream)) {
@@ -1137,6 +1175,22 @@ public class J2DArea extends JFrame {
         JMenuItem wallGroupsMenuItem = new JMenuItem(wallGroupsButton.getAction());
         wallGroupsMenuItem.setText("Wallgroups...");
         insertMenu.add(wallGroupsMenuItem);
+
+        JButton nonWalkableButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/polygon.png"))) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                startSearchMapSelection();
+            }
+        });
+        nonWalkableButton.setToolTipText("Mark non-walkable search-map tiles with a polygon");
+        configureToolbarButton(nonWalkableButton);
+        nonWalkableToolbarButton = nonWalkableButton;
+        JMenuItem nonWalkableMenuItem = new JMenuItem(nonWalkableButton.getAction());
+        nonWalkableMenuItem.setText("Mark Non-Walkable Area...");
+        insertMenu.add(nonWalkableMenuItem);
 
         JButton tileSeamlessButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-texture.png"))) {
 
@@ -1456,6 +1510,17 @@ public class J2DArea extends JFrame {
             }
         });
         viewMenu.add(nightMenuItem);
+        ImageIcon searchMapGridIcon = createSearchMapGridIcon();
+        searchMapGridMenuItem = new JCheckBoxMenuItem("Show Search Grid", showSearchMapGrid);
+        searchMapGridMenuItem.setIcon(searchMapGridIcon);
+        searchMapGridMenuItem.setToolTipText("Show search-map tile overlay and grid");
+        searchMapGridMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setShowSearchMapGridState(searchMapGridMenuItem.isSelected());
+            }
+        });
+        viewMenu.add(searchMapGridMenuItem);
         drawClosedDoorToggleButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/draw_closed.png")));
         drawClosedDoorToggleButton.setSelected(drawClosed);
         drawClosedDoorToggleButton.setToolTipText("Toggle draw closed doors");
@@ -1480,6 +1545,17 @@ public class J2DArea extends JFrame {
             }
         });
         configureToolbarButton(nightToggleButton);
+        searchMapGridToggleButton = new JToggleButton(searchMapGridIcon);
+        searchMapGridToggleButton.setSelected(showSearchMapGrid);
+        searchMapGridToggleButton.setToolTipText("Show search-map tile overlay and grid");
+        searchMapGridToggleButton.setMaximumSize(BUTTON_SIZE);
+        searchMapGridToggleButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setShowSearchMapGridState(searchMapGridToggleButton.isSelected());
+            }
+        });
+        configureToolbarButton(searchMapGridToggleButton);
         JToggleButton polygonButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/polygon.png")));
         polygonButton.addActionListener(new ActionListener() {
 
@@ -1657,6 +1733,7 @@ public class J2DArea extends JFrame {
         menubar.add(fillToolbarButton);
         menubar.add(regionsToolbarButton);
         menubar.add(wallGroupsToolbarButton);
+        menubar.add(nonWalkableToolbarButton);
         menubar.add(pasteFromToolbarButton);
         menubar.add(pasteCompositeToolbarButton);
         menubar.add(parallelogramBlackToolbarButton);
@@ -1672,6 +1749,7 @@ public class J2DArea extends JFrame {
         menubar.add(tileSeamlessToolbarButton);
         menubar.add(paint3dToolbarButton);
         menubar.add(subtractBackgroundToolbarButton);
+        menubar.add(searchMapGridToggleButton);
         menubar.add(drawClosedDoorToggleButton);
         menubar.add(nightToggleButton);
         buildOnlyToolbarButtons.clear();
@@ -1688,6 +1766,7 @@ public class J2DArea extends JFrame {
         buildOnlyToolbarButtons.add(openBrushTextureToolbarButton);
         buildOnlyToolbarButtons.add(regionsToolbarButton);
         buildOnlyToolbarButtons.add(wallGroupsToolbarButton);
+        buildOnlyToolbarButtons.add(nonWalkableToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromToolbarButton);
         buildOnlyToolbarButtons.add(pasteCompositeToolbarButton);
         buildOnlyToolbarButtons.add(parallelogramBlackToolbarButton);
@@ -1698,6 +1777,7 @@ public class J2DArea extends JFrame {
         buildOnlyToolbarButtons.add(entranceToolbarButton);
         buildOnlyToolbarButtons.add(cursorToolbarButton);
         buildOnlyToolbarButtons.add(brushToolbarButton);
+        buildOnlyToolbarButtons.add(searchMapGridToggleButton);
         buildOnlyToolbarButtons.add(drawClosedDoorToggleButton);
         buildOnlyToolbarButtons.add(nightToggleButton);
 
@@ -2025,6 +2105,89 @@ public class J2DArea extends JFrame {
         }
     }
 
+    private void paintSearchMapOverlay(Graphics g) {
+        if (!showSearchMapGrid || searchMapData == null) {
+            return;
+        }
+        ensureSearchMapSized();
+        for (int tileY = 0; tileY < searchMapData.getHeightInTiles(); tileY++) {
+            for (int tileX = 0; tileX < searchMapData.getWidthInTiles(); tileX++) {
+                int x = tileX * SearchMapData.CELL_WIDTH;
+                int y = tileY * SearchMapData.CELL_HEIGHT;
+                int width = Math.min(SearchMapData.CELL_WIDTH, backgroundWidth - x);
+                int height = Math.min(SearchMapData.CELL_HEIGHT, backgroundHeight - y);
+                SearchMapTileType tileType = searchMapData.getResolvedTileType(tileX, tileY);
+                if (tileType != SearchMapTileType.UNKNOWN) {
+                    g.setColor(tileType.getOverlayColor());
+                    g.fillRect(x, y, width, height);
+                }
+                g.setColor(new Color(255, 255, 255, 65));
+                g.drawRect(x, y, width, height);
+                if (isSelectedSearchMapCell(tileX, tileY)) {
+                    paintSelectedSearchMapCellEdges(g, tileX, tileY, x, y, width, height);
+                }
+            }
+        }
+    }
+
+    private void paintSelectedSearchMapCellEdges(Graphics g, int tileX, int tileY, int x, int y, int width, int height) {
+        g.setColor(new Color(255, 255, 160));
+        if (!isSelectedSearchMapCell(tileX, tileY - 1)) {
+            g.drawLine(x, y, x + width, y);
+        }
+        if (!isSelectedSearchMapCell(tileX, tileY + 1)) {
+            g.drawLine(x, y + height, x + width, y + height);
+        }
+        if (!isSelectedSearchMapCell(tileX - 1, tileY)) {
+            g.drawLine(x, y, x, y + height);
+        }
+        if (!isSelectedSearchMapCell(tileX + 1, tileY)) {
+            g.drawLine(x + width, y, x + width, y + height);
+        }
+    }
+
+    private void paintSearchMapSelectionDraft(Graphics2D graphics) {
+        if (searchMapSelectionSession == null || searchMapSelectionSession.polygon == null) {
+            return;
+        }
+        Polygon draft = searchMapSelectionSession.polygon;
+        if (draft.npoints == 0) {
+            return;
+        }
+        Polygon preview = clonePolygon(draft);
+        preview.addPoint(mousePosition.x, mousePosition.y);
+        boolean closeCandidate = Point2D.distance(mousePosition.x, mousePosition.y, draft.xpoints[0], draft.ypoints[0]) <= 6;
+        Point parallelogramClosePoint = getSearchMapParallelogramClosePoint(draft);
+        boolean parallelogramCloseCandidate = isWithinSearchMapParallelogramCloseZone(draft, mousePosition.x, mousePosition.y);
+        if (draft.npoints >= 2) {
+            graphics.setColor(new Color(220, 40, 40, 40));
+            graphics.fillPolygon(preview);
+        }
+        if (parallelogramClosePoint != null) {
+            graphics.setColor(parallelogramCloseCandidate ? Color.YELLOW : new Color(255, 255, 255, 120));
+            graphics.drawOval(
+                parallelogramClosePoint.x - SearchMapSelectionSession.PARALLELOGRAM_CLOSE_RADIUS,
+                parallelogramClosePoint.y - SearchMapSelectionSession.PARALLELOGRAM_CLOSE_RADIUS,
+                SearchMapSelectionSession.PARALLELOGRAM_CLOSE_RADIUS * 2,
+                SearchMapSelectionSession.PARALLELOGRAM_CLOSE_RADIUS * 2
+            );
+        }
+        if (parallelogramCloseCandidate && parallelogramClosePoint != null) {
+            Polygon parallelogramPreview = clonePolygon(draft);
+            parallelogramPreview.addPoint(parallelogramClosePoint.x, parallelogramClosePoint.y);
+            graphics.setColor(new Color(220, 40, 40, 40));
+            graphics.fillPolygon(parallelogramPreview);
+            graphics.setColor(Color.YELLOW);
+            graphics.drawPolygon(parallelogramPreview);
+        } else if (closeCandidate && draft.npoints >= 2) {
+            graphics.setColor(Color.YELLOW);
+            graphics.drawPolygon(preview);
+        } else {
+            graphics.setColor(new Color(220, 40, 40));
+            graphics.drawPolyline(preview.xpoints, preview.ypoints, preview.npoints);
+        }
+    }
+
     private void drawWallGroupSegments(Graphics g, Polygon polygonBounds) {
         if (polygonBounds == null) {
             return;
@@ -2133,6 +2296,10 @@ public class J2DArea extends JFrame {
             suppressNextBuildClickAfterPan = false;
             return;
         }
+        if (handleSearchMapSelectionCanvasClick(scaledEvent)) {
+            panel.repaint();
+            return;
+        }
         if (handleWallGroupPlacementCanvasClick(scaledEvent)) {
             panel.repaint();
             return;
@@ -2182,7 +2349,11 @@ public class J2DArea extends JFrame {
                 return;
             }
 
-            if (objectToMove == null && selectedWallGroup == null) {
+            if (objectToMove == null && selectedWallGroup == null && !hasSelectedSearchMapCells()) {
+                if (selectSearchMapRegionAtPoint(scaledEvent.getPoint())) {
+                    panel.repaint();
+                    return;
+                }
                 int idx = 0;
                 for (PastedObject pastedObject : pastedObjects) {
                     Rectangle rect = new Rectangle(pastedObject.getX(), pastedObject.getY(), pastedObject.getWidth(), pastedObject.getHeight());
@@ -2220,16 +2391,85 @@ public class J2DArea extends JFrame {
                     }
                 }
             } else {
-                objectToMove = null;
-                objectToMoveIdx = -1;
-                selectedWallGroup = null;
-                movingWallGroupBasePolygon = null;
-                movingRectangle = null;
-                clearCompositeMove();
-                recordHistoryState();
+                if (objectToMove != null || selectedWallGroup != null) {
+                    clearObjectMoveSelection();
+                    recordHistoryState();
+                } else if (hasSelectedSearchMapCells()) {
+                    if (!selectSearchMapRegionAtPoint(scaledEvent.getPoint())) {
+                        clearSelectedSearchMapCells();
+                    }
+                }
             }
         }
         panel.repaint();
+    }
+
+    private void startSearchMapSelection() {
+        ensureSearchMapSized();
+        searchMapSelectionSession = new SearchMapSelectionSession();
+        painting = false;
+        clearObjectMoveSelection();
+        wallGroupPlacementSession = null;
+        if (transitionPlacementSession != null) {
+            cancelTransitionPlacement(true);
+        }
+        if (tabPane != null) {
+            tabPane.setSelectedComponent(buildScrollPane);
+        }
+        repaint();
+    }
+
+    private boolean handleSearchMapSelectionCanvasClick(MouseEvent event) {
+        if (searchMapSelectionSession == null) {
+            return false;
+        }
+        Polygon draft = searchMapSelectionSession.polygon;
+        if (!SwingUtilities.isLeftMouseButton(event) && !SwingUtilities.isRightMouseButton(event)) {
+            return true;
+        }
+        if (draft.npoints > 0
+                && (SwingUtilities.isRightMouseButton(event)
+                        || Point2D.distance(event.getX(), event.getY(), draft.xpoints[0], draft.ypoints[0]) <= 6)) {
+            if (draft.npoints >= 3) {
+                searchMapData.applyPolygonImpeded(draft);
+                clearSelectedSearchMapCells();
+                setShowSearchMapGridState(true);
+                recordHistoryState();
+            }
+            searchMapSelectionSession = null;
+            return true;
+        }
+        if (SwingUtilities.isLeftMouseButton(event)) {
+            Point parallelogramClosePoint = getSearchMapParallelogramClosePoint(draft);
+            if (parallelogramClosePoint != null && isWithinSearchMapParallelogramCloseZone(draft, event.getX(), event.getY())) {
+                Polygon completedPolygon = clonePolygon(draft);
+                completedPolygon.addPoint(parallelogramClosePoint.x, parallelogramClosePoint.y);
+                searchMapData.applyPolygonImpeded(completedPolygon);
+                clearSelectedSearchMapCells();
+                setShowSearchMapGridState(true);
+                recordHistoryState();
+                searchMapSelectionSession = null;
+                return true;
+            }
+            draft.addPoint(event.getX(), event.getY());
+        }
+        return true;
+    }
+
+    private Point getSearchMapParallelogramClosePoint(Polygon polygonBounds) {
+        if (polygonBounds == null || polygonBounds.npoints != 3) {
+            return null;
+        }
+        return new Point(
+            polygonBounds.xpoints[0] + polygonBounds.xpoints[2] - polygonBounds.xpoints[1],
+            polygonBounds.ypoints[0] + polygonBounds.ypoints[2] - polygonBounds.ypoints[1]
+        );
+    }
+
+    private boolean isWithinSearchMapParallelogramCloseZone(Polygon polygonBounds, int x, int y) {
+        Point closePoint = getSearchMapParallelogramClosePoint(polygonBounds);
+        return closePoint != null
+            && Point2D.distance(x, y, closePoint.x, closePoint.y) <= SearchMapSelectionSession.PARALLELOGRAM_CLOSE_RADIUS;
     }
 
     public void buildBrushPreview() {
@@ -2681,7 +2921,7 @@ public class J2DArea extends JFrame {
                 + "<b>Mouse Wheel</b>: zoom.<br>"
                 + "<b>Shift + Mouse Wheel</b>: flip the selected object, or change brush size while painting.<br><br>"
                 + "<b>Keyboard</b><br>"
-                + "<b>Delete</b>: remove the selected object.<br>"
+                + "<b>Delete</b>: remove the selected object, wallgroup, or impeded-cell region.<br>"
                 + "<b>+</b> or <b>Shift+=</b>: bring the selected object forward.<br>"
                 + "<b>-</b> or <b>NumPad-</b> or <b>6</b>: send the selected object backward.<br>"
                 + "<b>Up</b> / <b>Down</b>: adjust the selected object's vertical placement.<br><br>"
@@ -3089,15 +3329,21 @@ public class J2DArea extends JFrame {
     }
 
     private BufferedImage createSearchMap() {
-        BufferedImage image = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
-        Graphics graphics = image.getGraphics();
-        try {
-            graphics.setColor(Color.WHITE);
-            graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
-        } finally {
-            graphics.dispose();
+        ensureSearchMapSized();
+        return searchMapData.toImage(backgroundWidth, backgroundHeight);
+    }
+
+    private void ensureSearchMapSized() {
+        if (searchMapData == null) {
+            searchMapData = new SearchMapData(backgroundWidth, backgroundHeight);
+        } else {
+            searchMapData.resizeForPixels(backgroundWidth, backgroundHeight);
         }
-        return image;
+    }
+
+    private void applyWholeBackgroundSearchType(BufferedImage sourceImage) {
+        ensureSearchMapSized();
+        searchMapData.setAll(SearchMapTileType.classifyTexture(sourceImage));
     }
 
     private BufferedImage createLightMap() {
@@ -3296,6 +3542,8 @@ public class J2DArea extends JFrame {
 
     private void beginTransitionPlacement(String entranceName) {
         cancelTransitionPlacement(false);
+        searchMapSelectionSession = null;
+        wallGroupPlacementSession = null;
         transitionPlacementSession = new TransitionPlacementSession(entranceName);
         localTransitionPlacementDialog = new LocalTransitionPlacementDialog(
             this,
@@ -3492,6 +3740,7 @@ public class J2DArea extends JFrame {
 
     private void startWallGroupPlacement(WallGroupData targetWallGroup) {
         wallGroupPlacementSession = new WallGroupPlacementSession(targetWallGroup);
+        searchMapSelectionSession = null;
         clearObjectMoveSelection();
         if (transitionPlacementSession != null) {
             cancelTransitionPlacement(true);
@@ -3640,6 +3889,7 @@ public class J2DArea extends JFrame {
         objectToMove = null;
         objectToMoveIdx = -1;
         selectedWallGroup = null;
+        clearSelectedSearchMapCells();
         movingWallGroupBasePolygon = null;
         movingRectangle = null;
         clearCompositeMove();
@@ -3735,6 +3985,17 @@ public class J2DArea extends JFrame {
         repaint();
     }
 
+    private void setShowSearchMapGridState(boolean showSearchMapGrid) {
+        this.showSearchMapGrid = showSearchMapGrid;
+        if (searchMapGridMenuItem != null && searchMapGridMenuItem.isSelected() != showSearchMapGrid) {
+            searchMapGridMenuItem.setSelected(showSearchMapGrid);
+        }
+        if (searchMapGridToggleButton != null && searchMapGridToggleButton.isSelected() != showSearchMapGrid) {
+            searchMapGridToggleButton.setSelected(showSearchMapGrid);
+        }
+        repaint();
+    }
+
     private void syncCursorModeUi() {
         if (cursorSelectMenuItem != null) {
             cursorSelectMenuItem.setSelected(!painting);
@@ -3785,6 +4046,7 @@ public class J2DArea extends JFrame {
         setUiVisible(brushModeMenuItem, buildTabSelected);
         setUiVisible(polygonModeMenuItem, extractionTabSelected);
         setUiVisible(rectangleModeMenuItem, extractionTabSelected);
+        setUiVisible(searchMapGridMenuItem, buildTabSelected);
 
         setUiVisible(openBackgroundToolbarMenuButton, areaEditingTabSelected);
         for (Component component : buildOnlyToolbarButtons) {
@@ -3798,6 +4060,7 @@ public class J2DArea extends JFrame {
         setUiVisible(brushToolbarButton, buildTabSelected);
         setUiVisible(polygonToolbarButton, extractionTabSelected);
         setUiVisible(rectangleToolbarButton, extractionTabSelected);
+        setUiVisible(searchMapGridToggleButton, buildTabSelected);
 
         if (menubar != null) {
             menubar.revalidate();
@@ -3830,6 +4093,26 @@ public class J2DArea extends JFrame {
         }
         java.net.URL fallback = getClass().getResource(fallbackResourcePath);
         return fallback != null ? new ImageIcon(fallback) : null;
+    }
+
+    private ImageIcon createSearchMapGridIcon() {
+        BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            graphics.setColor(new Color(0, 120, 0));
+            graphics.fillRect(1, 1, 14, 14);
+            graphics.setColor(new Color(220, 255, 220));
+            graphics.drawRect(1, 1, 14, 14);
+            graphics.drawLine(5, 1, 5, 15);
+            graphics.drawLine(10, 1, 10, 15);
+            graphics.drawLine(1, 5, 15, 5);
+            graphics.drawLine(1, 10, 15, 10);
+            graphics.setColor(new Color(220, 40, 40));
+            graphics.fillRect(10, 10, 5, 5);
+        } finally {
+            graphics.dispose();
+        }
+        return new ImageIcon(image);
     }
 
     private void configureCanvasScrollPane(JScrollPane scrollPane) {
@@ -3889,6 +4172,8 @@ public class J2DArea extends JFrame {
             backgroundWidth = chosenImageFile.getWidth();
             backgroundHeight = chosenImageFile.getHeight();
             buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
+            applyWholeBackgroundSearchType(chosenImageFile);
+            searchMapSelectionSession = null;
             recordHistoryState();
         }
         if (tabPane.getSelectedComponent() == extractScrollPane) {
@@ -3979,7 +4264,8 @@ public class J2DArea extends JFrame {
                 regions,
                 containers,
                 wallGroups,
-                areaAttributes
+                areaAttributes,
+                searchMapData
             );
             HistoryState historyState = new HistoryState(exportableArea, drawClosed, night);
             historyState.writeExternal(objectOutputStream);
@@ -4006,6 +4292,12 @@ public class J2DArea extends JFrame {
             containers = exportableArea.getContainers();
             wallGroups = exportableArea.getWallGroups();
             areaAttributes = exportableArea.getAreaAttributes();
+            searchMapData = exportableArea.getSearchMapData() != null
+                ? exportableArea.getSearchMapData()
+                : new SearchMapData(backgroundWidth, backgroundHeight);
+            searchMapData.resizeForPixels(backgroundWidth, backgroundHeight);
+            searchMapSelectionSession = null;
+            wallGroupPlacementSession = null;
             refreshEntranceMarkers();
             clearObjectMoveSelection();
             setDrawClosedState(historyState.isDrawClosed());
@@ -4190,6 +4482,52 @@ public class J2DArea extends JFrame {
             }
         }
         return null;
+    }
+
+    private boolean isImpededSearchMapCellAtPoint(Point point) {
+        if (point == null || searchMapData == null) {
+            return false;
+        }
+        int tileX = point.x / SearchMapData.CELL_WIDTH;
+        int tileY = point.y / SearchMapData.CELL_HEIGHT;
+        return searchMapData.isImpeded(tileX, tileY);
+    }
+
+    private boolean selectSearchMapRegionAtPoint(Point point) {
+        if (point == null || searchMapData == null) {
+            return false;
+        }
+        int tileX = point.x / SearchMapData.CELL_WIDTH;
+        int tileY = point.y / SearchMapData.CELL_HEIGHT;
+        List<Point> region = searchMapData.findConnectedImpededRegion(tileX, tileY);
+        if (region.isEmpty()) {
+            return false;
+        }
+        setSelectedSearchMapCells(region);
+        return true;
+    }
+
+    private void setSelectedSearchMapCells(List<Point> cells) {
+        selectedSearchMapCells = new LinkedHashSet<Point>();
+        if (cells != null) {
+            for (Point point : cells) {
+                if (point != null) {
+                    selectedSearchMapCells.add(new Point(point));
+                }
+            }
+        }
+    }
+
+    private void clearSelectedSearchMapCells() {
+        selectedSearchMapCells = new LinkedHashSet<Point>();
+    }
+
+    private boolean hasSelectedSearchMapCells() {
+        return selectedSearchMapCells != null && !selectedSearchMapCells.isEmpty();
+    }
+
+    private boolean isSelectedSearchMapCell(int tileX, int tileY) {
+        return selectedSearchMapCells != null && selectedSearchMapCells.contains(new Point(tileX, tileY));
     }
 
     private String buildPairedTravelRegionName(String entranceName) {
@@ -4461,6 +4799,11 @@ public class J2DArea extends JFrame {
             this.targetWallGroup = targetWallGroup;
             this.polygon = new Polygon();
         }
+    }
+
+    private static final class SearchMapSelectionSession {
+        private static final int PARALLELOGRAM_CLOSE_RADIUS = 5;
+        private Polygon polygon = new Polygon();
     }
 
     public static void main(String[] args) {
