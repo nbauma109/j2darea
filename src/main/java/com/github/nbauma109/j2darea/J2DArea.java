@@ -151,7 +151,6 @@ public class J2DArea extends JFrame {
     private transient JMenu viewMenu;
     private transient JMenu toolsMenu;
     private transient JMenuItem fillMenuItem;
-    private transient JMenuItem openGameBackgroundMenuItem;
     private transient JMenuItem openBrushTextureMenuItem;
     private transient JMenuItem tileSeamlessMenuItem;
     private transient JMenuItem saveDoorsMenuItem;
@@ -165,7 +164,7 @@ public class J2DArea extends JFrame {
     private transient JCheckBoxMenuItem drawClosedDoorMenuItem;
     private transient JCheckBoxMenuItem nightMenuItem;
     private transient JButton openBackgroundToolbarButton;
-    private transient JButton openGameBackgroundToolbarButton;
+    private transient JButton openBackgroundToolbarMenuButton;
     private transient JButton fillToolbarButton;
     private transient JButton openBrushTextureToolbarButton;
     private transient JButton exportDoorTilesToolbarButton;
@@ -945,12 +944,15 @@ public class J2DArea extends JFrame {
             }
         });
         openBackgroundButton.setMaximumSize(BUTTON_SIZE);
-        openBackgroundButton.setToolTipText("Open a background image file");
+        openBackgroundButton.setToolTipText("Open a background image");
         configureToolbarButton(openBackgroundButton);
         openBackgroundToolbarButton = openBackgroundButton;
+        JMenu openBackgroundFolderMenu = new JMenu("Open Background");
+        openBackgroundFolderMenu.setIcon(new ImageIcon(getClass().getResource("/icons/open-bg.png")));
         JMenuItem openBackgroundMenuItem = new JMenuItem(openBackgroundButton.getAction());
         openBackgroundMenuItem.setText("Open Background Image...");
-        backgroundMenu.add(openBackgroundMenuItem);
+        openBackgroundMenuItem.setIcon(null);
+        openBackgroundFolderMenu.add(openBackgroundMenuItem);
 
         JButton openGameBackgroundButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open-bg.png"))) {
 
@@ -962,12 +964,31 @@ public class J2DArea extends JFrame {
             }
         });
         openGameBackgroundButton.setMaximumSize(BUTTON_SIZE);
-        openGameBackgroundButton.setToolTipText("Load background image from a game area");
+        openGameBackgroundButton.setToolTipText("Open background image from a game area");
         configureToolbarButton(openGameBackgroundButton);
-        openGameBackgroundToolbarButton = openGameBackgroundButton;
-        openGameBackgroundMenuItem = new JMenuItem(openGameBackgroundButton.getAction());
-        openGameBackgroundMenuItem.setText("Load Background From Game ARE...");
-        backgroundMenu.add(openGameBackgroundMenuItem);
+        JMenuItem openGameBackgroundMenuItem = new JMenuItem(openGameBackgroundButton.getAction());
+        openGameBackgroundMenuItem.setText("Open Background From Game ARE...");
+        openGameBackgroundMenuItem.setIcon(null);
+        openBackgroundFolderMenu.add(openGameBackgroundMenuItem);
+        backgroundMenu.add(openBackgroundFolderMenu);
+        JPopupMenu openBackgroundToolbarPopup = new JPopupMenu();
+        JMenuItem openBackgroundToolbarMenuItem = new JMenuItem(openBackgroundButton.getAction());
+        openBackgroundToolbarMenuItem.setText("Open Background Image...");
+        openBackgroundToolbarMenuItem.setIcon(null);
+        openBackgroundToolbarPopup.add(openBackgroundToolbarMenuItem);
+        JMenuItem openGameBackgroundToolbarMenuItem = new JMenuItem(openGameBackgroundButton.getAction());
+        openGameBackgroundToolbarMenuItem.setText("Open Background From Game ARE...");
+        openGameBackgroundToolbarMenuItem.setIcon(null);
+        openBackgroundToolbarPopup.add(openGameBackgroundToolbarMenuItem);
+        openBackgroundToolbarMenuButton = new JButton(new ImageIcon(getClass().getResource("/icons/open-bg.png")));
+        openBackgroundToolbarMenuButton.setToolTipText("Open background");
+        configureToolbarButton(openBackgroundToolbarMenuButton);
+        openBackgroundToolbarMenuButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                openBackgroundToolbarPopup.show(openBackgroundToolbarMenuButton, 0, openBackgroundToolbarMenuButton.getHeight());
+            }
+        });
 
         JButton openBrushTextureButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open-texture.png"))) {
 
@@ -1645,8 +1666,7 @@ public class J2DArea extends JFrame {
         subtractBackgroundMenuItem.setText("Subtract Background");
         toolsMenu.add(subtractBackgroundMenuItem);
 
-        menubar.add(openBackgroundToolbarButton);
-        menubar.add(openGameBackgroundToolbarButton);
+        menubar.add(openBackgroundToolbarMenuButton);
         menubar.add(fillToolbarButton);
         menubar.add(openBrushTextureToolbarButton);
         menubar.add(regionsToolbarButton);
@@ -3542,7 +3562,6 @@ public class J2DArea extends JFrame {
         setUiVisible(toolsMenu, buildTabSelected || extractionTabSelected);
 
         setUiVisible(fillMenuItem, buildTabSelected);
-        setUiVisible(openGameBackgroundMenuItem, areaEditingTabSelected);
         setUiVisible(openBrushTextureMenuItem, buildTabSelected);
         setUiVisible(tileSeamlessMenuItem, extractionTabSelected);
         setUiVisible(saveDoorsMenuItem, buildTabSelected);
@@ -3553,8 +3572,7 @@ public class J2DArea extends JFrame {
         setUiVisible(polygonModeMenuItem, extractionTabSelected);
         setUiVisible(rectangleModeMenuItem, extractionTabSelected);
 
-        setUiVisible(openBackgroundToolbarButton, areaEditingTabSelected);
-        setUiVisible(openGameBackgroundToolbarButton, areaEditingTabSelected);
+        setUiVisible(openBackgroundToolbarMenuButton, areaEditingTabSelected);
         for (Component component : buildOnlyToolbarButtons) {
             setUiVisible(component, buildTabSelected);
         }
