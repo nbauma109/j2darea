@@ -5,6 +5,7 @@ import static com.github.nbauma109.j2darea.J2DArea.BUTTON_SIZE;
 import java.awt.Dimension;
 import java.awt.FileDialog;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -36,7 +37,13 @@ public class PolygonSelectionView extends JFrame {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                g.drawImage(previewImage, 0, 0, null);
+                Graphics2D graphics2d = (Graphics2D) g.create();
+                try {
+                    TransparencyPreviewPainter.paintCheckerboard(graphics2d, 0, 0, previewImage.getWidth(), previewImage.getHeight());
+                    graphics2d.drawImage(previewImage, 0, 0, null);
+                } finally {
+                    graphics2d.dispose();
+                }
             }
 
             @Override

@@ -995,17 +995,6 @@ public final class BackgroundSubtractionEditorFrame extends JFrame {
         return new Dimension(width, height);
     }
 
-    private void paintCheckerboard(Graphics2D graphics2d, int x, int y, int width, int height) {
-        Color light = new Color(220, 220, 220);
-        Color dark = new Color(190, 190, 190);
-        for (int row = 0; row < height; row += 12) {
-            for (int column = 0; column < width; column += 12) {
-                graphics2d.setColor((((row / 12) + (column / 12)) % 2 == 0) ? light : dark);
-                graphics2d.fillRect(x + column, y + row, Math.min(12, width - column), Math.min(12, height - row));
-            }
-        }
-    }
-
     private void paintMaskOverlay(Graphics2D graphics2d, boolean[][] mask, ImageViewMetrics view, Color color) {
         if (mask == null) {
             return;
@@ -1398,7 +1387,7 @@ public final class BackgroundSubtractionEditorFrame extends JFrame {
             try {
                 graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 graphics2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                paintCheckerboard(graphics2d, view.x, view.y, view.width, view.height);
+                TransparencyPreviewPainter.paintCheckerboard(graphics2d, view.x, view.y, view.width, view.height);
                 graphics2d.drawImage(renderedImage, view.x, view.y, view.width, view.height, null);
                 paintMaskOverlay(graphics2d, hoveredWandMask, view, new Color(255, 0, 0, 70));
                 paintBrushPreview(graphics2d, view);
