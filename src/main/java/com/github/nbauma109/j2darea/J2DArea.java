@@ -154,6 +154,7 @@ public class J2DArea extends JFrame {
 
     private boolean painting;
     private transient JPanel buildPanel;
+    private transient JPanel extractPanel;
     private transient JScrollPane buildScrollPane;
     private transient JScrollPane extractScrollPane;
     private transient JTabbedPane tabPane;
@@ -288,7 +289,7 @@ public class J2DArea extends JFrame {
             }
         };
 
-        JPanel extractPanel = new JPanel(false) {
+        extractPanel = new JPanel(false) {
 
             private static final long serialVersionUID = 1L;
 
@@ -299,20 +300,15 @@ public class J2DArea extends JFrame {
                 g2.scale(extractZoom, extractZoom);
                 if (extractionBackgroundImage != null) {
                     g2.drawImage(extractionBackgroundImage, 0, 0, null);
-                    g2.setColor(Color.LIGHT_GRAY);
-                    g2.drawLine(mousePosition.x, 0, mousePosition.x, extractionBackgroundImage.getHeight());
-                    g2.drawLine(0, mousePosition.y, extractionBackgroundImage.getWidth(), mousePosition.y);
+                    if (!editingPolygon) {
+                        g2.setColor(Color.LIGHT_GRAY);
+                        g2.drawLine(mousePosition.x, 0, mousePosition.x, extractionBackgroundImage.getHeight());
+                        g2.drawLine(0, mousePosition.y, extractionBackgroundImage.getWidth(), mousePosition.y);
+                    }
                 }
-                Polygon newPolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
-                newPolygon.addPoint(mousePosition.x, mousePosition.y);
-                if (polygon.npoints > 0 && Point2D.distance(mousePosition.x, mousePosition.y, polygon.xpoints[0], polygon.ypoints[0]) <= 3) {
-                    g2.setColor(Color.YELLOW);
-                    g2.drawPolygon(newPolygon);
-                } else {
-                    g2.setColor(Color.GREEN);
-                    g2.drawPolyline(newPolygon.xpoints, newPolygon.ypoints, newPolygon.npoints);
-                }
+                paintExtractionPolygonDraft(g2);
                 if (isValidTileSetup()) {
+                    g2.setColor(Color.GREEN);
                     tile.draw(g2);
                 }
                 g2.dispose();
@@ -1788,8 +1784,9 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (isValidTileSetup()) {
-                    BGSubtracterPreview bgSubtracterPreview = new BGSubtracterPreview(tile.getSubImage(extractionBackgroundImage));
+                	BackgroundSubtractionEditorFrame bgSubtracterPreview = new BackgroundSubtractionEditorFrame(tile.getSubImage(extractionBackgroundImage));
                     bgSubtracterPreview.setLocation(tile.getXOnScreen(), tile.getYOnScreen());
+                    bgSubtracterPreview.setVisible(true);
                 }
             }
         });
@@ -1898,6 +1895,17 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 performRedo();
+            }
+        });
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+            KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SPACE, 0), "RemovePolygonVertex");
+        getRootPane().getActionMap().put("RemovePolygonVertex", new AbstractAction() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                removeLastExtractionPolygonVertex();
             }
         });
 
@@ -2306,6 +2314,37 @@ public class J2DArea extends JFrame {
         }
     }
 
+    private void paintExtractionPolygonDraft(Graphics2D graphics) {
+        if (polygon.npoints == 0) {
+            return;
+        }
+
+        Polygon preview = clonePolygon(polygon);
+        preview.addPoint(mousePosition.x, mousePosition.y);
+        boolean closeCandidate = Point2D.distance(mousePosition.x, mousePosition.y, polygon.xpoints[0], polygon.ypoints[0]) <= 3;
+        graphics.setColor(closeCandidate ? Color.YELLOW : Color.GREEN);
+        if (closeCandidate) {
+            graphics.drawPolygon(preview);
+        } else {
+            graphics.drawPolyline(preview.xpoints, preview.ypoints, preview.npoints);
+        }
+    }
+
+    private void removeLastExtractionPolygonVertex() {
+        if (!editingPolygon || polygon.npoints == 0) {
+            return;
+        }
+
+        Polygon updatedPolygon = new Polygon();
+        for (int i = 0; i < polygon.npoints - 1; i++) {
+            updatedPolygon.addPoint(polygon.xpoints[i], polygon.ypoints[i]);
+        }
+        polygon = updatedPolygon;
+        if (extractPanel != null) {
+            extractPanel.repaint();
+        }
+    }
+
     private boolean isValidTileSetup() {
         return extractionBackgroundImage != null && polygon.npoints == 0 && !tile.isEmpty();
     }
@@ -2343,7 +2382,7 @@ public class J2DArea extends JFrame {
                     Polygon relativePolygon = new Polygon(polygon.xpoints, polygon.ypoints, polygon.npoints);
                     relativePolygon.translate(-r.x, -r.y);
                     BufferedImage subimage = extractionBackgroundImage.getSubimage(r.x, r.y, r.width, r.height);
-                    PolygonSelectionView polygonSelectionView = new PolygonSelectionView(subimage, relativePolygon, r.getLocation());
+                    PolygonSelectionView polygonSelectionView = new PolygonSelectionView(subimage, relativePolygon);
                     polygonSelectionView.setLocation(event.getXOnScreen(), event.getYOnScreen());
                 } else {
                     JOptionPane.showMessageDialog(
@@ -2353,8 +2392,7 @@ public class J2DArea extends JFrame {
                         JOptionPane.WARNING_MESSAGE
                     );
                 }
-                setExtractionPolygonMode(false);
-                syncCursorModeUi();
+                polygon.reset();
             } else {
                 polygon.addPoint(areaPoint.x, areaPoint.y);
             }
