@@ -64,7 +64,6 @@ public final class BackgroundSubtractionEditorFrame extends JFrame {
     private static final int INITIAL_ERASER_RADIUS = 8;
     private static final int MIN_ERASER_RADIUS = 1;
     private static final int MAX_ERASER_RADIUS = 200;
-    private static final int MAX_WAND_PREVIEW_RADIUS = 10;
     private static final Dimension BUTTON_DIMENSION = new Dimension(25, 25);
 
     private final BufferedImage sourceImage;
@@ -874,7 +873,7 @@ public final class BackgroundSubtractionEditorFrame extends JFrame {
                 : "Background reference: edges " + buildSelectedEdgesLabel() + " @ " + getEdgeWidth() + "px | Selected cells: " + getSelectedBackgroundCellCount());
         toolInfoLabel.setText(activeTool == Tool.ERASER
                 ? "Original: left-drag toggles grid cells | Result: drag eraser, mouse wheel changes radius (" + eraserRadius + "px)"
-                : "Original: left-drag toggles grid cells | Result: click a visible cluster to delete it with the wand");
+                : "Original: left-drag toggles grid cells | Result: click a contiguous color region, mouse wheel changes threshold (" + wandColorTolerance + ")");
     }
 
     private void updateUndoRedoButtons() {
@@ -883,31 +882,20 @@ public final class BackgroundSubtractionEditorFrame extends JFrame {
     }
 
     private boolean[][] buildMagicWandSelection(int startX, int startY) {
-        if (!isInsideImage(startX, startY) || !finalForegroundMask[startY][startX]) {
+        if (!isInsideImage(startX, startY) || renderedImage == null) {
             return null;
         }
-
-        boolean[][] selection = BackgroundSubtractor.extractColorConstrainedComponent(
-                sourceImage,
-                finalForegroundMask,
+        boolean[][] visibleMask = FuzzySelection.buildVisibleMask(renderedImage);
+        if (!visibleMask[startY][startX]) {
+            return null;
+        }
+        return FuzzySelection.extractColorConstrainedComponent(
+                renderedImage,
+                visibleMask,
                 startX,
                 startY,
                 wandColorTolerance
         );
-
-        if (selection == null) {
-            return null;
-        }
-
-        int selectionCount = countTrue(selection);
-        int remainingForegroundCount = countTrue(finalForegroundMask);
-        int previewPixelLimit = getMaxWandPreviewPixelCount();
-
-        if (selectionCount > previewPixelLimit || selectionCount > Math.max(1, remainingForegroundCount / 4)) {
-            return null;
-        }
-
-        return selection;
     }
 
     private boolean isInsideImage(int x, int y) {
@@ -936,11 +924,6 @@ public final class BackgroundSubtractionEditorFrame extends JFrame {
             }
         }
         return count;
-    }
-
-    private int getMaxWandPreviewPixelCount() {
-        int diameter = (MAX_WAND_PREVIEW_RADIUS * 2) + 1;
-        return diameter * diameter;
     }
 
     private boolean isBackgroundCellSelected(int column, int row) {
@@ -1389,7 +1372,7 @@ public final class BackgroundSubtractionEditorFrame extends JFrame {
                 graphics2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                 TransparencyPreviewPainter.paintCheckerboard(graphics2d, view.x, view.y, view.width, view.height);
                 graphics2d.drawImage(renderedImage, view.x, view.y, view.width, view.height, null);
-                paintMaskOverlay(graphics2d, hoveredWandMask, view, new Color(255, 0, 0, 70));
+                paintMaskOverlay(graphics2d, hoveredWandMask, view, new Color(0, 160, 255, 70));
                 paintBrushPreview(graphics2d, view);
                 graphics2d.setColor(Color.GRAY);
                 graphics2d.drawRect(view.x, view.y, view.width, view.height);
@@ -1569,92 +1552,6 @@ final class BackgroundSubtractor {
         return result;
     }
 
-    public static boolean[][] extractColorConstrainedComponent(
-            BufferedImage image,
-            boolean[][] visibleForegroundMask,
-            int startX,
-            int startY,
-            int colorTolerance) {
-
-        Objects.requireNonNull(image, "image must not be null");
-        Objects.requireNonNull(visibleForegroundMask, "visibleForegroundMask must not be null");
-
-        int height = visibleForegroundMask.length;
-        int width = visibleForegroundMask[0].length;
-        if (!visibleForegroundMask[startY][startX]) {
-            return null;
-        }
-
-        boolean[][] component = new boolean[height][width];
-        boolean[][] visited = new boolean[height][width];
-
-        int seedArgb = image.getRGB(startX, startY);
-        int seedRed = (seedArgb >>> 16) & 0xFF;
-        int seedGreen = (seedArgb >>> 8) & 0xFF;
-        int seedBlue = seedArgb & 0xFF;
-
-        int[] queueX = new int[width * height];
-        int[] queueY = new int[width * height];
-        int head = 0;
-        int tail = 0;
-
-        queueX[tail] = startX;
-        queueY[tail] = startY;
-        tail++;
-        visited[startY][startX] = true;
-
-        while (head < tail) {
-            int currentX = queueX[head];
-            int currentY = queueY[head];
-            head++;
-
-            if (!visibleForegroundMask[currentY][currentX]) {
-                continue;
-            }
-
-            int currentArgb = image.getRGB(currentX, currentY);
-            int currentRed = (currentArgb >>> 16) & 0xFF;
-            int currentGreen = (currentArgb >>> 8) & 0xFF;
-            int currentBlue = currentArgb & 0xFF;
-
-            double distance = colorDistance(
-                    currentRed,
-                    currentGreen,
-                    currentBlue,
-                    seedRed,
-                    seedGreen,
-                    seedBlue
-            );
-
-            if (distance > colorTolerance) {
-                continue;
-            }
-
-            component[currentY][currentX] = true;
-
-            for (int offsetY = -1; offsetY <= 1; offsetY++) {
-                for (int offsetX = -1; offsetX <= 1; offsetX++) {
-                    if (offsetX == 0 && offsetY == 0) {
-                        continue;
-                    }
-
-                    int nextX = currentX + offsetX;
-                    int nextY = currentY + offsetY;
-                    if (nextX < 0 || nextX >= width || nextY < 0 || nextY >= height || visited[nextY][nextX]) {
-                        continue;
-                    }
-
-                    visited[nextY][nextX] = true;
-                    queueX[tail] = nextX;
-                    queueY[tail] = nextY;
-                    tail++;
-                }
-            }
-        }
-
-        return hasAnyTrue(component) ? component : null;
-    }
-
     public static BufferedImage renderMaskedImage(BufferedImage sourceImage, boolean[][] foregroundMask) {
         Objects.requireNonNull(sourceImage, "sourceImage must not be null");
         Objects.requireNonNull(foregroundMask, "foregroundMask must not be null");
@@ -1672,17 +1569,6 @@ final class BackgroundSubtractor {
         }
 
         return output;
-    }
-
-    private static boolean hasAnyTrue(boolean[][] mask) {
-        for (int y = 0; y < mask.length; y++) {
-            for (int x = 0; x < mask[y].length; x++) {
-                if (mask[y][x]) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private static boolean[][] copyMask(boolean[][] source) {
