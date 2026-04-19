@@ -10,4 +10,16 @@ public enum PastedObjectType {
     public boolean isEntrance() {
         return this == ENTRANCE;
     }
+
+    public boolean isDoor() {
+        return this == OPENED_DOOR || this == OPENED_DOOR_NIGHT || this == CLOSED_DOOR;
+    }
+
+    public boolean isOpenDoor() {
+        return this == OPENED_DOOR || this == OPENED_DOOR_NIGHT;
+    }
+
+    public boolean isClosedDoor() {
+        return this == CLOSED_DOOR;
+    }
 }

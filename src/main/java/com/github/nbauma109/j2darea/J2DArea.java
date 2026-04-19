@@ -241,8 +241,13 @@ public class J2DArea extends JFrame {
     private TransitionPlacementSession transitionPlacementSession;
     private transient WallGroupPlacementSession wallGroupPlacementSession;
     private transient SearchMapSelectionSession searchMapSelectionSession;
+    private transient DoorPolygonPlacementSession doorPolygonPlacementSession;
+    private transient DoorImpededEditSession doorImpededEditSession;
+    private transient DoorPointPlacementSession doorPointPlacementSession;
     private SearchMapEditMode searchMapEditMode = SearchMapEditMode.NONE;
     private SearchMapTileType selectedSearchMapPaintType = SearchMapTileType.NON_WALKABLE;
+    private boolean showDoorPolygonOverlays = true;
+    private boolean showDoorImpededBlockOverlays = true;
 
     private int brushRadius = 30;
     private double buildZoom = 1.0;
@@ -288,6 +293,9 @@ public class J2DArea extends JFrame {
                 paintTransitionPlacementDraft(g2);
                 paintWallGroupPlacementDraft(g2);
                 paintSearchMapSelectionDraft(g2);
+                paintDoorPolygonPlacementDraft(g2);
+                paintDoorImpededEditOverlay(g2);
+                paintDoorPointPlacementDraft(g2);
                 g2.dispose();
             }
 
@@ -450,6 +458,10 @@ public class J2DArea extends JFrame {
             @Override
             public void mousePressed(MouseEvent e) {
                 MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (handleDoorCanvasMousePressed(scaledEvent)) {
+                    buildPanel.repaint();
+                    return;
+                }
                 if (searchMapSelectionSession != null) {
                     return;
                 }
@@ -544,6 +556,10 @@ public class J2DArea extends JFrame {
             @Override
             public void mouseReleased(MouseEvent e) {
                 MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (handleDoorCanvasMouseReleased(scaledEvent)) {
+                    buildPanel.repaint();
+                    return;
+                }
                 boolean dragged = buildPanDragged;
                 if (buildPanning) {
                     buildPanning = false;
@@ -582,6 +598,9 @@ public class J2DArea extends JFrame {
             public void mouseMoved(MouseEvent e) {
                 Point areaPoint = toAreaPoint(e, buildZoom);
                 mousePosition.move(areaPoint.x, areaPoint.y);
+                if (doorPointPlacementSession != null || doorPolygonPlacementSession != null) {
+                    buildPanel.repaint();
+                }
                 if (objectToMove != null) {
                     int newRectX = areaPoint.x - deltaX;
                     int newRectY = areaPoint.y - deltaY;
@@ -629,6 +648,10 @@ public class J2DArea extends JFrame {
             @Override
             public void mouseDragged(MouseEvent e) {
                 MouseEvent scaledEvent = scaleMouseEvent(e, buildPanel, buildZoom);
+                if (handleDoorCanvasMouseDragged(scaledEvent)) {
+                    buildPanel.repaint();
+                    return;
+                }
                 if (transitionPlacementSession != null) {
                     return;
                 }
@@ -884,6 +907,7 @@ public class J2DArea extends JFrame {
                         areaAttributes = new AreaAttributes();
                         searchMapSelectionSession = null;
                         wallGroupPlacementSession = null;
+                        cancelDoorEditingSessions(false);
                         clearObjectMoveSelection();
                         polygon.reset();
                         resetHistoryToCurrentState();
@@ -2006,7 +2030,12 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                removeLastExtractionPolygonVertex();
+                if (doorPolygonPlacementSession != null && doorPolygonPlacementSession.polygon.npoints > 0) {
+                    doorPolygonPlacementSession.polygon = copyWithoutLastVertex(doorPolygonPlacementSession.polygon);
+                    repaint();
+                } else {
+                    removeLastExtractionPolygonVertex();
+                }
             }
         });
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
@@ -2017,7 +2046,26 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                cancelExtractionPolygonSelection();
+                if (doorPolygonPlacementSession != null || doorImpededEditSession != null || doorPointPlacementSession != null) {
+                    cancelDoorEditingSessions(true);
+                } else {
+                    cancelExtractionPolygonSelection();
+                }
+            }
+        });
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+            KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "ConfirmDoorEditing");
+        getRootPane().getActionMap().put("ConfirmDoorEditing", new AbstractAction() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (doorPolygonPlacementSession != null) {
+                    confirmDoorPolygonPlacement();
+                } else if (doorImpededEditSession != null) {
+                    confirmDoorImpededEdit();
+                }
             }
         });
 
@@ -2245,6 +2293,7 @@ public class J2DArea extends JFrame {
         if (includeEditorOverlays) {
             drawRegionOverlays(g);
             drawWallGroupOverlays(g);
+            drawDoorMetadataOverlays(g);
         }
     }
 
@@ -2455,6 +2504,154 @@ public class J2DArea extends JFrame {
         if (extractPanel != null) {
             extractPanel.repaint();
         }
+    }
+
+    private void drawDoorMetadataOverlays(Graphics g) {
+        if (!showDoorPolygonOverlays && !showDoorImpededBlockOverlays) {
+            return;
+        }
+        Set<PastedObject> processedDoors = new LinkedHashSet<PastedObject>();
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject == null || !pastedObject.getPastedObjectType().isOpenDoor() || processedDoors.contains(pastedObject)) {
+                continue;
+            }
+            DoorEditContext doorContext = buildDoorEditContext(pastedObject);
+            if (doorContext == null) {
+                continue;
+            }
+            processedDoors.add(doorContext.primaryDoorObject);
+            if (doorContext.openDoorObject != null) {
+                processedDoors.add(doorContext.openDoorObject);
+            }
+            if (doorContext.closedDoorObject != null) {
+                processedDoors.add(doorContext.closedDoorObject);
+            }
+            if (showDoorPolygonOverlays) {
+                paintDoorPolygonOverlay(g, doorContext.sharedData.getOpenPolygon(), new Color(80, 220, 255, 45), new Color(80, 220, 255));
+                paintDoorPolygonOverlay(g, doorContext.sharedData.getClosedPolygon(), new Color(255, 180, 0, 35), new Color(255, 180, 0));
+            }
+            if (showDoorImpededBlockOverlays) {
+                paintDoorImpededCellsOverlay(g, doorContext.sharedData.getOpenImpededCells(), new Color(80, 220, 255, 90));
+                paintDoorImpededCellsOverlay(g, doorContext.sharedData.getClosedImpededCells(), new Color(255, 180, 0, 90));
+            }
+        }
+    }
+
+    private void paintDoorPolygonOverlay(Graphics g, Polygon polygon, Color fillColor, Color outlineColor) {
+        if (polygon == null || polygon.npoints < 3) {
+            return;
+        }
+        g.setColor(fillColor);
+        g.fillPolygon(polygon);
+        g.setColor(outlineColor);
+        g.drawPolygon(polygon);
+    }
+
+    private void paintDoorImpededCellsOverlay(Graphics g, List<Point> cells, Color color) {
+        if (cells == null || cells.isEmpty()) {
+            return;
+        }
+        g.setColor(color);
+        for (Point cell : cells) {
+            if (cell == null) {
+                continue;
+            }
+            g.fillRect(
+                cell.x * SearchMapData.CELL_WIDTH,
+                cell.y * SearchMapData.CELL_HEIGHT,
+                SearchMapData.CELL_WIDTH,
+                SearchMapData.CELL_HEIGHT
+            );
+        }
+    }
+
+    private void paintDoorPolygonPlacementDraft(Graphics2D graphics) {
+        if (doorPolygonPlacementSession == null || doorPolygonPlacementSession.polygon == null) {
+            return;
+        }
+        Polygon draft = doorPolygonPlacementSession.polygon;
+        Rectangle bounds = new Rectangle(mousePosition.x, mousePosition.y, 1, 1);
+        if (draft.npoints > 0) {
+            Polygon preview = clonePolygon(draft);
+            preview.addPoint(mousePosition.x, mousePosition.y);
+            boolean closeCandidate = draft.npoints >= 3
+                && Point2D.distance(mousePosition.x, mousePosition.y, draft.xpoints[0], draft.ypoints[0]) <= 6;
+            graphics.setColor(new Color(255, 180, 0, 40));
+            if (draft.npoints >= 2) {
+                graphics.fillPolygon(preview);
+            }
+            graphics.setColor(closeCandidate ? Color.YELLOW : new Color(255, 200, 0));
+            if (closeCandidate) {
+                graphics.drawPolygon(preview);
+            } else {
+                graphics.drawPolyline(preview.xpoints, preview.ypoints, preview.npoints);
+            }
+            bounds = preview.getBounds();
+        }
+        graphics.setColor(Color.WHITE);
+        graphics.drawString(
+            (doorPolygonPlacementSession.closedDoorState ? "Editing closed door polygon" : "Editing opened door polygon")
+                + " - click to add vertices, right click or Enter to save, Esc to cancel",
+            bounds.x + 2,
+            Math.max(12, bounds.y - 4)
+        );
+    }
+
+    private void paintDoorImpededEditOverlay(Graphics2D graphics) {
+        if (doorImpededEditSession == null) {
+            return;
+        }
+        if (doorImpededEditSession.polygon != null && doorImpededEditSession.polygon.npoints >= 3) {
+            graphics.setColor(new Color(255, 215, 0, 50));
+            graphics.fillPolygon(doorImpededEditSession.polygon);
+            graphics.setColor(new Color(255, 210, 0));
+            graphics.drawPolygon(doorImpededEditSession.polygon);
+        }
+        graphics.setColor(new Color(255, 255, 255, 65));
+        for (int x = 0; x <= backgroundWidth; x += SearchMapData.CELL_WIDTH) {
+            graphics.drawLine(x, 0, x, backgroundHeight);
+        }
+        for (int y = 0; y <= backgroundHeight; y += SearchMapData.CELL_HEIGHT) {
+            graphics.drawLine(0, y, backgroundWidth, y);
+        }
+        for (Point cell : doorImpededEditSession.cells) {
+            int x = cell.x * SearchMapData.CELL_WIDTH;
+            int y = cell.y * SearchMapData.CELL_HEIGHT;
+            graphics.setColor(new Color(220, 40, 40, 120));
+            graphics.fillRect(x, y, SearchMapData.CELL_WIDTH, SearchMapData.CELL_HEIGHT);
+            graphics.setColor(new Color(255, 220, 220));
+            graphics.drawRect(x, y, SearchMapData.CELL_WIDTH, SearchMapData.CELL_HEIGHT);
+        }
+        Rectangle bounds = doorImpededEditSession.polygon != null ? doorImpededEditSession.polygon.getBounds() : new Rectangle();
+        graphics.setColor(Color.WHITE);
+        graphics.drawString(
+            (doorImpededEditSession.closedDoorState ? "Editing closed door impeded blocks" : "Editing opened door impeded blocks")
+                + " - right click or Enter to save, Esc to cancel",
+            bounds.x + 2,
+            Math.max(12, bounds.y - 4)
+        );
+    }
+
+    private void paintDoorPointPlacementDraft(Graphics2D graphics) {
+        if (doorPointPlacementSession == null) {
+            return;
+        }
+        DirectionMarker.drawMarker(
+            graphics,
+            mousePosition.x,
+            mousePosition.y,
+            0,
+            Color.CYAN,
+            new Color(255, 230, 100),
+            7,
+            9
+        );
+        graphics.setColor(Color.WHITE);
+        graphics.drawString(
+            doorPointPlacementSession.title + " - click on the map to set it",
+            mousePosition.x + 10,
+            mousePosition.y - 10
+        );
     }
 
     private void cancelExtractionPolygonSelection() {
@@ -2681,6 +2878,7 @@ public class J2DArea extends JFrame {
     private void startSearchMapSelection() {
         ensureSearchMapSized();
         searchMapSelectionSession = new SearchMapSelectionSession();
+        cancelDoorEditingSessions(false);
         painting = false;
         searchMapEditMode = SearchMapEditMode.NONE;
         clearObjectMoveSelection();
@@ -3205,7 +3403,11 @@ public class J2DArea extends JFrame {
                 + "<b>Left-drag</b> on a selected object: move it.<br>"
                 + "<b>Ctrl + Click</b> on an object: duplicate it and start moving the copy.<br>"
                 + "<b>Right-click</b> an object or transition marker: open its context menu.<br>"
+                + "<b>Door metadata overlays</b>: toggle polygon / impeded-block visibility from the opened door context menu.<br>"
                 + "<b>Left-drag</b> in Search Map Painter / Eraser mode: edit search-map cells.<br>"
+                + "<b>Door polygon editing</b>: left-click to add vertices, right-click or <b>Enter</b> to save, <b>Backspace</b> to undo a vertex, <b>Esc</b> to cancel.<br>"
+                + "<b>Door impeded-block editing</b>: left-click / drag to paint cells, right-click or <b>Enter</b> to save, <b>Esc</b> to cancel.<br>"
+                + "<b>Door point editing</b>: click on the map to place the point, <b>Esc</b> to cancel.<br>"
                 + "<b>Mouse Wheel</b>: zoom.<br>"
                 + "<b>Shift + Mouse Wheel</b>: flip the selected object, or change brush size while painting.<br><br>"
                 + "<b>Keyboard</b><br>"
@@ -3532,19 +3734,38 @@ public class J2DArea extends JFrame {
 
     private List<DoorExportData> collectDoorExports() {
         List<DoorExportData> exports = new ArrayList<>();
+        Set<PastedObject> processedDoors = new LinkedHashSet<PastedObject>();
         int index = 1;
         for (PastedObject pastedObject : pastedObjects) {
-            if (pastedObject.getPastedObjectType() == PastedObjectType.OPENED_DOOR
-                    || pastedObject.getPastedObjectType() == PastedObjectType.CLOSED_DOOR) {
-                exports.add(createDoorExportData(index++, pastedObject));
+            if (pastedObject == null || !pastedObject.getPastedObjectType().isDoor() || processedDoors.contains(pastedObject)) {
+                continue;
             }
+            DoorEditContext doorContext = buildDoorEditContext(pastedObject);
+            if (doorContext == null) {
+                continue;
+            }
+            if (doorContext.openDoorObject != null) {
+                processedDoors.add(doorContext.openDoorObject);
+            }
+            if (doorContext.closedDoorObject != null) {
+                processedDoors.add(doorContext.closedDoorObject);
+            }
+            exports.add(createDoorExportData(index++, doorContext));
         }
         return exports;
     }
 
-    private DoorExportData createDoorExportData(int index, PastedObject doorObject) {
-        Rectangle openBounds = objectBounds(doorObject);
-        Rectangle closedBounds = openBounds;
+    private DoorExportData createDoorExportData(int index, DoorEditContext doorContext) {
+        Rectangle openBounds = resolveDoorBounds(
+            doorContext.openDoorObject,
+            doorContext.sharedData.getOpenPolygon(),
+            doorContext.closedDoorObject != null ? objectBounds(doorContext.closedDoorObject) : null
+        );
+        Rectangle closedBounds = resolveDoorBounds(
+            doorContext.closedDoorObject,
+            doorContext.sharedData.getClosedPolygon(),
+            doorContext.openDoorObject != null ? objectBounds(doorContext.openDoorObject) : null
+        );
         Rectangle unionBounds = openBounds.union(closedBounds);
         List<Integer> tileCells = new ArrayList<>();
         int startTileX = Math.max(0, unionBounds.x / 64);
@@ -3559,20 +3780,38 @@ public class J2DArea extends JFrame {
         }
         String doorName = "DOOR" + String.format("%04d", index);
         String doorId = doorName;
+        DoorExportSupport.DoorAutoLink autoLink = DoorExportSupport.autoLink(
+            openBounds,
+            closedBounds,
+            regions,
+            collectEntrancesByName()
+        );
+        int flags = doorContext.sharedData.getFlags();
+        String regionLinkName = trimToEmpty(doorContext.sharedData.getRegionLinkName());
+        Point openLocationFront = doorContext.sharedData.getOpenLocationFront();
+        Point openLocationBack = doorContext.sharedData.getOpenLocationBack();
+        Point launchPoint = doorContext.sharedData.getLaunchPoint();
+        if (regionLinkName.isEmpty() && !trimToEmpty(autoLink.getRegionName()).isEmpty()) {
+            flags |= autoLink.getFlags();
+            regionLinkName = autoLink.getRegionName();
+            openLocationFront = autoLink.getOpenLocationFront();
+            openLocationBack = autoLink.getOpenLocationBack();
+            launchPoint = autoLink.getLaunchPoint();
+        }
         return new DoorExportData(
             doorName,
             doorId,
-            createDoorPolygon(openBounds),
-            createDoorPolygon(closedBounds),
+            resolveDoorPolygon(doorContext.sharedData.getOpenPolygon(), doorContext.openDoorObject, openBounds),
+            resolveDoorPolygon(doorContext.sharedData.getClosedPolygon(), doorContext.closedDoorObject, closedBounds),
             tileCells,
-            new ArrayList<Point>(),
-            new ArrayList<Point>(),
-            0,
-            "",
-            new Point(),
-            new Point(),
-            new Point(),
-            30
+            doorContext.sharedData.getOpenImpededCells(),
+            doorContext.sharedData.getClosedImpededCells(),
+            flags,
+            regionLinkName,
+            openLocationFront,
+            openLocationBack,
+            launchPoint,
+            doorContext.sharedData.getCursorIndex()
         );
     }
 
@@ -3593,6 +3832,25 @@ public class J2DArea extends JFrame {
             new int[] {bottom, top, top, bottom},
             4
         );
+    }
+
+    private Rectangle resolveDoorBounds(PastedObject doorObject, Polygon polygon, Rectangle fallbackBounds) {
+        Rectangle bounds = fallbackBounds != null ? new Rectangle(fallbackBounds) : new Rectangle();
+        if (doorObject != null) {
+            bounds = objectBounds(doorObject);
+        }
+        if (polygon != null && polygon.npoints >= 3) {
+            bounds = bounds.isEmpty() ? polygon.getBounds() : bounds.union(polygon.getBounds());
+        }
+        return bounds;
+    }
+
+    private Polygon resolveDoorPolygon(Polygon polygon, PastedObject doorObject, Rectangle fallbackBounds) {
+        if (polygon != null && polygon.npoints >= 3) {
+            return clonePolygon(polygon);
+        }
+        Rectangle bounds = resolveDoorBounds(doorObject, null, fallbackBounds);
+        return createDoorPolygon(bounds);
     }
 
     private Polygon rectanglePolygon(Rectangle rectangle) {
@@ -3832,10 +4090,15 @@ public class J2DArea extends JFrame {
     }
 
     private void beginTransitionPlacement(String entranceName) {
+        beginTransitionPlacement(entranceName, null);
+    }
+
+    private void beginTransitionPlacement(String entranceName, PastedObject linkedDoorObject) {
         cancelTransitionPlacement(false);
+        cancelDoorEditingSessions(false);
         searchMapSelectionSession = null;
         wallGroupPlacementSession = null;
-        transitionPlacementSession = new TransitionPlacementSession(entranceName);
+        transitionPlacementSession = new TransitionPlacementSession(entranceName, linkedDoorObject);
         localTransitionPlacementDialog = new LocalTransitionPlacementDialog(
             this,
             "Local Transition Geometry",
@@ -3954,6 +4217,11 @@ public class J2DArea extends JFrame {
             clonePolygon(transitionPlacementSession.localPolygon));
         regionData.setPairedEntranceName(transitionPlacementSession.entranceName);
         regions.add(regionData);
+        if (transitionPlacementSession.linkedDoorObject != null) {
+            linkDoorToRegion(transitionPlacementSession.linkedDoorObject, regionData);
+        } else {
+            offerToLinkDoorToRegion(regionData);
+        }
 
         cancelTransitionPlacement(false);
         recordHistoryState();
@@ -4031,6 +4299,7 @@ public class J2DArea extends JFrame {
 
     private void startWallGroupPlacement(WallGroupData targetWallGroup) {
         wallGroupPlacementSession = new WallGroupPlacementSession(targetWallGroup);
+        cancelDoorEditingSessions(false);
         searchMapSelectionSession = null;
         clearObjectMoveSelection();
         if (transitionPlacementSession != null) {
@@ -4081,6 +4350,13 @@ public class J2DArea extends JFrame {
             return false;
         }
 
+        PastedObject doorObject = findDoorAtPoint(e.getX(), e.getY());
+        if (doorObject != null) {
+            clearObjectMoveSelection();
+            showDoorContextMenu(e, doorObject);
+            return true;
+        }
+
         WallGroupData wallGroup = findWallGroupAtPoint(e.getPoint());
         if (wallGroup != null) {
             clearObjectMoveSelection();
@@ -4102,6 +4378,96 @@ public class J2DArea extends JFrame {
             return true;
         }
         return false;
+    }
+
+    private void showDoorContextMenu(MouseEvent e, PastedObject doorObject) {
+        JPopupMenu menu = new JPopupMenu();
+
+        JCheckBoxMenuItem showDoorPolygonsItem = new JCheckBoxMenuItem("Show Door Polygons", showDoorPolygonOverlays);
+        showDoorPolygonsItem.addActionListener(evt -> {
+            showDoorPolygonOverlays = showDoorPolygonsItem.isSelected();
+            repaint();
+        });
+        menu.add(showDoorPolygonsItem);
+
+        JCheckBoxMenuItem showImpededBlocksItem = new JCheckBoxMenuItem("Show Impeded Blocks", showDoorImpededBlockOverlays);
+        showImpededBlocksItem.addActionListener(evt -> {
+            showDoorImpededBlockOverlays = showImpededBlocksItem.isSelected();
+            repaint();
+        });
+        menu.add(showImpededBlocksItem);
+        menu.addSeparator();
+
+        JMenuItem editOpenedImpededBlocksItem = new JMenuItem("Edit Opened Door Impeded Blocks");
+        editOpenedImpededBlocksItem.addActionListener(evt -> {
+            editDoorImpededBlocks(doorObject, false);
+            repaint();
+        });
+        menu.add(editOpenedImpededBlocksItem);
+
+        JMenuItem editClosedImpededBlocksItem = new JMenuItem("Edit Closed Door Impeded Blocks");
+        editClosedImpededBlocksItem.addActionListener(evt -> {
+            editDoorImpededBlocks(doorObject, true);
+            repaint();
+        });
+        menu.add(editClosedImpededBlocksItem);
+
+        menu.addSeparator();
+
+        JMenuItem editOpenedPolygonItem = new JMenuItem("Edit Opened Door Polygon");
+        editOpenedPolygonItem.addActionListener(evt -> {
+            editDoorPolygon(doorObject, false);
+            repaint();
+        });
+        menu.add(editOpenedPolygonItem);
+
+        JMenuItem editClosedPolygonItem = new JMenuItem("Edit Closed Door Polygon");
+        editClosedPolygonItem.addActionListener(evt -> {
+            editDoorPolygon(doorObject, true);
+            repaint();
+        });
+        menu.add(editClosedPolygonItem);
+
+        JMenu pointsMenu = new JMenu("Edit Points");
+
+        JMenuItem editLaunchPointItem = new JMenuItem("Launch Point...");
+        editLaunchPointItem.addActionListener(evt -> {
+            editDoorPoint(doorObject, DoorPointType.LAUNCH_POINT);
+            repaint();
+        });
+        pointsMenu.add(editLaunchPointItem);
+
+        JMenuItem editOpenLocationFrontItem = new JMenuItem("Open Location Front...");
+        editOpenLocationFrontItem.addActionListener(evt -> {
+            editDoorPoint(doorObject, DoorPointType.OPEN_LOCATION_FRONT);
+            repaint();
+        });
+        pointsMenu.add(editOpenLocationFrontItem);
+
+        JMenuItem editOpenLocationBackItem = new JMenuItem("Open Location Back...");
+        editOpenLocationBackItem.addActionListener(evt -> {
+            editDoorPoint(doorObject, DoorPointType.OPEN_LOCATION_BACK);
+            repaint();
+        });
+        pointsMenu.add(editOpenLocationBackItem);
+
+        menu.add(pointsMenu);
+
+        JMenuItem editFlagsItem = new JMenuItem("Edit Flags");
+        editFlagsItem.addActionListener(evt -> {
+            editDoorFlags(doorObject);
+            repaint();
+        });
+        menu.add(editFlagsItem);
+
+        JMenuItem editEntranceTravelRegionItem = new JMenuItem("Edit Entrance/Travel Region");
+        editEntranceTravelRegionItem.addActionListener(evt -> {
+            editDoorEntranceTravelRegion(doorObject);
+            repaint();
+        });
+        menu.add(editEntranceTravelRegionItem);
+
+        menu.show(e.getComponent(), e.getX(), e.getY());
     }
 
     private void showWallGroupContextMenu(MouseEvent e, WallGroupData wallGroup) {
@@ -4176,6 +4542,321 @@ public class J2DArea extends JFrame {
         menu.show(e.getComponent(), e.getX(), e.getY());
     }
 
+    private void editDoorImpededBlocks(PastedObject doorObject, boolean closedDoorState) {
+        DoorEditContext doorContext = buildDoorEditContext(doorObject);
+        if (doorContext == null) {
+            return;
+        }
+
+        startDoorImpededEdit(doorContext.primaryDoorObject, closedDoorState);
+    }
+
+    private void editDoorPolygon(PastedObject doorObject, boolean closedDoorState) {
+        DoorEditContext doorContext = buildDoorEditContext(doorObject);
+        if (doorContext == null) {
+            return;
+        }
+
+        startDoorPolygonPlacement(doorContext.primaryDoorObject, closedDoorState);
+    }
+
+    private void editDoorPoint(PastedObject doorObject, DoorPointType pointType) {
+        DoorEditContext doorContext = buildDoorEditContext(doorObject);
+        if (doorContext == null) {
+            return;
+        }
+
+        String title;
+        switch (pointType) {
+            case LAUNCH_POINT:
+                title = "Set Launch Point";
+                break;
+            case OPEN_LOCATION_FRONT:
+                title = "Set Open Location Front";
+                break;
+            case OPEN_LOCATION_BACK:
+                title = "Set Open Location Back";
+                break;
+            default:
+                throw new IllegalArgumentException();
+        }
+
+        startDoorPointPlacement(doorContext.primaryDoorObject, pointType, title);
+    }
+
+    private void editDoorFlags(PastedObject doorObject) {
+        DoorEditContext doorContext = buildDoorEditContext(doorObject);
+        if (doorContext == null) {
+            return;
+        }
+        DoorFlagsDialog dialog = new DoorFlagsDialog(this, doorContext.sharedData.getFlags());
+        dialog.setVisible(true);
+        if (!dialog.isConfirmed()) {
+            return;
+        }
+        doorContext.sharedData.setFlags(dialog.getFlags());
+        applyDoorData(doorContext);
+        recordHistoryState();
+    }
+
+    private void editDoorEntranceTravelRegion(PastedObject doorObject) {
+        DoorEditContext doorContext = buildDoorEditContext(doorObject);
+        if (doorContext == null) {
+            return;
+        }
+
+        RegionData linkedRegion = findRegionByName(doorContext.sharedData.getRegionLinkName());
+        if (linkedRegion != null) {
+            PastedObject linkedEntrance = findEntranceByName(linkedRegion.getPairedEntranceName());
+            if (linkedEntrance != null) {
+                editEntrance(linkedEntrance);
+            }
+            String previousRegionName = trimToEmpty(linkedRegion.getName());
+            editRegion(linkedRegion);
+            doorContext.sharedData.setRegionLinkName(trimToEmpty(linkedRegion.getName()));
+            if (!trimToEmpty(previousRegionName).isEmpty() || !trimToEmpty(linkedRegion.getName()).isEmpty()) {
+                doorContext.sharedData.setFlags(doorContext.sharedData.getFlags() | DoorExportSupport.LINKED_FLAG);
+            }
+            applyDoorData(doorContext);
+            recordHistoryState();
+            return;
+        }
+
+        String entranceName = JOptionPane.showInputDialog(this, "Enter entrance name:", buildSuggestedDoorEntranceName(doorContext));
+        if (entranceName == null || entranceName.trim().isEmpty()) {
+            return;
+        }
+        beginTransitionPlacement(entranceName.trim(), doorContext.primaryDoorObject);
+        painting = false;
+        repaint();
+    }
+
+    private void startDoorPolygonPlacement(PastedObject openedDoorObject, boolean closedDoorState) {
+        DoorEditContext doorContext = buildDoorEditContext(openedDoorObject);
+        if (doorContext == null || doorContext.primaryDoorObject == null) {
+            return;
+        }
+        cancelDoorEditingSessions(false);
+        clearObjectMoveSelection();
+        searchMapSelectionSession = null;
+        wallGroupPlacementSession = null;
+        if (transitionPlacementSession != null) {
+            cancelTransitionPlacement(true);
+        }
+        doorPolygonPlacementSession = new DoorPolygonPlacementSession(doorContext.primaryDoorObject, closedDoorState, new Polygon());
+        if (tabPane != null) {
+            tabPane.setSelectedComponent(buildScrollPane);
+        }
+        repaint();
+    }
+
+    private void startDoorImpededEdit(PastedObject openedDoorObject, boolean closedDoorState) {
+        DoorEditContext doorContext = buildDoorEditContext(openedDoorObject);
+        if (doorContext == null || doorContext.primaryDoorObject == null) {
+            return;
+        }
+        cancelDoorEditingSessions(false);
+        clearObjectMoveSelection();
+        searchMapSelectionSession = null;
+        wallGroupPlacementSession = null;
+        if (transitionPlacementSession != null) {
+            cancelTransitionPlacement(true);
+        }
+        Polygon polygon = closedDoorState
+            ? doorContext.sharedData.getClosedPolygon()
+            : doorContext.sharedData.getOpenPolygon();
+        List<Point> cells = closedDoorState
+            ? doorContext.sharedData.getClosedImpededCells()
+            : doorContext.sharedData.getOpenImpededCells();
+        doorImpededEditSession = new DoorImpededEditSession(doorContext.primaryDoorObject, closedDoorState, polygon, cells);
+        if (tabPane != null) {
+            tabPane.setSelectedComponent(buildScrollPane);
+        }
+        repaint();
+    }
+
+    private void startDoorPointPlacement(PastedObject openedDoorObject, DoorPointType pointType, String title) {
+        DoorEditContext doorContext = buildDoorEditContext(openedDoorObject);
+        if (doorContext == null || doorContext.primaryDoorObject == null) {
+            return;
+        }
+        cancelDoorEditingSessions(false);
+        clearObjectMoveSelection();
+        searchMapSelectionSession = null;
+        wallGroupPlacementSession = null;
+        if (transitionPlacementSession != null) {
+            cancelTransitionPlacement(true);
+        }
+        doorPointPlacementSession = new DoorPointPlacementSession(doorContext.primaryDoorObject, pointType, title);
+        if (tabPane != null) {
+            tabPane.setSelectedComponent(buildScrollPane);
+        }
+        repaint();
+    }
+
+    private boolean handleDoorCanvasMousePressed(MouseEvent event) {
+        if (doorPointPlacementSession != null) {
+            if (SwingUtilities.isLeftMouseButton(event)) {
+                applyDoorPointPlacement(new Point(event.getX(), event.getY()));
+            } else if (SwingUtilities.isRightMouseButton(event) || event.isPopupTrigger()) {
+                cancelDoorEditingSessions(true);
+            }
+            return true;
+        }
+        if (doorPolygonPlacementSession != null) {
+            if (SwingUtilities.isRightMouseButton(event) || event.isPopupTrigger()) {
+                confirmDoorPolygonPlacement();
+                return true;
+            }
+            if (!SwingUtilities.isLeftMouseButton(event)) {
+                return true;
+            }
+            Polygon draft = doorPolygonPlacementSession.polygon;
+            if (draft.npoints >= 3 && Point2D.distance(event.getX(), event.getY(), draft.xpoints[0], draft.ypoints[0]) <= 6) {
+                confirmDoorPolygonPlacement();
+            } else {
+                draft.addPoint(event.getX(), event.getY());
+            }
+            return true;
+        }
+        if (doorImpededEditSession != null) {
+            if (SwingUtilities.isRightMouseButton(event) || event.isPopupTrigger()) {
+                confirmDoorImpededEdit();
+                return true;
+            }
+            if (SwingUtilities.isLeftMouseButton(event)) {
+                applyDoorImpededCell(event.getPoint());
+                return true;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private boolean handleDoorCanvasMouseDragged(MouseEvent event) {
+        if (doorImpededEditSession != null && SwingUtilities.isLeftMouseButton(event)) {
+            applyDoorImpededCell(event.getPoint());
+            return true;
+        }
+        return doorPointPlacementSession != null || doorPolygonPlacementSession != null;
+    }
+
+    private boolean handleDoorCanvasMouseReleased(MouseEvent event) {
+        if (doorImpededEditSession != null) {
+            doorImpededEditSession.dragPaintValue = null;
+            return true;
+        }
+        return doorPointPlacementSession != null || doorPolygonPlacementSession != null;
+    }
+
+    private void applyDoorPointPlacement(Point point) {
+        if (doorPointPlacementSession == null) {
+            return;
+        }
+        DoorEditContext doorContext = buildDoorEditContext(doorPointPlacementSession.openedDoorObject);
+        if (doorContext == null) {
+            cancelDoorEditingSessions(true);
+            return;
+        }
+        switch (doorPointPlacementSession.pointType) {
+            case LAUNCH_POINT:
+                doorContext.sharedData.setLaunchPoint(point);
+                break;
+            case OPEN_LOCATION_FRONT:
+                doorContext.sharedData.setOpenLocationFront(point);
+                break;
+            case OPEN_LOCATION_BACK:
+                doorContext.sharedData.setOpenLocationBack(point);
+                break;
+            default:
+                throw new IllegalArgumentException();
+        }
+        applyDoorData(doorContext);
+        doorPointPlacementSession = null;
+        recordHistoryState();
+        repaint();
+    }
+
+    private void applyDoorImpededCell(Point pixelPoint) {
+        if (doorImpededEditSession == null) {
+            return;
+        }
+        int cellX = pixelPoint.x / SearchMapData.CELL_WIDTH;
+        int cellY = pixelPoint.y / SearchMapData.CELL_HEIGHT;
+        if (cellX < 0 || cellY < 0) {
+            return;
+        }
+        Point cell = new Point(cellX, cellY);
+        if (doorImpededEditSession.dragPaintValue == null) {
+            doorImpededEditSession.dragPaintValue = Boolean.valueOf(!doorImpededEditSession.cells.contains(cell));
+        }
+        if (doorImpededEditSession.dragPaintValue.booleanValue()) {
+            doorImpededEditSession.cells.add(cell);
+        } else {
+            doorImpededEditSession.cells.remove(cell);
+        }
+    }
+
+    private void confirmDoorPolygonPlacement() {
+        if (doorPolygonPlacementSession == null) {
+            return;
+        }
+        if (doorPolygonPlacementSession.polygon.npoints < 3) {
+            JOptionPane.showMessageDialog(this,
+                "A door polygon needs at least three vertices.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        DoorEditContext doorContext = buildDoorEditContext(doorPolygonPlacementSession.openedDoorObject);
+        if (doorContext == null) {
+            cancelDoorEditingSessions(true);
+            return;
+        }
+        if (doorPolygonPlacementSession.closedDoorState) {
+            doorContext.sharedData.setClosedPolygon(doorPolygonPlacementSession.polygon);
+        } else {
+            doorContext.sharedData.setOpenPolygon(doorPolygonPlacementSession.polygon);
+        }
+        applyDoorData(doorContext);
+        doorPolygonPlacementSession = null;
+        recordHistoryState();
+        repaint();
+    }
+
+    private void confirmDoorImpededEdit() {
+        if (doorImpededEditSession == null) {
+            return;
+        }
+        DoorEditContext doorContext = buildDoorEditContext(doorImpededEditSession.openedDoorObject);
+        if (doorContext == null) {
+            cancelDoorEditingSessions(true);
+            return;
+        }
+        List<Point> cells = new ArrayList<Point>(doorImpededEditSession.cells.size());
+        for (Point point : doorImpededEditSession.cells) {
+            cells.add(new Point(point));
+        }
+        if (doorImpededEditSession.closedDoorState) {
+            doorContext.sharedData.setClosedImpededCells(cells);
+        } else {
+            doorContext.sharedData.setOpenImpededCells(cells);
+        }
+        applyDoorData(doorContext);
+        doorImpededEditSession = null;
+        recordHistoryState();
+        repaint();
+    }
+
+    private void cancelDoorEditingSessions(boolean repaintPanel) {
+        doorPolygonPlacementSession = null;
+        doorImpededEditSession = null;
+        doorPointPlacementSession = null;
+        if (repaintPanel) {
+            repaint();
+        }
+    }
+
     private void clearObjectMoveSelection() {
         objectToMove = null;
         objectToMoveIdx = -1;
@@ -4246,6 +4927,9 @@ public class J2DArea extends JFrame {
             pastedObject.getEntranceData().setY(y + (pastedObject.getHeight() / 2));
             syncEntranceMarker(pastedObject);
         } else {
+            if (pastedObject.getPastedObjectType().isDoor()) {
+                translateDoorDataForObjectMove(pastedObject, x - pastedObject.getX(), y - pastedObject.getY());
+            }
             pastedObject.setLocation(new Point(x, y));
         }
     }
@@ -4349,6 +5033,7 @@ public class J2DArea extends JFrame {
         painting = false;
         searchMapEditMode = SearchMapEditMode.NONE;
         searchMapSelectionSession = null;
+        cancelDoorEditingSessions(false);
         clearSelectedSearchMapCells();
         syncCursorModeUi();
         repaint();
@@ -4359,6 +5044,7 @@ public class J2DArea extends JFrame {
         if (painting) {
             searchMapEditMode = SearchMapEditMode.NONE;
             searchMapSelectionSession = null;
+            cancelDoorEditingSessions(false);
             clearSelectedSearchMapCells();
         }
         syncCursorModeUi();
@@ -4375,6 +5061,7 @@ public class J2DArea extends JFrame {
         painting = false;
         searchMapEditMode = SearchMapEditMode.PAINTER;
         searchMapSelectionSession = null;
+        cancelDoorEditingSessions(false);
         clearSelectedSearchMapCells();
         setShowSearchMapGridState(true);
         syncCursorModeUi();
@@ -4385,6 +5072,7 @@ public class J2DArea extends JFrame {
         painting = false;
         searchMapEditMode = SearchMapEditMode.ERASER;
         searchMapSelectionSession = null;
+        cancelDoorEditingSessions(false);
         clearSelectedSearchMapCells();
         setShowSearchMapGridState(true);
         syncCursorModeUi();
@@ -4825,6 +5513,7 @@ public class J2DArea extends JFrame {
             searchMapData.resizeForPixels(backgroundWidth, backgroundHeight);
             searchMapSelectionSession = null;
             wallGroupPlacementSession = null;
+            cancelDoorEditingSessions(false);
             refreshEntranceMarkers();
             clearObjectMoveSelection();
             setDrawClosedState(historyState.isDrawClosed());
@@ -4942,6 +5631,36 @@ public class J2DArea extends JFrame {
         return null;
     }
 
+    private PastedObject findDoorAtPoint(int x, int y) {
+        for (int i = pastedObjects.size() - 1; i >= 0; i--) {
+            PastedObject pastedObject = pastedObjects.get(i);
+            if (pastedObject == null || !pastedObject.getPastedObjectType().isOpenDoor()) {
+                continue;
+            }
+            Rectangle rect = getPastedObjectBounds(pastedObject);
+            if (rect.contains(x, y) && isClickablePastedObjectHit(pastedObject, x - rect.x, y - rect.y)) {
+                return pastedObject;
+            }
+        }
+        return null;
+    }
+
+    private PastedObject findEntranceByName(String entranceName) {
+        String normalizedName = trimToEmpty(entranceName);
+        if (normalizedName.isEmpty()) {
+            return null;
+        }
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject == null || pastedObject.getPastedObjectType() != PastedObjectType.ENTRANCE || pastedObject.getEntranceData() == null) {
+                continue;
+            }
+            if (normalizedName.equalsIgnoreCase(trimToEmpty(pastedObject.getEntranceData().getName()))) {
+                return pastedObject;
+            }
+        }
+        return null;
+    }
+
     private PastedObject findPastedObjectAtPoint(int x, int y) {
         for (int i = pastedObjects.size() - 1; i >= 0; i--) {
             PastedObject pastedObject = pastedObjects.get(i);
@@ -4995,6 +5714,269 @@ public class J2DArea extends JFrame {
             }
         }
         return null;
+    }
+
+    private RegionData findRegionByName(String regionName) {
+        String normalizedName = trimToEmpty(regionName);
+        if (normalizedName.isEmpty()) {
+            return null;
+        }
+        for (RegionData regionData : regions) {
+            if (normalizedName.equalsIgnoreCase(trimToEmpty(regionData.getName()))) {
+                return regionData;
+            }
+        }
+        return null;
+    }
+
+    private DoorEditContext buildDoorEditContext(PastedObject doorObject) {
+        if (doorObject == null || !doorObject.getPastedObjectType().isDoor()) {
+            return null;
+        }
+
+        PastedObject openDoorObject = doorObject.getPastedObjectType().isOpenDoor() ? doorObject : findDoorPair(doorObject, true);
+        PastedObject closedDoorObject = doorObject.getPastedObjectType().isClosedDoor() ? doorObject : findDoorPair(doorObject, false);
+        DoorData sharedData = doorObject.getDoorData();
+        if ((sharedData == null || isDoorDataEmpty(sharedData)) && openDoorObject != null && openDoorObject != doorObject) {
+            sharedData = openDoorObject.getDoorData();
+        }
+        if ((sharedData == null || isDoorDataEmpty(sharedData)) && closedDoorObject != null && closedDoorObject != doorObject) {
+            sharedData = closedDoorObject.getDoorData();
+        }
+        if (sharedData == null) {
+            sharedData = new DoorData();
+        } else {
+            sharedData = sharedData.copy();
+        }
+
+        Rectangle openFallbackBounds = objectBounds(openDoorObject != null ? openDoorObject : doorObject);
+        Rectangle closedFallbackBounds = objectBounds(closedDoorObject != null ? closedDoorObject : doorObject);
+        Rectangle anchorBounds = openFallbackBounds.union(closedFallbackBounds);
+        Point anchorPoint = new Point(anchorBounds.x + (anchorBounds.width / 2), anchorBounds.y + (anchorBounds.height / 2));
+        if (sharedData.getCursorIndex() <= 0) {
+            sharedData.setCursorIndex(DoorExportSupport.DEFAULT_CURSOR_INDEX);
+        }
+        if (sharedData.getLaunchPoint().x == 0 && sharedData.getLaunchPoint().y == 0) {
+            sharedData.setLaunchPoint(anchorPoint);
+        }
+        if (sharedData.getOpenLocationFront().x == 0 && sharedData.getOpenLocationFront().y == 0) {
+            sharedData.setOpenLocationFront(anchorPoint);
+        }
+        if (sharedData.getOpenLocationBack().x == 0 && sharedData.getOpenLocationBack().y == 0) {
+            sharedData.setOpenLocationBack(anchorPoint);
+        }
+        return new DoorEditContext(doorObject, openDoorObject, closedDoorObject, sharedData);
+    }
+
+    private void applyDoorData(DoorEditContext doorContext) {
+        if (doorContext == null) {
+            return;
+        }
+        DoorData sharedCopy = doorContext.sharedData.copy();
+        if (doorContext.openDoorObject != null) {
+            doorContext.openDoorObject.setDoorData(sharedCopy.copy());
+        }
+        if (doorContext.closedDoorObject != null) {
+            doorContext.closedDoorObject.setDoorData(sharedCopy.copy());
+        }
+        if (doorContext.openDoorObject == null && doorContext.closedDoorObject == null && doorContext.primaryDoorObject != null) {
+            doorContext.primaryDoorObject.setDoorData(sharedCopy.copy());
+        }
+    }
+
+    private void translateDoorDataForObjectMove(PastedObject doorObject, int dx, int dy) {
+        if (doorObject == null || (dx == 0 && dy == 0) || !doorObject.getPastedObjectType().isDoor()) {
+            return;
+        }
+        PastedObject openDoorObject = doorObject.getPastedObjectType().isOpenDoor() ? doorObject : findDoorPair(doorObject, true);
+        if (openDoorObject != null && openDoorObject != doorObject) {
+            return;
+        }
+        DoorEditContext doorContext = buildDoorEditContext(doorObject);
+        if (doorContext == null) {
+            return;
+        }
+        translateDoorData(doorContext.sharedData, dx, dy);
+        applyDoorData(doorContext);
+    }
+
+    private void translateDoorData(DoorData doorData, int dx, int dy) {
+        if (doorData == null || (dx == 0 && dy == 0)) {
+            return;
+        }
+        doorData.setOpenPolygon(translatePolygon(doorData.getOpenPolygon(), dx, dy));
+        doorData.setClosedPolygon(translatePolygon(doorData.getClosedPolygon(), dx, dy));
+        doorData.setOpenImpededCells(translateSearchMapCells(doorData.getOpenImpededCells(), dx, dy));
+        doorData.setClosedImpededCells(translateSearchMapCells(doorData.getClosedImpededCells(), dx, dy));
+        doorData.setLaunchPoint(translatePoint(doorData.getLaunchPoint(), dx, dy));
+        doorData.setOpenLocationFront(translatePoint(doorData.getOpenLocationFront(), dx, dy));
+        doorData.setOpenLocationBack(translatePoint(doorData.getOpenLocationBack(), dx, dy));
+    }
+
+    private PastedObject findDoorPair(PastedObject doorObject, boolean openDoor) {
+        if (doorObject == null || trimToEmpty(doorObject.getCompositeGroupId()).isEmpty()) {
+            return null;
+        }
+        for (PastedObject candidate : pastedObjects) {
+            if (candidate == null || candidate == doorObject || !doorObject.getCompositeGroupId().equals(candidate.getCompositeGroupId())) {
+                continue;
+            }
+            if (openDoor && candidate.getPastedObjectType().isOpenDoor()) {
+                return candidate;
+            }
+            if (!openDoor && candidate.getPastedObjectType().isClosedDoor()) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private boolean isDoorDataEmpty(DoorData doorData) {
+        return doorData == null
+            || (doorData.getOpenPolygon().npoints == 0
+                && doorData.getClosedPolygon().npoints == 0
+                && doorData.getOpenImpededCells().isEmpty()
+                && doorData.getClosedImpededCells().isEmpty()
+                && doorData.getFlags() == 0
+                && trimToEmpty(doorData.getRegionLinkName()).isEmpty());
+    }
+
+    private Map<String, EntranceData> collectEntrancesByName() {
+        Map<String, EntranceData> entrancesByName = new LinkedHashMap<String, EntranceData>();
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject == null || pastedObject.getPastedObjectType() != PastedObjectType.ENTRANCE || pastedObject.getEntranceData() == null) {
+                continue;
+            }
+            String entranceName = trimToEmpty(pastedObject.getEntranceData().getName());
+            if (!entranceName.isEmpty()) {
+                entrancesByName.put(entranceName.toUpperCase(), pastedObject.getEntranceData());
+            }
+        }
+        return entrancesByName;
+    }
+
+    private String buildSuggestedDoorEntranceName(DoorEditContext doorContext) {
+        if (doorContext == null) {
+            return "Entrance" + (countEntrances() + 1);
+        }
+        String linkedRegionName = trimToEmpty(doorContext.sharedData.getRegionLinkName());
+        if (!linkedRegionName.isEmpty()) {
+            return linkedRegionName;
+        }
+        return "Door" + String.format("%02d", countDoorObjects()) + "_ENTRANCE";
+    }
+
+    private int countDoorObjects() {
+        int count = 0;
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject != null && pastedObject.getPastedObjectType().isDoor()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private void offerToLinkDoorToRegion(RegionData regionData) {
+        PastedObject nearbyDoor = findBestDoorForRegion(regionData != null ? regionData.getBounds() : null);
+        if (nearbyDoor == null || regionData == null) {
+            return;
+        }
+        String regionName = trimToEmpty(regionData.getName());
+        int answer = JOptionPane.showConfirmDialog(
+            this,
+            "Link travel region '" + (regionName.isEmpty() ? "<unnamed>" : regionName) + "' to the nearby door?",
+            "Link Door",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE
+        );
+        if (answer == JOptionPane.YES_OPTION) {
+            linkDoorToRegion(nearbyDoor, regionData);
+        }
+    }
+
+    private void linkDoorToRegion(PastedObject doorObject, RegionData regionData) {
+        DoorEditContext doorContext = buildDoorEditContext(doorObject);
+        if (doorContext == null || regionData == null) {
+            return;
+        }
+        Rectangle openBounds = resolveDoorBounds(
+            doorContext.openDoorObject,
+            doorContext.sharedData.getOpenPolygon(),
+            doorContext.closedDoorObject != null ? objectBounds(doorContext.closedDoorObject) : null
+        );
+        Rectangle closedBounds = resolveDoorBounds(
+            doorContext.closedDoorObject,
+            doorContext.sharedData.getClosedPolygon(),
+            doorContext.openDoorObject != null ? objectBounds(doorContext.openDoorObject) : null
+        );
+        DoorExportSupport.DoorAutoLink autoLink = DoorExportSupport.autoLink(
+            openBounds,
+            closedBounds,
+            Arrays.asList(regionData),
+            collectEntrancesByName()
+        );
+        doorContext.sharedData.setRegionLinkName(trimToEmpty(regionData.getName()));
+        doorContext.sharedData.setFlags(doorContext.sharedData.getFlags() | DoorExportSupport.LINKED_FLAG);
+        if (!trimToEmpty(autoLink.getRegionName()).isEmpty()) {
+            doorContext.sharedData.setOpenLocationFront(autoLink.getOpenLocationFront());
+            doorContext.sharedData.setOpenLocationBack(autoLink.getOpenLocationBack());
+            doorContext.sharedData.setLaunchPoint(autoLink.getLaunchPoint());
+        } else {
+            Rectangle regionBounds = regionData.getBounds() != null ? regionData.getBounds().getBounds() : new Rectangle();
+            Point center = new Point(regionBounds.x + (regionBounds.width / 2), regionBounds.y + (regionBounds.height / 2));
+            doorContext.sharedData.setOpenLocationFront(center);
+            doorContext.sharedData.setOpenLocationBack(center);
+            doorContext.sharedData.setLaunchPoint(center);
+        }
+        applyDoorData(doorContext);
+    }
+
+    private PastedObject findBestDoorForRegion(Polygon regionPolygon) {
+        if (regionPolygon == null || regionPolygon.npoints < 3) {
+            return null;
+        }
+        Rectangle regionBounds = regionPolygon.getBounds();
+        PastedObject bestDoor = null;
+        int bestArea = Integer.MAX_VALUE;
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject == null || !pastedObject.getPastedObjectType().isDoor()) {
+                continue;
+            }
+            DoorEditContext doorContext = buildDoorEditContext(pastedObject);
+            if (doorContext == null) {
+                continue;
+            }
+            Rectangle openBounds = resolveDoorBounds(
+                doorContext.openDoorObject,
+                doorContext.sharedData.getOpenPolygon(),
+                doorContext.closedDoorObject != null ? objectBounds(doorContext.closedDoorObject) : null
+            );
+            Rectangle closedBounds = resolveDoorBounds(
+                doorContext.closedDoorObject,
+                doorContext.sharedData.getClosedPolygon(),
+                doorContext.openDoorObject != null ? objectBounds(doorContext.openDoorObject) : null
+            );
+            Rectangle unionBounds = openBounds.union(closedBounds);
+            if (!unionBounds.contains(regionBounds)) {
+                continue;
+            }
+            boolean allVerticesInside = true;
+            for (int i = 0; i < regionPolygon.npoints; i++) {
+                if (!unionBounds.contains(regionPolygon.xpoints[i], regionPolygon.ypoints[i])) {
+                    allVerticesInside = false;
+                    break;
+                }
+            }
+            if (!allVerticesInside) {
+                continue;
+            }
+            int area = Math.max(1, unionBounds.width) * Math.max(1, unionBounds.height);
+            if (bestDoor == null || area < bestArea) {
+                bestDoor = pastedObject;
+                bestArea = area;
+            }
+        }
+        return bestDoor;
     }
 
     private WallGroupData findWallGroupAtPoint(Point point) {
@@ -5262,6 +6244,34 @@ public class J2DArea extends JFrame {
         return new Polygon(xpoints, ypoints, source.npoints);
     }
 
+    private Polygon translatePolygon(Polygon source, int dx, int dy) {
+        Polygon translated = clonePolygon(source);
+        translated.translate(dx, dy);
+        return translated;
+    }
+
+    private Point translatePoint(Point source, int dx, int dy) {
+        Point point = source != null ? new Point(source) : new Point();
+        point.translate(dx, dy);
+        return point;
+    }
+
+    private List<Point> translateSearchMapCells(List<Point> cells, int dx, int dy) {
+        List<Point> translated = new ArrayList<Point>();
+        if (cells == null) {
+            return translated;
+        }
+        int cellDx = (int) Math.round(dx / (double) SearchMapData.CELL_WIDTH);
+        int cellDy = (int) Math.round(dy / (double) SearchMapData.CELL_HEIGHT);
+        for (Point cell : cells) {
+            if (cell == null) {
+                continue;
+            }
+            translated.add(new Point(cell.x + cellDx, cell.y + cellDy));
+        }
+        return translated;
+    }
+
     private static final class HistoryState {
         private ExportableArea area;
         private boolean drawClosed;
@@ -5304,14 +6314,16 @@ public class J2DArea extends JFrame {
 
     private static final class TransitionPlacementSession {
         private final String entranceName;
+        private final PastedObject linkedDoorObject;
         private int entranceX;
         private int entranceY;
         private int orientation;
         private boolean hasPoint;
         private Polygon localPolygon;
 
-        private TransitionPlacementSession(String entranceName) {
+        private TransitionPlacementSession(String entranceName, PastedObject linkedDoorObject) {
             this.entranceName = entranceName != null ? entranceName.trim() : "";
+            this.linkedDoorObject = linkedDoorObject;
             this.orientation = 0;
             this.hasPoint = false;
             this.localPolygon = new Polygon();
@@ -5333,10 +6345,76 @@ public class J2DArea extends JFrame {
         private Polygon polygon = new Polygon();
     }
 
+    private static final class DoorPolygonPlacementSession {
+        private final PastedObject openedDoorObject;
+        private final boolean closedDoorState;
+        private Polygon polygon;
+
+        private DoorPolygonPlacementSession(PastedObject openedDoorObject, boolean closedDoorState, Polygon polygon) {
+            this.openedDoorObject = openedDoorObject;
+            this.closedDoorState = closedDoorState;
+            this.polygon = polygon != null ? polygon : new Polygon();
+        }
+    }
+
+    private static final class DoorImpededEditSession {
+        private final PastedObject openedDoorObject;
+        private final boolean closedDoorState;
+        private final Polygon polygon;
+        private final Set<Point> cells = new LinkedHashSet<Point>();
+        private Boolean dragPaintValue;
+
+        private DoorImpededEditSession(PastedObject openedDoorObject, boolean closedDoorState, Polygon polygon, List<Point> initialCells) {
+            this.openedDoorObject = openedDoorObject;
+            this.closedDoorState = closedDoorState;
+            this.polygon = polygon != null ? polygon : new Polygon();
+            if (initialCells != null) {
+                for (Point point : initialCells) {
+                    if (point != null) {
+                        cells.add(new Point(point));
+                    }
+                }
+            }
+        }
+    }
+
+    private static final class DoorPointPlacementSession {
+        private final PastedObject openedDoorObject;
+        private final DoorPointType pointType;
+        private final String title;
+
+        private DoorPointPlacementSession(PastedObject openedDoorObject, DoorPointType pointType, String title) {
+            this.openedDoorObject = openedDoorObject;
+            this.pointType = pointType;
+            this.title = title != null ? title : "Set Point";
+        }
+    }
+
     private static enum SearchMapEditMode {
         NONE,
         PAINTER,
         ERASER
+    }
+
+    private static enum DoorPointType {
+        LAUNCH_POINT,
+        OPEN_LOCATION_FRONT,
+        OPEN_LOCATION_BACK
+    }
+
+    private static final class DoorEditContext {
+        private final PastedObject primaryDoorObject;
+        private final PastedObject openDoorObject;
+        private final PastedObject closedDoorObject;
+        private final DoorData sharedData;
+
+        private DoorEditContext(PastedObject primaryDoorObject, PastedObject openDoorObject,
+                PastedObject closedDoorObject, DoorData sharedData) {
+            this.primaryDoorObject = primaryDoorObject;
+            this.openDoorObject = openDoorObject;
+            this.closedDoorObject = closedDoorObject;
+            this.sharedData = sharedData;
+        }
     }
 
     public static void main(String[] args) {

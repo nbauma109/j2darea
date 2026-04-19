@@ -19,6 +19,7 @@ public class PastedObject implements Externalizable {
     private int[][] transformed;
     private PastedObjectType pastedObjectType;
     private EntranceData entranceData; // Only used when pastedObjectType == ENTRANCE
+    private DoorData doorData; // Only used when pastedObjectType is a door
     private String compositeGroupId;
 
     public PastedObject() {
@@ -33,6 +34,9 @@ public class PastedObject implements Externalizable {
         this.pastedObjectType = pastedObjectType;
         if (pastedObjectType.isEntrance()) {
             this.entranceData = new EntranceData("", location.x, location.y);
+        }
+        if (pastedObjectType.isDoor()) {
+            this.doorData = new DoorData();
         }
         initBuffers();
     }
@@ -54,6 +58,12 @@ public class PastedObject implements Externalizable {
             out.writeBoolean(false);
         }
         out.writeUTF(compositeGroupId != null ? compositeGroupId : "");
+        if (pastedObjectType.isDoor() && doorData != null) {
+            out.writeBoolean(true);
+            doorData.writeExternal(out);
+        } else {
+            out.writeBoolean(false);
+        }
     }
 
     @Override
@@ -76,6 +86,17 @@ public class PastedObject implements Externalizable {
             setCompositeGroupId(in.readUTF());
         } catch (EOFException ex) {
             compositeGroupId = null;
+        }
+        try {
+            boolean hasDoorData = in.readBoolean();
+            if (hasDoorData) {
+                doorData = new DoorData();
+                doorData.readExternal(in);
+            } else if (pastedObjectType.isDoor()) {
+                doorData = new DoorData();
+            }
+        } catch (EOFException ex) {
+            doorData = pastedObjectType.isDoor() ? new DoorData() : null;
         }
         initBuffers();
     }
@@ -249,6 +270,9 @@ public class PastedObject implements Externalizable {
             copied.entranceData.setDestinationPreviewImagePath(entranceData.getDestinationPreviewImagePath());
             copied.entranceData.setDestinationReturnPolygon(entranceData.getDestinationReturnPolygon());
         }
+        if (doorData != null) {
+            copied.doorData = doorData.copy();
+        }
         copied.compositeGroupId = null;
         return copied;
     }
@@ -259,6 +283,17 @@ public class PastedObject implements Externalizable {
 
     public void setEntranceData(EntranceData entranceData) {
         this.entranceData = entranceData;
+    }
+
+    public DoorData getDoorData() {
+        if (doorData == null && pastedObjectType != null && pastedObjectType.isDoor()) {
+            doorData = new DoorData();
+        }
+        return doorData;
+    }
+
+    public void setDoorData(DoorData doorData) {
+        this.doorData = doorData != null ? doorData : (pastedObjectType != null && pastedObjectType.isDoor() ? new DoorData() : null);
     }
 
     public String getCompositeGroupId() {
