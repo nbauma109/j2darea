@@ -27,6 +27,8 @@ Implemented now:
 - Wallgroup authoring in both the main area editor and the composite object editor, including saved wallgroup polygons and WED export
 - Composite object authoring in a dedicated transparent-background editor, plus grouped composite-object paste into the build area with wallgroups preserved
 - Search-map authoring on the build canvas, including automatic tile typing from fill/brush textures, polygon-based non-walkable marking, and a grid overlay toggle
+- Game ARE backgrounds can now be loaded into the extraction area with a selectable closed-door default, and extraction keeps a separate closed-door toggle that reloads the same source ARE in the opposite state
+- Extraction-area rectangle selection can now be sent through a single Nano Banana 2 cleanup-and-extract flow: it opens in a persistent editor window where you can run background removal and red-mask cleanup in either order before exporting the current preview as a transparent-background image
 
 Partially implemented:
 

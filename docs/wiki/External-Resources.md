@@ -20,6 +20,10 @@ This page indexes the outside references that currently matter for the `j2darea`
 
 - [Area creation: an overview](https://www.gibberlings3.net/forums/topic/38344-area-creation-an-overview/)
   - Good modern overview of the area file set and the practical workflow between IETME, DLTCEP, and Near Infinity.
+- [Google AI for Developers: Nano Banana image generation](https://ai.google.dev/gemini-api/docs/nanobanana)
+  - Official reference for the current Nano Banana model lineup and the `gemini-3.1-flash-image-preview` model id used by the extraction-area workflow.
+- [Google AI for Developers: Image generation](https://ai.google.dev/gemini-api/docs/image-generation)
+  - Official reference for Nano Banana image-editing requests on `generateContent`, including image inputs, image outputs, and `responseModalities` configuration.
 - [Baldur's Gate II developer journal, part 4](https://www.ign.com/articles/2000/01/14/developer-journal-baldurs-gate-ii-pt-4)
   - Historical background on original area-production workflow; linked from the Gibberlings3 overview.
 - [IESDP index](https://gibberlings3.github.io/iesdp/)

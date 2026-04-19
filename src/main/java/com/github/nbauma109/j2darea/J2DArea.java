@@ -76,6 +76,7 @@ import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.JViewport;
@@ -104,6 +105,7 @@ public class J2DArea extends JFrame {
     private static final String DOWN = "Down";
     
     private static final String USER_HOME = "user.home";
+    private static final String NANO_BANANA_EXTRACTION_TITLE = "Nano Banana 2 Extraction";
 
     private static final Dimension MIN_SIZE = new Dimension(1200, 800);
     private static final int MAX_HISTORY_ENTRIES = 50;
@@ -140,6 +142,9 @@ public class J2DArea extends JFrame {
     private boolean night;
     private boolean editingBlackParallelogram;
     private boolean editingTextureParallelogram;
+    private transient NanoBananaEditorDialog nanoBananaEditorDialog;
+    private transient String extractionGameAreaResref;
+    private transient boolean extractionGameAreaClosedDoors = true;
     private List<Polygon> parallelograms = new ArrayList<>();
 
     // Separate collections for polygon-based area features (not PastedObjects)
@@ -149,7 +154,7 @@ public class J2DArea extends JFrame {
     private AreaAttributes areaAttributes = new AreaAttributes();
     private SearchMapData searchMapData = new SearchMapData(backgroundWidth, backgroundHeight);
 
-    private boolean editingPolygon;
+    private ExtractionCursorMode extractionCursorMode = ExtractionCursorMode.MAP_DRAG;
     private boolean showSearchMapGrid;
 
     private boolean painting;
@@ -169,14 +174,17 @@ public class J2DArea extends JFrame {
     private transient JMenuItem openBrushTextureMenuItem;
     private transient JMenuItem tileSeamlessMenuItem;
     private transient JMenuItem saveDoorsMenuItem;
+    private transient JMenuItem nanoBananaExtractionMenuItem;
     private transient JMenuItem paint3dMenuItem;
     private transient JMenuItem subtractBackgroundMenuItem;
     private transient JRadioButtonMenuItem cursorSelectMenuItem;
     private transient JRadioButtonMenuItem brushModeMenuItem;
     private transient JRadioButtonMenuItem searchMapPainterModeMenuItem;
     private transient JRadioButtonMenuItem searchMapEraserModeMenuItem;
+    private transient JRadioButtonMenuItem extractionMapDragModeMenuItem;
     private transient JRadioButtonMenuItem polygonModeMenuItem;
     private transient JRadioButtonMenuItem rectangleModeMenuItem;
+    private transient JCheckBoxMenuItem extractionClosedDoorMenuItem;
     private transient JCheckBoxMenuItem searchMapGridMenuItem;
     private transient LocalTransitionPlacementDialog localTransitionPlacementDialog;
     private transient JCheckBoxMenuItem drawClosedDoorMenuItem;
@@ -188,6 +196,7 @@ public class J2DArea extends JFrame {
     private transient JButton openBrushTextureToolbarButton;
     private transient JButton exportDoorTilesToolbarButton;
     private transient JButton tileSeamlessToolbarButton;
+    private transient JButton nanoBananaExtractionToolbarButton;
     private transient JButton paint3dToolbarButton;
     private transient JButton subtractBackgroundToolbarButton;
     private transient JButton regionsToolbarButton;
@@ -205,8 +214,10 @@ public class J2DArea extends JFrame {
     private transient JToggleButton brushToolbarButton;
     private transient JToggleButton searchMapPainterToolbarButton;
     private transient JToggleButton searchMapEraserToolbarButton;
+    private transient JToggleButton extractionMapDragToolbarButton;
     private transient JToggleButton polygonToolbarButton;
     private transient JToggleButton rectangleToolbarButton;
+    private transient JToggleButton extractionClosedDoorToggleButton;
     private transient JToggleButton searchMapGridToggleButton;
     private transient JToggleButton drawClosedDoorToggleButton;
     private transient JToggleButton nightToggleButton;
@@ -300,14 +311,14 @@ public class J2DArea extends JFrame {
                 g2.scale(extractZoom, extractZoom);
                 if (extractionBackgroundImage != null) {
                     g2.drawImage(extractionBackgroundImage, 0, 0, null);
-                    if (!editingPolygon) {
+                    if (isExtractionRectangleMode()) {
                         g2.setColor(Color.LIGHT_GRAY);
                         g2.drawLine(mousePosition.x, 0, mousePosition.x, extractionBackgroundImage.getHeight());
                         g2.drawLine(0, mousePosition.y, extractionBackgroundImage.getWidth(), mousePosition.y);
                     }
                 }
                 paintExtractionPolygonDraft(g2);
-                if (isValidTileSetup()) {
+                if ((extractRectangleSelectionInProgress || isValidTileSetup()) && isExtractionRectangleMode()) {
                     g2.setColor(Color.GREEN);
                     tile.draw(g2);
                 }
@@ -338,7 +349,14 @@ public class J2DArea extends JFrame {
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                if (extractPanning && extractScrollPane != null && extractPanStartMouseScreen != null && extractPanStartView != null) {
+                if (isExtractionRectangleMode() && extractRectangleSelectionInProgress) {
+                    MouseEvent scaledEvent = scaleMouseEvent(e, extractPanel, extractZoom);
+                    tile.moveEndPoint(scaledEvent);
+                    extractPanel.repaint();
+                    return;
+                }
+                if (isExtractionMapDragMode() && extractPanning && extractScrollPane != null
+                        && extractPanStartMouseScreen != null && extractPanStartView != null) {
                     int deltaX = e.getXOnScreen() - extractPanStartMouseScreen.x;
                     int deltaY = e.getYOnScreen() - extractPanStartMouseScreen.y;
                     if (deltaX != 0 || deltaY != 0) {
@@ -358,10 +376,6 @@ public class J2DArea extends JFrame {
             public void mouseMoved(MouseEvent e) {
                 Point areaPoint = toAreaPoint(e, extractZoom);
                 mousePosition.move(areaPoint.x, areaPoint.y);
-                if (!editingPolygon && extractRectangleSelectionInProgress) {
-                    MouseEvent scaledEvent = scaleMouseEvent(e, extractPanel, extractZoom);
-                    tile.moveEndPoint(scaledEvent);
-                }
                 extractPanel.repaint();
             }
         });
@@ -371,15 +385,31 @@ public class J2DArea extends JFrame {
             @Override
             public void mousePressed(MouseEvent e) {
                 if (SwingUtilities.isLeftMouseButton(e)) {
-                    extractPanning = true;
-                    extractPanDragged = false;
-                    extractPanStartMouseScreen = new Point(e.getXOnScreen(), e.getYOnScreen());
-                    extractPanStartView = extractScrollPane != null ? extractScrollPane.getViewport().getViewPosition() : new Point();
+                    if (isExtractionRectangleMode()) {
+                        MouseEvent scaledEvent = scaleMouseEvent(e, extractPanel, extractZoom);
+                        tile.moveStartPoint(scaledEvent);
+                        tile.moveEndPoint(scaledEvent);
+                        extractRectangleSelectionInProgress = true;
+                        extractPanel.repaint();
+                    } else if (isExtractionMapDragMode()) {
+                        extractPanning = true;
+                        extractPanDragged = false;
+                        extractPanStartMouseScreen = new Point(e.getXOnScreen(), e.getYOnScreen());
+                        extractPanStartView = extractScrollPane != null ? extractScrollPane.getViewport().getViewPosition() : new Point();
+                    }
                 }
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e) && isExtractionRectangleMode() && extractRectangleSelectionInProgress) {
+                    MouseEvent scaledEvent = scaleMouseEvent(e, extractPanel, extractZoom);
+                    tile.moveEndPoint(scaledEvent);
+                    extractRectangleSelectionInProgress = false;
+                    updateTexturePreviewFromTileSelection();
+                    extractPanel.repaint();
+                    return;
+                }
                 boolean dragged = extractPanDragged;
                 if (extractPanning) {
                     extractPanning = false;
@@ -390,7 +420,7 @@ public class J2DArea extends JFrame {
                     }
                     extractPanDragged = false;
                 }
-                if (!dragged) {
+                if (!dragged && isExtractionPolygonMode()) {
                     handleExtractPanelClick(e, extractPanel);
                 }
             }
@@ -1268,6 +1298,23 @@ public class J2DArea extends JFrame {
         tileSeamlessMenuItem = new JMenuItem(tileSeamlessButton.getAction());
         tileSeamlessMenuItem.setText("Export Seamless Tile...");
         toolsMenu.add(tileSeamlessMenuItem);
+
+        JButton nanoBananaExtractionButton = new JButton(new AbstractAction(null, loadOptionalIcon("/icons/gemini.png", null)) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                cleanupAndExtractSelectionWithNanoBanana();
+            }
+        });
+        nanoBananaExtractionButton.setMaximumSize(BUTTON_SIZE);
+        nanoBananaExtractionButton.setToolTipText("Edit and extract the current selection with Nano Banana 2");
+        configureToolbarButton(nanoBananaExtractionButton);
+        nanoBananaExtractionToolbarButton = nanoBananaExtractionButton;
+        nanoBananaExtractionMenuItem = new JMenuItem(nanoBananaExtractionButton.getAction());
+        nanoBananaExtractionMenuItem.setText("Edit and Extract Selection with Nano Banana 2...");
+        toolsMenu.add(nanoBananaExtractionMenuItem);
         
         JButton saveDoorsButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/save-doors.png"))) {
             
@@ -1593,11 +1640,27 @@ public class J2DArea extends JFrame {
         });
         configureToolbarButton(searchMapGridToggleButton);
         JToggleButton polygonButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/polygon.png")));
+        JToggleButton extractionMapDragButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/cursor.png")));
+        extractionMapDragButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setExtractionCursorMode(ExtractionCursorMode.MAP_DRAG);
+                syncCursorModeUi();
+                if (tabPane.getSelectedComponent() == buildScrollPane) {
+                    tabPane.setSelectedComponent(extractScrollPane);
+                }
+            }
+        });
+        extractionMapDragButton.setMaximumSize(BUTTON_SIZE);
+        extractionMapDragButton.setToolTipText("Move map");
+        configureToolbarButton(extractionMapDragButton);
+        extractionMapDragToolbarButton = extractionMapDragButton;
         polygonButton.addActionListener(new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                setExtractionPolygonMode(true);
+                setExtractionCursorMode(ExtractionCursorMode.POLYGON);
                 syncCursorModeUi();
                 if (tabPane.getSelectedComponent() == buildScrollPane) {
                     tabPane.setSelectedComponent(extractScrollPane);
@@ -1707,14 +1770,26 @@ public class J2DArea extends JFrame {
         configureToolbarButton(cursorButton);
         cursorToolbarButton = cursorButton;
         ButtonGroup extractionCursorModeGroup = new ButtonGroup();
-        polygonModeMenuItem = new JRadioButtonMenuItem("Polygon Selection", editingPolygon);
+        extractionMapDragModeMenuItem = new JRadioButtonMenuItem("Map Drag", extractionCursorMode == ExtractionCursorMode.MAP_DRAG);
+        extractionMapDragModeMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/cursor.png")));
+        extractionMapDragModeMenuItem.setToolTipText("Move map");
+        extractionMapDragModeMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setExtractionCursorMode(ExtractionCursorMode.MAP_DRAG);
+                syncCursorModeUi();
+            }
+        });
+        extractionCursorModeGroup.add(extractionMapDragModeMenuItem);
+        cursorModeMenu.add(extractionMapDragModeMenuItem);
+        polygonModeMenuItem = new JRadioButtonMenuItem("Polygon Selection", extractionCursorMode == ExtractionCursorMode.POLYGON);
         polygonModeMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/polygon.png")));
         polygonModeMenuItem.setToolTipText("Polygon selection");
         polygonModeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                setExtractionPolygonMode(true);
-                if (editingPolygon && tabPane.getSelectedComponent() == buildScrollPane) {
+                setExtractionCursorMode(ExtractionCursorMode.POLYGON);
+                if (isExtractionPolygonMode() && tabPane.getSelectedComponent() == buildScrollPane) {
                     tabPane.setSelectedComponent(extractScrollPane);
                 }
                 syncCursorModeUi();
@@ -1722,13 +1797,13 @@ public class J2DArea extends JFrame {
         });
         extractionCursorModeGroup.add(polygonModeMenuItem);
         cursorModeMenu.add(polygonModeMenuItem);
-        rectangleModeMenuItem = new JRadioButtonMenuItem("Rectangle Selection", !editingPolygon);
+        rectangleModeMenuItem = new JRadioButtonMenuItem("Rectangle Selection", extractionCursorMode == ExtractionCursorMode.RECTANGLE);
         rectangleModeMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/rectangle.png")));
         rectangleModeMenuItem.setToolTipText("Rectangle selection");
         rectangleModeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                setExtractionPolygonMode(false);
+                setExtractionCursorMode(ExtractionCursorMode.RECTANGLE);
                 syncCursorModeUi();
             }
         });
@@ -1739,7 +1814,7 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                setExtractionPolygonMode(false);
+                setExtractionCursorMode(ExtractionCursorMode.RECTANGLE);
                 syncCursorModeUi();
                 if (tabPane.getSelectedComponent() == buildScrollPane) {
                     tabPane.setSelectedComponent(extractScrollPane);
@@ -1750,6 +1825,29 @@ public class J2DArea extends JFrame {
         rectangleButton.setToolTipText("Rectangle selection");
         configureToolbarButton(rectangleButton);
         rectangleToolbarButton = rectangleButton;
+        extractionClosedDoorMenuItem = new JCheckBoxMenuItem("Closed Door", extractionGameAreaClosedDoors);
+        extractionClosedDoorMenuItem.setIcon(new ImageIcon(getClass().getResource("/icons/draw_closed.png")));
+        extractionClosedDoorMenuItem.setToolTipText("Reload the current game ARE background with closed or opened doors");
+        extractionClosedDoorMenuItem.setEnabled(false);
+        extractionClosedDoorMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                reloadExtractionGameAreaWithClosedDoors(extractionClosedDoorMenuItem.isSelected());
+            }
+        });
+        viewMenu.add(extractionClosedDoorMenuItem);
+        extractionClosedDoorToggleButton = new JToggleButton(new ImageIcon(getClass().getResource("/icons/draw_closed.png")));
+        extractionClosedDoorToggleButton.setSelected(extractionGameAreaClosedDoors);
+        extractionClosedDoorToggleButton.setToolTipText("Reload the current game ARE background with closed or opened doors");
+        extractionClosedDoorToggleButton.setMaximumSize(BUTTON_SIZE);
+        extractionClosedDoorToggleButton.setEnabled(false);
+        extractionClosedDoorToggleButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                reloadExtractionGameAreaWithClosedDoors(extractionClosedDoorToggleButton.isSelected());
+            }
+        });
+        configureToolbarButton(extractionClosedDoorToggleButton);
 
         JButton paint3dButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/paint3d.png"))) {
 
@@ -1826,9 +1924,12 @@ public class J2DArea extends JFrame {
         menubar.add(brushToolbarButton);
         menubar.add(searchMapPainterToolbarButton);
         menubar.add(searchMapEraserToolbarButton);
+        menubar.add(extractionMapDragToolbarButton);
         menubar.add(polygonToolbarButton);
         menubar.add(rectangleToolbarButton);
+        menubar.add(extractionClosedDoorToggleButton);
         menubar.add(tileSeamlessToolbarButton);
+        menubar.add(nanoBananaExtractionToolbarButton);
         menubar.add(paint3dToolbarButton);
         menubar.add(subtractBackgroundToolbarButton);
         menubar.add(searchMapGridToggleButton);
@@ -1906,6 +2007,17 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 removeLastExtractionPolygonVertex();
+            }
+        });
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+            KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "CancelExtractionPolygon");
+        getRootPane().getActionMap().put("CancelExtractionPolygon", new AbstractAction() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                cancelExtractionPolygonSelection();
             }
         });
 
@@ -2331,7 +2443,7 @@ public class J2DArea extends JFrame {
     }
 
     private void removeLastExtractionPolygonVertex() {
-        if (!editingPolygon || polygon.npoints == 0) {
+        if (!isExtractionPolygonMode() || polygon.npoints == 0) {
             return;
         }
 
@@ -2345,8 +2457,59 @@ public class J2DArea extends JFrame {
         }
     }
 
+    private void cancelExtractionPolygonSelection() {
+        if (!isExtractionPolygonMode() || polygon.npoints == 0) {
+            return;
+        }
+        polygon.reset();
+        if (extractPanel != null) {
+            extractPanel.repaint();
+        }
+    }
+
     private boolean isValidTileSetup() {
         return extractionBackgroundImage != null && polygon.npoints == 0 && !tile.isEmpty();
+    }
+
+    private void cleanupAndExtractSelectionWithNanoBanana() {
+        if (!isValidTileSetup()) {
+            showNanoBananaMessage(
+                "Nano Banana 2 extraction requires a rectangle selection in the Extraction Area.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
+
+        String apiKey = UserPreferences.getGoogleAiApiKey();
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            showNanoBananaMessage(
+                "Set a Google AI API key in Settings -> User Preferences before using Nano Banana 2 extraction.",
+                NANO_BANANA_EXTRACTION_TITLE,
+                JOptionPane.INFORMATION_MESSAGE
+            );
+            return;
+        }
+
+        if (nanoBananaEditorDialog != null && nanoBananaEditorDialog.isDisplayable()) {
+            nanoBananaEditorDialog.loadSelection(tile.getSubImage(extractionBackgroundImage));
+            nanoBananaEditorDialog.toFront();
+            nanoBananaEditorDialog.requestFocus();
+            return;
+        }
+        nanoBananaEditorDialog = new NanoBananaEditorDialog(this, tile.getSubImage(extractionBackgroundImage));
+        nanoBananaEditorDialog.setVisible(true);
+    }
+
+    private void showNanoBananaMessage(String message, String title, int messageType) {
+        JTextArea messageArea = new JTextArea(message, 6, 56);
+        messageArea.setEditable(false);
+        messageArea.setLineWrap(true);
+        messageArea.setWrapStyleWord(true);
+        messageArea.setOpaque(false);
+        messageArea.setBorder(null);
+        messageArea.setCaretPosition(0);
+        JOptionPane.showMessageDialog(this, messageArea, title, messageType);
     }
 
     private void updateTexturePreviewFromTileSelection() {
@@ -2373,7 +2536,7 @@ public class J2DArea extends JFrame {
             return;
         }
         Point areaPoint = toAreaPoint(event, extractZoom);
-        if (editingPolygon) {
+        if (isExtractionPolygonMode()) {
             if (polygon.npoints > 0
                     && (SwingUtilities.isRightMouseButton(event)
                             || Point2D.distance(areaPoint.x, areaPoint.y, polygon.xpoints[0], polygon.ypoints[0]) <= 3)) {
@@ -2399,20 +2562,6 @@ public class J2DArea extends JFrame {
             panel.repaint();
             return;
         }
-        if (!SwingUtilities.isLeftMouseButton(event)) {
-            return;
-        }
-        MouseEvent scaledEvent = scaleMouseEvent(event, panel, extractZoom);
-        if (!extractRectangleSelectionInProgress) {
-            tile.moveStartPoint(scaledEvent);
-            tile.moveEndPoint(scaledEvent);
-            extractRectangleSelectionInProgress = true;
-        } else {
-            tile.moveEndPoint(scaledEvent);
-            extractRectangleSelectionInProgress = false;
-            updateTexturePreviewFromTileSelection();
-        }
-        panel.repaint();
     }
 
     private void handleBuildPanelClick(MouseEvent event, JPanel panel) {
@@ -2962,6 +3111,7 @@ public class J2DArea extends JFrame {
 
     private void editUserPreferences() {
         JTextField gamePathField = new JTextField(UserPreferences.getGameInstallPath(), 33);
+        JTextField googleAiApiKeyField = new JTextField(UserPreferences.getGoogleAiApiKey(), 33);
         JTextField storageLocationField = new JTextField(UserPreferences.getStorageLocation(), 33);
         storageLocationField.setEditable(false);
         storageLocationField.setCaretPosition(0);
@@ -3018,6 +3168,15 @@ public class J2DArea extends JFrame {
         gbc.gridx = 0;
         gbc.gridy = 2;
         gbc.weightx = 0;
+        contentPanel.add(new JLabel("Google AI API key:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        contentPanel.add(googleAiApiKeyField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.weightx = 0;
         contentPanel.add(new JLabel("Preferences file:"), gbc);
 
         gbc.gridx = 1;
@@ -3034,6 +3193,7 @@ public class J2DArea extends JFrame {
         if (result == JOptionPane.OK_OPTION) {
             UserPreferences.setGameInstallPath(gamePathField.getText());
             UserPreferences.setZoomFactor(((Number) zoomFactorSpinner.getValue()).doubleValue());
+            UserPreferences.setGoogleAiApiKey(googleAiApiKeyField.getText());
         }
     }
 
@@ -3055,10 +3215,13 @@ public class J2DArea extends JFrame {
                 + "<b>Up</b> / <b>Down</b>: adjust the selected object's vertical placement.<br><br>"
                 + "<b>Extraction Area</b><br><br>"
                 + "<b>Mouse</b><br>"
-                + "<b>Left-drag</b>: move the map.<br>"
-                + "<b>Left-click</b> in Rectangle Selection mode: start the selection, then click again to finish it.<br>"
+                + "<b>Map Drag</b> mode is the default extraction cursor mode.<br>"
+                + "<b>Left-drag</b> in Rectangle Selection mode: create a rectangle selection.<br>"
                 + "<b>Left-click</b> in Polygon Selection mode: add polygon vertices.<br>"
                 + "<b>Right-click</b> or <b>click near the first vertex</b> in Polygon Selection mode: close the polygon.<br>"
+                + "<b>Left-drag</b> in Map Drag mode: move the map.<br>"
+                + "<b>Backspace</b>: remove the last polygon vertex.<br>"
+                + "<b>Esc</b>: cancel the whole polygon selection.<br>"
                 + "<b>Mouse Wheel</b>: zoom."
                 + "</body></html>"
         );
@@ -3603,7 +3766,7 @@ public class J2DArea extends JFrame {
         dialog.setVisible(true);
         recordHistoryState();
         if (dialog.isUsedCurrentSelection()) {
-            setExtractionPolygonMode(false);
+            setExtractionCursorMode(ExtractionCursorMode.RECTANGLE);
         }
         repaint();
     }
@@ -4102,6 +4265,64 @@ public class J2DArea extends JFrame {
         repaint();
     }
 
+    private void syncExtractionClosedDoorUi() {
+        boolean enabled = extractionGameAreaResref != null && !extractionGameAreaResref.trim().isEmpty();
+        if (extractionClosedDoorMenuItem != null) {
+            extractionClosedDoorMenuItem.setEnabled(enabled);
+            if (extractionClosedDoorMenuItem.isSelected() != extractionGameAreaClosedDoors) {
+                extractionClosedDoorMenuItem.setSelected(extractionGameAreaClosedDoors);
+            }
+        }
+        if (extractionClosedDoorToggleButton != null) {
+            extractionClosedDoorToggleButton.setEnabled(enabled);
+            if (extractionClosedDoorToggleButton.isSelected() != extractionGameAreaClosedDoors) {
+                extractionClosedDoorToggleButton.setSelected(extractionGameAreaClosedDoors);
+            }
+        }
+    }
+
+    private void clearExtractionGameAreaSource() {
+        extractionGameAreaResref = null;
+        extractionGameAreaClosedDoors = true;
+        syncExtractionClosedDoorUi();
+    }
+
+    private void setExtractionGameAreaSource(String areaResref, boolean closedDoors) {
+        extractionGameAreaResref = LocalIeIO.normalizeResref(areaResref);
+        extractionGameAreaClosedDoors = closedDoors;
+        syncExtractionClosedDoorUi();
+    }
+
+    private void reloadExtractionGameAreaWithClosedDoors(boolean closedDoors) {
+        if (extractionGameAreaResref == null || extractionGameAreaResref.trim().isEmpty()) {
+            syncExtractionClosedDoorUi();
+            return;
+        }
+        String gameInstallPath = UserPreferences.getGameInstallPath();
+        if (gameInstallPath == null || gameInstallPath.trim().isEmpty()) {
+            syncExtractionClosedDoorUi();
+            JOptionPane.showMessageDialog(this,
+                "Configure the game install path in preferences first.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            BufferedImage loadedImage = GameAreaImageLoader.loadAreaImage(gameInstallPath, extractionGameAreaResref, closedDoors);
+            applyExtractionBackgroundImage(loadedImage);
+            setExtractionGameAreaSource(extractionGameAreaResref, closedDoors);
+            setExtendedState(Frame.MAXIMIZED_BOTH);
+            repaint();
+        } catch (IOException ex) {
+            syncExtractionClosedDoorUi();
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                ex.getMessage() != null ? ex.getMessage() : "Error loading game area background.",
+                ERROR,
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void setNightModeState(boolean night) {
         this.night = night;
         if (nightMenuItem != null && nightMenuItem.isSelected() != night) {
@@ -4236,17 +4457,23 @@ public class J2DArea extends JFrame {
         if (searchMapEraserToolbarButton != null) {
             searchMapEraserToolbarButton.setSelected(searchMapEditMode == SearchMapEditMode.ERASER);
         }
-        if (polygonModeMenuItem != null && polygonModeMenuItem.isSelected() != editingPolygon) {
-            polygonModeMenuItem.setSelected(editingPolygon);
+        if (extractionMapDragModeMenuItem != null && extractionMapDragModeMenuItem.isSelected() != isExtractionMapDragMode()) {
+            extractionMapDragModeMenuItem.setSelected(isExtractionMapDragMode());
         }
-        if (rectangleModeMenuItem != null && rectangleModeMenuItem.isSelected() == editingPolygon) {
-            rectangleModeMenuItem.setSelected(!editingPolygon);
+        if (polygonModeMenuItem != null && polygonModeMenuItem.isSelected() != isExtractionPolygonMode()) {
+            polygonModeMenuItem.setSelected(isExtractionPolygonMode());
+        }
+        if (rectangleModeMenuItem != null && rectangleModeMenuItem.isSelected() != isExtractionRectangleMode()) {
+            rectangleModeMenuItem.setSelected(isExtractionRectangleMode());
+        }
+        if (extractionMapDragToolbarButton != null) {
+            extractionMapDragToolbarButton.setSelected(isExtractionMapDragMode());
         }
         if (polygonToolbarButton != null) {
-            polygonToolbarButton.setSelected(editingPolygon);
+            polygonToolbarButton.setSelected(isExtractionPolygonMode());
         }
         if (rectangleToolbarButton != null) {
-            rectangleToolbarButton.setSelected(!editingPolygon);
+            rectangleToolbarButton.setSelected(isExtractionRectangleMode());
         }
     }
 
@@ -4260,21 +4487,26 @@ public class J2DArea extends JFrame {
         setUiVisible(editMenu, buildTabSelected);
         setUiVisible(insertMenu, buildTabSelected);
         setUiVisible(cursorModeMenu, areaEditingTabSelected);
-        setUiVisible(viewMenu, buildTabSelected);
+        setUiVisible(viewMenu, buildTabSelected || extractionTabSelected);
         setUiVisible(toolsMenu, buildTabSelected || extractionTabSelected);
 
         setUiVisible(fillMenuItem, buildTabSelected);
         setUiVisible(openBrushTextureMenuItem, buildTabSelected);
         setUiVisible(tileSeamlessMenuItem, extractionTabSelected);
         setUiVisible(saveDoorsMenuItem, buildTabSelected);
+        setUiVisible(nanoBananaExtractionMenuItem, extractionTabSelected);
         setUiVisible(paint3dMenuItem, extractionTabSelected);
         setUiVisible(subtractBackgroundMenuItem, extractionTabSelected);
         setUiVisible(cursorSelectMenuItem, buildTabSelected);
         setUiVisible(brushModeMenuItem, buildTabSelected);
         setUiVisible(searchMapPainterModeMenuItem, buildTabSelected);
         setUiVisible(searchMapEraserModeMenuItem, buildTabSelected);
+        setUiVisible(extractionMapDragModeMenuItem, extractionTabSelected);
         setUiVisible(polygonModeMenuItem, extractionTabSelected);
         setUiVisible(rectangleModeMenuItem, extractionTabSelected);
+        setUiVisible(drawClosedDoorMenuItem, buildTabSelected);
+        setUiVisible(nightMenuItem, buildTabSelected);
+        setUiVisible(extractionClosedDoorMenuItem, extractionTabSelected);
         setUiVisible(searchMapGridMenuItem, buildTabSelected);
 
         setUiVisible(openBackgroundToolbarMenuButton, areaEditingTabSelected);
@@ -4283,15 +4515,19 @@ public class J2DArea extends JFrame {
         }
         setUiVisible(exportDoorTilesToolbarButton, buildTabSelected);
         setUiVisible(tileSeamlessToolbarButton, extractionTabSelected);
+        setUiVisible(nanoBananaExtractionToolbarButton, extractionTabSelected);
         setUiVisible(paint3dToolbarButton, extractionTabSelected);
         setUiVisible(subtractBackgroundToolbarButton, extractionTabSelected);
         setUiVisible(cursorToolbarButton, buildTabSelected);
         setUiVisible(brushToolbarButton, buildTabSelected);
         setUiVisible(searchMapPainterToolbarButton, buildTabSelected);
         setUiVisible(searchMapEraserToolbarButton, buildTabSelected);
+        setUiVisible(extractionMapDragToolbarButton, extractionTabSelected);
         setUiVisible(polygonToolbarButton, extractionTabSelected);
         setUiVisible(rectangleToolbarButton, extractionTabSelected);
+        setUiVisible(extractionClosedDoorToggleButton, extractionTabSelected);
         setUiVisible(searchMapGridToggleButton, buildTabSelected);
+        syncExtractionClosedDoorUi();
 
         if (menubar != null) {
             menubar.revalidate();
@@ -4303,6 +4539,12 @@ public class J2DArea extends JFrame {
         if (component != null) {
             component.setVisible(visible);
         }
+    }
+
+    private static enum ExtractionCursorMode {
+        MAP_DRAG,
+        POLYGON,
+        RECTANGLE
     }
 
     private void configureToolbarButton(AbstractButton button) {
@@ -4321,6 +4563,9 @@ public class J2DArea extends JFrame {
         java.net.URL preferred = getClass().getResource(preferredResourcePath);
         if (preferred != null) {
             return new ImageIcon(preferred);
+        }
+        if (fallbackResourcePath == null) {
+            return null;
         }
         java.net.URL fallback = getClass().getResource(fallbackResourcePath);
         return fallback != null ? new ImageIcon(fallback) : null;
@@ -4377,14 +4622,26 @@ public class J2DArea extends JFrame {
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
     }
 
-    private void setExtractionPolygonMode(boolean editingPolygon) {
-        this.editingPolygon = editingPolygon;
-        if (editingPolygon) {
-            tile.reset();
-            extractRectangleSelectionInProgress = false;
-        } else {
+    private void setExtractionCursorMode(ExtractionCursorMode extractionCursorMode) {
+        this.extractionCursorMode = extractionCursorMode != null ? extractionCursorMode : ExtractionCursorMode.MAP_DRAG;
+        if (isExtractionRectangleMode()) {
             polygon.reset();
+            return;
         }
+        tile.reset();
+        extractRectangleSelectionInProgress = false;
+    }
+
+    private boolean isExtractionMapDragMode() {
+        return extractionCursorMode == ExtractionCursorMode.MAP_DRAG;
+    }
+
+    private boolean isExtractionPolygonMode() {
+        return extractionCursorMode == ExtractionCursorMode.POLYGON;
+    }
+
+    private boolean isExtractionRectangleMode() {
+        return extractionCursorMode == ExtractionCursorMode.RECTANGLE;
     }
 
     private void loadBackgroundFromGameArea() {
@@ -4397,7 +4654,10 @@ public class J2DArea extends JFrame {
             return;
         }
 
-        AreaSelectionDialog dialog = new AreaSelectionDialog(this, "Select Game Area Background", collectAvailableAreas(), "");
+        boolean extractionTabSelected = tabPane.getSelectedComponent() == extractScrollPane;
+        AreaSelectionDialog dialog = extractionTabSelected
+            ? new AreaSelectionDialog(this, "Select Game Area Background", collectAvailableAreas(), "", "Closed door", true)
+            : new AreaSelectionDialog(this, "Select Game Area Background", collectAvailableAreas(), "");
         dialog.setVisible(true);
         AreaReference selectedArea = dialog.getSelectedArea();
         if (selectedArea == null) {
@@ -4405,8 +4665,17 @@ public class J2DArea extends JFrame {
         }
 
         try {
-            BufferedImage loadedImage = GameAreaImageLoader.loadAreaImage(gameInstallPath, selectedArea.getResref());
-            applyBackgroundImageToSelectedTab(loadedImage);
+            if (extractionTabSelected) {
+                boolean closedDoors = dialog.isOptionSelected();
+                BufferedImage loadedImage = GameAreaImageLoader.loadAreaImage(gameInstallPath, selectedArea.getResref(), closedDoors);
+                applyExtractionBackgroundImage(loadedImage);
+                setExtractionGameAreaSource(selectedArea.getResref(), closedDoors);
+                setExtendedState(Frame.MAXIMIZED_BOTH);
+                repaint();
+            } else {
+                BufferedImage loadedImage = GameAreaImageLoader.loadAreaImage(gameInstallPath, selectedArea.getResref());
+                applyBackgroundImageToSelectedTab(loadedImage);
+            }
         } catch (IOException ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this,
@@ -4430,13 +4699,18 @@ public class J2DArea extends JFrame {
             recordHistoryState();
         }
         if (tabPane.getSelectedComponent() == extractScrollPane) {
-            extractionBackgroundImage = chosenImageFile;
-            polygon.reset();
-            tile.reset();
-            extractRectangleSelectionInProgress = false;
+            applyExtractionBackgroundImage(chosenImageFile);
+            clearExtractionGameAreaSource();
         }
         setExtendedState(Frame.MAXIMIZED_BOTH);
         repaint();
+    }
+
+    private void applyExtractionBackgroundImage(BufferedImage chosenImageFile) {
+        extractionBackgroundImage = chosenImageFile;
+        polygon.reset();
+        tile.reset();
+        extractRectangleSelectionInProgress = false;
     }
 
     private void performUndo() {

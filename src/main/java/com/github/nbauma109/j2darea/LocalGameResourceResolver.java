@@ -19,6 +19,7 @@ import java.util.zip.Inflater;
 final class LocalGameResourceResolver {
     static final int RESOURCE_TYPE_WED = 0x03e9;
     static final int RESOURCE_TYPE_TIS = 0x03eb;
+    static final int RESOURCE_TYPE_ARE = 0x03f2;
     static final int RESOURCE_TYPE_PVRZ = 0x0404;
 
     private final Path installPath;
@@ -242,6 +243,9 @@ final class LocalGameResourceResolver {
         }
         if (resourceType == RESOURCE_TYPE_TIS) {
             return "TIS";
+        }
+        if (resourceType == RESOURCE_TYPE_ARE) {
+            return "ARE";
         }
         if (resourceType == RESOURCE_TYPE_PVRZ) {
             return "PVRZ";

@@ -19,6 +19,7 @@ import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -45,6 +46,7 @@ public class AreaSelectionDialog extends JDialog {
     private final JTextField filterField = new JTextField(24);
     private final JLabel previewLabel = new JLabel("Select an area", SwingConstants.CENTER);
     private final JLabel previewInfoLabel = new JLabel(" ", SwingConstants.CENTER);
+    private final JCheckBox optionCheckBox;
     private static final int PREVIEW_SIZE = 192;
     private static final Map<String, ImageIcon> PREVIEW_CACHE = new LinkedHashMap<String, ImageIcon>() {
         private static final long serialVersionUID = 1L;
@@ -59,12 +61,20 @@ public class AreaSelectionDialog extends JDialog {
     private int previewRequestId;
 
     public AreaSelectionDialog(Frame owner, List<AreaReference> allAreas, String initialFilter) {
-        this(owner, "Select Existing In-Game Area", allAreas, initialFilter);
+        this(owner, "Select Existing In-Game Area", allAreas, initialFilter, null, false);
     }
 
     public AreaSelectionDialog(Frame owner, String title, List<AreaReference> allAreas, String initialFilter) {
+        this(owner, title, allAreas, initialFilter, null, false);
+    }
+
+    public AreaSelectionDialog(Frame owner, String title, List<AreaReference> allAreas, String initialFilter,
+            String optionLabel, boolean optionSelected) {
         super(owner, title, true);
         this.allAreas = allAreas != null ? allAreas : new ArrayList<AreaReference>();
+        this.optionCheckBox = optionLabel != null && !optionLabel.trim().isEmpty()
+            ? new JCheckBox(optionLabel, optionSelected)
+            : null;
         initComponents();
         filterField.setText(initialFilter != null ? initialFilter : "");
         updateFilter();
@@ -79,6 +89,10 @@ public class AreaSelectionDialog extends JDialog {
         JPanel filterPanel = new JPanel(new BorderLayout(5, 0));
         filterPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 10));
         filterPanel.add(filterField, BorderLayout.CENTER);
+        if (optionCheckBox != null) {
+            optionCheckBox.addActionListener(e -> updatePreview());
+            filterPanel.add(optionCheckBox, BorderLayout.SOUTH);
+        }
         add(filterPanel, BorderLayout.NORTH);
 
         areaList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -197,6 +211,10 @@ public class AreaSelectionDialog extends JDialog {
         return selectedArea;
     }
 
+    public boolean isOptionSelected() {
+        return optionCheckBox != null && optionCheckBox.isSelected();
+    }
+
     private void updatePreview() {
         AreaReference area = areaList.getSelectedValue();
         if (area == null) {
@@ -223,7 +241,8 @@ public class AreaSelectionDialog extends JDialog {
         new SwingWorker<ImageIcon, Void>() {
             @Override
             protected ImageIcon doInBackground() throws Exception {
-                BufferedImage image = GameAreaImageLoader.loadAreaImage(UserPreferences.getGameInstallPath(), areaResref);
+                BufferedImage image = GameAreaImageLoader.loadAreaImage(UserPreferences.getGameInstallPath(), areaResref,
+                    optionCheckBox == null || optionCheckBox.isSelected());
                 return createPreviewIcon(image);
             }
 

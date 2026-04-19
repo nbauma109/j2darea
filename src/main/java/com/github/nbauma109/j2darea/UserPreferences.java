@@ -20,6 +20,7 @@ public final class UserPreferences {
     private static final String KEY_KNOWN_OWNED_AREAS = "knownOwnedAreas";
     private static final String KEY_GAME_INSTALL_PATH = "gameInstallPath";
     private static final String KEY_ZOOM_FACTOR = "zoomFactor";
+    private static final String KEY_GOOGLE_AI_API_KEY = "googleAiApiKey";
     private static final File STORAGE_FILE = resolveStorageFile();
     private static final Properties PROPERTIES = loadProperties();
 
@@ -48,6 +49,14 @@ public final class UserPreferences {
 
     public static void setZoomFactor(double zoomFactor) {
         put(KEY_ZOOM_FACTOR, String.valueOf(clampZoomFactor(zoomFactor)));
+    }
+
+    public static String getGoogleAiApiKey() {
+        return get(KEY_GOOGLE_AI_API_KEY, "");
+    }
+
+    public static void setGoogleAiApiKey(String googleAiApiKey) {
+        put(KEY_GOOGLE_AI_API_KEY, googleAiApiKey != null ? googleAiApiKey.trim() : "");
     }
 
     public static String getStorageLocation() {
@@ -145,6 +154,7 @@ public final class UserPreferences {
         copyLegacyValue(legacyPrefs, properties, KEY_EXPORT_PREFIX);
         copyLegacyValue(legacyPrefs, properties, KEY_KNOWN_OWNED_AREAS);
         copyLegacyValue(legacyPrefs, properties, KEY_GAME_INSTALL_PATH);
+        copyLegacyValue(legacyPrefs, properties, KEY_GOOGLE_AI_API_KEY);
     }
 
     private static void copyLegacyValue(Preferences legacyPrefs, Properties properties, String key) {
