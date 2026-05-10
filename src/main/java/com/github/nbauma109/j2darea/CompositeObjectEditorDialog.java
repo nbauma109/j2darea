@@ -914,6 +914,23 @@ public class CompositeObjectEditorDialog extends JDialog {
             sharedData = sharedData.copy();
         }
 
+        Rectangle doorBounds = getPastedObjectBounds(doorEditorOpenedDoorObject);
+        PastedObject closedPair = findDoorPairInComposite(doorObject, false);
+        if (closedPair != null) {
+            doorBounds = doorBounds.union(getPastedObjectBounds(closedPair));
+        }
+        int anchorX = doorBounds.x + doorBounds.width / 2;
+        if (sharedData.getLaunchPoint().x == 0 && sharedData.getLaunchPoint().y == 0) {
+            sharedData.setLaunchPoint(new Point(anchorX, doorBounds.y + doorBounds.height / 4));
+        }
+        if (sharedData.getOpenLocationFront().x == 0 && sharedData.getOpenLocationFront().y == 0) {
+            sharedData.setOpenLocationFront(new Point(anchorX, doorBounds.y + doorBounds.height * 3 / 4));
+        }
+        if (sharedData.getOpenLocationBack().x == 0 && sharedData.getOpenLocationBack().y == 0) {
+            sharedData.setOpenLocationBack(new Point(anchorX, doorBounds.y + doorBounds.height / 2));
+        }
+        applyCompositeDoorData(doorEditorOpenedDoorObject, sharedData);
+
         if (doorEditorDialog == null || !doorEditorDialog.isDisplayable()) {
             final DoorData[] liveData = { sharedData };
             doorEditorDialog = new DoorEditorDialog(owner, new DoorEditorDialog.Listener() {
@@ -964,23 +981,74 @@ public class CompositeObjectEditorDialog extends JDialog {
                 }
 
                 @Override
-                public void onEditEntranceTravelRegion() {
-                    // Not supported in composite object editor
+                public void onSaveEntrance(String name, int orientation, java.awt.Point entrancePoint) {
+                    PastedObject existing = null;
+                    for (PastedObject o : pastedObjects) {
+                        if (o.getPastedObjectType().isEntrance() && o.getEntranceData() != null
+                                && name.equals(o.getEntranceData().getName())) {
+                            existing = o;
+                            break;
+                        }
+                    }
+                    if (existing != null) {
+                        existing.getEntranceData().setX(entrancePoint.x);
+                        existing.getEntranceData().setY(entrancePoint.y);
+                        existing.getEntranceData().setOrientation(orientation);
+                        syncEntranceMarker(existing);
+                    } else {
+                        java.awt.image.BufferedImage markerImage = DirectionMarker.createEntranceMarkerImage(orientation);
+                        PastedObject entranceObject = new PastedObject(
+                            new java.awt.Point(entrancePoint.x - markerImage.getWidth() / 2, entrancePoint.y - markerImage.getHeight() / 2),
+                            new ExportableImage(markerImage), PastedObjectType.ENTRANCE
+                        );
+                        entranceObject.getEntranceData().setName(name);
+                        entranceObject.getEntranceData().setOrientation(orientation);
+                        entranceObject.getEntranceData().setX(entrancePoint.x);
+                        entranceObject.getEntranceData().setY(entrancePoint.y);
+                        syncEntranceMarker(entranceObject);
+                        pastedObjects.add(entranceObject);
+                        String regionName = name + "_EXIT";
+                        for (PastedObject obj : pastedObjects) {
+                            if (obj.getPastedObjectType().isDoor()) {
+                                obj.getDoorData().setRegionLinkName(regionName);
+                                obj.getDoorData().setFlags(obj.getDoorData().getFlags() | DoorExportSupport.LINKED_FLAG);
+                            }
+                        }
+                        if (doorEditorOpenedDoorObject != null) {
+                            refreshDoorEditorDialogState(doorEditorOpenedDoorObject);
+                        }
+                    }
+                    buildPanel.repaint();
                 }
 
                 @Override
-                public void onCreateEntrance(String name, int orientation, java.awt.Point entrancePoint, java.awt.Polygon exitPolygon) {
-                    java.awt.image.BufferedImage markerImage = DirectionMarker.createEntranceMarkerImage(orientation);
-                    PastedObject entranceObject = new PastedObject(
-                        new java.awt.Point(entrancePoint.x - markerImage.getWidth() / 2, entrancePoint.y - markerImage.getHeight() / 2),
-                        new ExportableImage(markerImage), PastedObjectType.ENTRANCE
-                    );
-                    entranceObject.getEntranceData().setName(name);
-                    entranceObject.getEntranceData().setOrientation(orientation);
-                    entranceObject.getEntranceData().setX(entrancePoint.x);
-                    entranceObject.getEntranceData().setY(entrancePoint.y);
-                    syncEntranceMarker(entranceObject);
-                    pastedObjects.add(entranceObject);
+                public void onEraseEntrance() {
+                    pastedObjects.removeIf(o -> o.getPastedObjectType().isEntrance());
+                    buildPanel.repaint();
+                }
+
+                @Override
+                public void onSaveTravelRegion(String entranceName, java.awt.Polygon exitPolygon) {
+                    for (PastedObject obj : pastedObjects) {
+                        if (obj.getPastedObjectType().isEntrance() && obj.getEntranceData() != null) {
+                            obj.getEntranceData().setDestinationReturnPolygon(exitPolygon != null ? exitPolygon : new java.awt.Polygon());
+                            break;
+                        }
+                    }
+                    if (doorEditorOpenedDoorObject != null) {
+                        refreshDoorEditorDialogState(doorEditorOpenedDoorObject);
+                    }
+                    buildPanel.repaint();
+                }
+
+                @Override
+                public void onEraseTravelRegion() {
+                    for (PastedObject obj : pastedObjects) {
+                        if (obj.getPastedObjectType().isEntrance() && obj.getEntranceData() != null) {
+                            obj.getEntranceData().setDestinationReturnPolygon(new java.awt.Polygon());
+                            break;
+                        }
+                    }
                     buildPanel.repaint();
                 }
             });
@@ -1019,6 +1087,29 @@ public class CompositeObjectEditorDialog extends JDialog {
             ? doorEditorOpenedDoorObject.getDoorData().copy()
             : new DoorData();
         doorEditorDialog.setDoorState(data, openedDoorImage, openedDoorLocation, true, true);
+        doorEditorDialog.setSuggestedEntranceName(buildSuggestedCompositeDoorEntranceName());
+        for (PastedObject obj : pastedObjects) {
+            if (obj.getPastedObjectType().isEntrance() && obj.getEntranceData() != null) {
+                EntranceData ed = obj.getEntranceData();
+                doorEditorDialog.setLastEntranceState(
+                    ed.getName() != null ? ed.getName() : "",
+                    new Point(ed.getX(), ed.getY()),
+                    ed.getDestinationReturnPolygon(),
+                    ed.getOrientation()
+                );
+                break;
+            }
+        }
+    }
+
+    private String buildSuggestedCompositeDoorEntranceName() {
+        int doorCount = 0;
+        for (PastedObject obj : pastedObjects) {
+            if (obj.getPastedObjectType().isDoor()) {
+                doorCount++;
+            }
+        }
+        return "Door" + String.format("%02d", doorCount) + "_ENTRANCE";
     }
 
     private PastedObject findDoorPairInComposite(PastedObject doorObject, boolean findOpen) {

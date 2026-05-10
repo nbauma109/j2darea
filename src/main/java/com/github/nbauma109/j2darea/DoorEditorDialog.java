@@ -37,10 +37,8 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
-import javax.swing.ButtonGroup;
 import javax.swing.JComboBox;
 import javax.swing.JPanel;
-import javax.swing.JRadioButton;
 import javax.swing.JSplitPane;
 import javax.swing.KeyStroke;
 import javax.swing.WindowConstants;
@@ -57,8 +55,10 @@ public class DoorEditorDialog extends JDialog {
         void onDoorDataChanged(DoorData doorData);
         void onEditFlags();
         void onEditRegionLink();
-        void onEditEntranceTravelRegion();
-        void onCreateEntrance(String name, int orientation, Point entrancePoint, Polygon exitPolygon);
+        void onSaveEntrance(String name, int orientation, Point entrancePoint);
+        void onEraseEntrance();
+        void onSaveTravelRegion(String entranceName, Polygon exitPolygon);
+        void onEraseTravelRegion();
     }
 
     private enum EditMode {
@@ -115,19 +115,23 @@ public class DoorEditorDialog extends JDialog {
     private EditMode editMode = EditMode.NONE;
     private boolean hasPendingDoorDataChanges;
     private boolean inEntranceEditMode;
-    private boolean entrancePointModeSelected = true;
+    private boolean inTravelRegionEditMode;
     private String pendingEntranceName;
     private int pendingEntranceOrientation;
     private Point pendingEntrancePoint;
     private Polygon pendingExitPolygon = new Polygon();
-    private JRadioButton entrancePointRadio;
-    private JRadioButton entrancePolygonRadio;
     private JComboBox<Integer> entranceOrientationCombo;
     private JLabel entranceSummaryLabel;
+    private JLabel travelRegionSummaryLabel;
     private JPanel entranceEditPanel;
+    private JPanel travelRegionEditPanel;
+    private JLabel entranceLabel;
+    private JLabel travelRegionLabel;
     private Point lastEntrancePoint;
     private Polygon lastExitPolygon;
     private int lastEntranceOrientation;
+    private String lastEntranceName = "";
+    private String suggestedEntranceName = "Entrance";
 
     public DoorEditorDialog(Frame owner, Listener listener) {
         super(owner, "Edit Door", false);
@@ -254,39 +258,37 @@ public class DoorEditorDialog extends JDialog {
             e -> deleteRegionLink());
 
         row++;
-        addActionRow(contentPanel, gbc, row,
-            "Entrance / Travel Region:",
+        entranceLabel = addActionRow(contentPanel, gbc, row,
+            "Entrance:",
+            e -> startEditEntrance(),
             e -> {
-                String regionLink = trimToEmpty(currentDoorData.getRegionLinkName());
-                if (!regionLink.isEmpty()) {
-                    this.listener.onEditEntranceTravelRegion();
-                } else {
-                    String name = javax.swing.JOptionPane.showInputDialog(DoorEditorDialog.this, "Enter entrance name:");
-                    if (name != null && !name.trim().isEmpty()) {
-                        pendingEntranceName = name.trim();
-                        pendingEntrancePoint = null;
-                        pendingExitPolygon = new Polygon();
-                        pendingEntranceOrientation = 0;
-                        lastEntrancePoint = null;
-                        lastExitPolygon = null;
-                        inEntranceEditMode = true;
-                        entrancePointModeSelected = true;
-                        entrancePointRadio.setSelected(true);
-                        entranceOrientationCombo.setSelectedIndex(0);
-                        updateEntranceSummary();
-                        entranceEditPanel.setVisible(true);
-                        refreshUi();
-                    }
-                }
-            },
-            null);
+                listener.onEraseEntrance();
+                lastEntranceName = "";
+                lastEntrancePoint = null;
+                refreshUi();
+            });
+
+        row++;
+        travelRegionLabel = addActionRow(contentPanel, gbc, row,
+            "Travel Region:",
+            e -> startEditTravelRegion(),
+            e -> {
+                listener.onEraseTravelRegion();
+                lastExitPolygon = null;
+                refreshUi();
+            });
 
         JPanel formWrapper = new JPanel(new BorderLayout());
         formWrapper.setPreferredSize(new Dimension(420, 520));
         formWrapper.add(contentPanel, BorderLayout.NORTH);
         entranceEditPanel = buildEntranceEditPanel();
         entranceEditPanel.setVisible(false);
-        formWrapper.add(entranceEditPanel, BorderLayout.CENTER);
+        travelRegionEditPanel = buildTravelRegionEditPanel();
+        travelRegionEditPanel.setVisible(false);
+        JPanel bottomCardsPanel = new JPanel(new BorderLayout());
+        bottomCardsPanel.add(entranceEditPanel, BorderLayout.NORTH);
+        bottomCardsPanel.add(travelRegionEditPanel, BorderLayout.CENTER);
+        formWrapper.add(bottomCardsPanel, BorderLayout.CENTER);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, previewPanel, formWrapper);
         splitPane.setBorder(BorderFactory.createEmptyBorder());
@@ -328,6 +330,19 @@ public class DoorEditorDialog extends JDialog {
         this.showImpededBlocks = showImpededBlocks;
         hasPendingDoorDataChanges = false;
         refreshUi();
+    }
+
+    public void setLastEntranceState(String name, Point entrancePoint, Polygon exitPolygon, int orientation) {
+        lastEntranceName = name != null ? name : "";
+        lastEntrancePoint = entrancePoint != null ? new Point(entrancePoint) : null;
+        lastExitPolygon = (exitPolygon != null && exitPolygon.npoints > 0)
+            ? PolygonUtils.clonePolygon(exitPolygon) : null;
+        lastEntranceOrientation = orientation;
+        previewPanel.repaint();
+    }
+
+    public void setSuggestedEntranceName(String name) {
+        suggestedEntranceName = name != null && !name.trim().isEmpty() ? name.trim() : "Entrance";
     }
 
     private RowComponents addToggleRow(JPanel panel, GridBagConstraints gbc, int row, String labelText,
@@ -430,6 +445,63 @@ public class DoorEditorDialog extends JDialog {
         return new ImageIcon(img);
     }
 
+    // Entrance / Travel Region modes ---------------------------------------
+
+    private void startEditEntrance() {
+        if (lastEntranceName.isEmpty()) {
+            String name = javax.swing.JOptionPane.showInputDialog(DoorEditorDialog.this, "Enter entrance name:", suggestedEntranceName);
+            if (name == null || name.trim().isEmpty()) {
+                return;
+            }
+            lastEntranceName = name.trim();
+        }
+        if (inTravelRegionEditMode) {
+            exitTravelRegionEditMode();
+        }
+        if (editMode != EditMode.NONE) {
+            flushPendingDoorDataChanges();
+            editMode = EditMode.NONE;
+        }
+        pendingEntranceName = lastEntranceName;
+        pendingEntrancePoint = lastEntrancePoint != null ? new Point(lastEntrancePoint) : null;
+        pendingEntranceOrientation = lastEntranceOrientation;
+        inEntranceEditMode = true;
+        if (entranceOrientationCombo != null) {
+            entranceOrientationCombo.setSelectedItem(pendingEntranceOrientation);
+        }
+        updateEntranceSummary();
+        entranceEditPanel.setVisible(true);
+        travelRegionEditPanel.setVisible(false);
+        refreshUi();
+    }
+
+    private void startEditTravelRegion() {
+        if (lastEntranceName.isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(DoorEditorDialog.this, "Please create an entrance first.");
+            return;
+        }
+        if (inEntranceEditMode) {
+            if (pendingEntranceName != null && pendingEntrancePoint != null) {
+                flushPendingDoorDataChanges();
+                listener.onSaveEntrance(pendingEntranceName, pendingEntranceOrientation, new Point(pendingEntrancePoint));
+                lastEntranceName = pendingEntranceName;
+                lastEntrancePoint = new Point(pendingEntrancePoint);
+                lastEntranceOrientation = pendingEntranceOrientation;
+            }
+            exitEntranceEditMode();
+        }
+        if (editMode != EditMode.NONE) {
+            flushPendingDoorDataChanges();
+            editMode = EditMode.NONE;
+        }
+        pendingExitPolygon = lastExitPolygon != null ? PolygonUtils.clonePolygon(lastExitPolygon) : new Polygon();
+        inTravelRegionEditMode = true;
+        updateTravelRegionSummary();
+        travelRegionEditPanel.setVisible(true);
+        entranceEditPanel.setVisible(false);
+        refreshUi();
+    }
+
     // Delete actions -------------------------------------------------------
 
     private void deleteOpenPolygon() {
@@ -496,29 +568,9 @@ public class DoorEditorDialog extends JDialog {
         JPanel panel = new JPanel();
         panel.setLayout(new javax.swing.BoxLayout(panel, javax.swing.BoxLayout.Y_AXIS));
         panel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY),
-            BorderFactory.createEmptyBorder(8, 8, 8, 8)
+            BorderFactory.createTitledBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY), "Edit Entrance"),
+            BorderFactory.createEmptyBorder(4, 8, 8, 8)
         ));
-
-        JPanel radioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        entrancePointRadio = new JRadioButton("Pick Entrance Point", true);
-        entrancePolygonRadio = new JRadioButton("Draw Exit Travel Region Polygon");
-        ButtonGroup group = new ButtonGroup();
-        group.add(entrancePointRadio);
-        group.add(entrancePolygonRadio);
-        entrancePointRadio.addActionListener(e -> {
-            entrancePointModeSelected = true;
-            refreshUi();
-        });
-        entrancePolygonRadio.addActionListener(e -> {
-            entrancePointModeSelected = false;
-            refreshUi();
-        });
-        radioPanel.add(entrancePointRadio);
-        radioPanel.add(entrancePolygonRadio);
-        radioPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, radioPanel.getPreferredSize().height));
-        panel.add(radioPanel);
-        panel.add(javax.swing.Box.createVerticalStrut(4));
 
         JPanel orientPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         orientPanel.add(new JLabel("Orientation:"));
@@ -552,27 +604,6 @@ public class DoorEditorDialog extends JDialog {
         panel.add(orientPanel);
         panel.add(javax.swing.Box.createVerticalStrut(4));
 
-        JPanel editButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        JButton clearBtn = new JButton("Clear Polygon");
-        clearBtn.addActionListener(e -> {
-            pendingExitPolygon = new Polygon();
-            updateEntranceSummary();
-            previewPanel.repaint();
-        });
-        JButton undoBtn = new JButton("Undo Vertex");
-        undoBtn.addActionListener(e -> {
-            if (pendingExitPolygon.npoints > 0) {
-                pendingExitPolygon = copyWithoutLastVertex(pendingExitPolygon);
-                updateEntranceSummary();
-                previewPanel.repaint();
-            }
-        });
-        editButtonPanel.add(clearBtn);
-        editButtonPanel.add(undoBtn);
-        editButtonPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, editButtonPanel.getPreferredSize().height));
-        panel.add(editButtonPanel);
-        panel.add(javax.swing.Box.createVerticalStrut(4));
-
         entranceSummaryLabel = new JLabel(" ");
         entranceSummaryLabel.setAlignmentX(0f);
         panel.add(entranceSummaryLabel);
@@ -586,11 +617,10 @@ public class DoorEditorDialog extends JDialog {
                 return;
             }
             flushPendingDoorDataChanges();
+            listener.onSaveEntrance(pendingEntranceName, pendingEntranceOrientation, new Point(pendingEntrancePoint));
+            lastEntranceName = pendingEntranceName;
             lastEntrancePoint = new Point(pendingEntrancePoint);
-            lastExitPolygon = PolygonUtils.clonePolygon(pendingExitPolygon);
             lastEntranceOrientation = pendingEntranceOrientation;
-            listener.onCreateEntrance(pendingEntranceName, pendingEntranceOrientation,
-                new Point(pendingEntrancePoint), PolygonUtils.clonePolygon(pendingExitPolygon));
             exitEntranceEditMode();
         });
         JButton cancelBtn = new JButton("Cancel");
@@ -603,13 +633,81 @@ public class DoorEditorDialog extends JDialog {
         return panel;
     }
 
+    private JPanel buildTravelRegionEditPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new javax.swing.BoxLayout(panel, javax.swing.BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createTitledBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY), "Edit Travel Region"),
+            BorderFactory.createEmptyBorder(4, 8, 8, 8)
+        ));
+
+        JPanel editButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        JButton clearBtn = new JButton("Clear Polygon");
+        clearBtn.addActionListener(e -> {
+            pendingExitPolygon = new Polygon();
+            updateTravelRegionSummary();
+            previewPanel.repaint();
+        });
+        JButton undoBtn = new JButton("Undo Vertex");
+        undoBtn.addActionListener(e -> {
+            if (pendingExitPolygon.npoints > 0) {
+                pendingExitPolygon = copyWithoutLastVertex(pendingExitPolygon);
+                updateTravelRegionSummary();
+                previewPanel.repaint();
+            }
+        });
+        editButtonPanel.add(clearBtn);
+        editButtonPanel.add(undoBtn);
+        editButtonPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, editButtonPanel.getPreferredSize().height));
+        panel.add(editButtonPanel);
+        panel.add(javax.swing.Box.createVerticalStrut(4));
+
+        travelRegionSummaryLabel = new JLabel(" ");
+        travelRegionSummaryLabel.setAlignmentX(0f);
+        panel.add(travelRegionSummaryLabel);
+        panel.add(javax.swing.Box.createVerticalStrut(6));
+
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        JButton confirmBtn = new JButton("Confirm");
+        confirmBtn.addActionListener(e -> confirmTravelRegion());
+        JButton cancelBtn = new JButton("Cancel");
+        cancelBtn.addActionListener(e -> exitTravelRegionEditMode());
+        actionPanel.add(confirmBtn);
+        actionPanel.add(cancelBtn);
+        actionPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, actionPanel.getPreferredSize().height));
+        panel.add(actionPanel);
+
+        return panel;
+    }
+
     private void exitEntranceEditMode() {
         inEntranceEditMode = false;
         pendingEntranceName = null;
         pendingEntrancePoint = null;
-        pendingExitPolygon = new Polygon();
         pendingEntranceOrientation = 0;
-        entranceEditPanel.setVisible(false);
+        if (entranceEditPanel != null) {
+            entranceEditPanel.setVisible(false);
+        }
+        refreshUi();
+    }
+
+    private void confirmTravelRegion() {
+        if (pendingExitPolygon == null || pendingExitPolygon.npoints < 3) {
+            javax.swing.JOptionPane.showMessageDialog(DoorEditorDialog.this, "Please draw a polygon with at least 3 vertices.");
+            return;
+        }
+        flushPendingDoorDataChanges();
+        listener.onSaveTravelRegion(lastEntranceName, PolygonUtils.clonePolygon(pendingExitPolygon));
+        lastExitPolygon = PolygonUtils.clonePolygon(pendingExitPolygon);
+        exitTravelRegionEditMode();
+    }
+
+    private void exitTravelRegionEditMode() {
+        inTravelRegionEditMode = false;
+        pendingExitPolygon = new Polygon();
+        if (travelRegionEditPanel != null) {
+            travelRegionEditPanel.setVisible(false);
+        }
         refreshUi();
     }
 
@@ -620,13 +718,19 @@ public class DoorEditorDialog extends JDialog {
         String pointStr = pendingEntrancePoint != null
             ? pendingEntrancePoint.x + ", " + pendingEntrancePoint.y
             : "(unset)";
+        String orientStr = DirectionMarker.getOrientationName(pendingEntranceOrientation);
+        entranceSummaryLabel.setText("Point: " + pointStr
+            + "  |  Orientation: " + pendingEntranceOrientation + " (" + orientStr + ")");
+    }
+
+    private void updateTravelRegionSummary() {
+        if (travelRegionSummaryLabel == null) {
+            return;
+        }
         String polygonStr = pendingExitPolygon != null && pendingExitPolygon.npoints > 0
             ? pendingExitPolygon.npoints + " vertices"
             : "(none)";
-        String orientStr = DirectionMarker.getOrientationName(pendingEntranceOrientation);
-        entranceSummaryLabel.setText("Point: " + pointStr
-            + "  |  Exit polygon: " + polygonStr
-            + "  |  Orientation: " + pendingEntranceOrientation + " (" + orientStr + ")");
+        travelRegionSummaryLabel.setText("Exit polygon: " + polygonStr);
     }
 
     private void togglePolygonMode(EditMode targetMode) {
@@ -711,6 +815,23 @@ public class DoorEditorDialog extends JDialog {
             ? "(none)"
             : trimToEmpty(currentDoorData.getRegionLinkName()));
 
+        if (entranceLabel != null) {
+            if (!lastEntranceName.isEmpty() && lastEntrancePoint != null) {
+                entranceLabel.setText(lastEntranceName + " (" + lastEntrancePoint.x + ", " + lastEntrancePoint.y + ")");
+            } else if (!lastEntranceName.isEmpty()) {
+                entranceLabel.setText(lastEntranceName);
+            } else {
+                entranceLabel.setText("(none)");
+            }
+        }
+        if (travelRegionLabel != null) {
+            if (lastExitPolygon != null && lastExitPolygon.npoints > 0) {
+                travelRegionLabel.setText(lastExitPolygon.npoints + " vertices");
+            } else {
+                travelRegionLabel.setText("(none)");
+            }
+        }
+
         updateToggleButton(editOpenedPolygonButton, editMode == EditMode.OPEN_POLYGON);
         updateToggleButton(editClosedPolygonButton, editMode == EditMode.CLOSED_POLYGON);
         updateToggleButton(editOpenedImpededButton, editMode == EditMode.OPEN_IMPEDED);
@@ -721,7 +842,7 @@ public class DoorEditorDialog extends JDialog {
         modeLabelLine2.setText(modeLabelLines[1]);
         modeLabelLine3.setText(modeLabelLines[2]);
 
-        boolean crosshair = editMode != EditMode.NONE;
+        boolean crosshair = editMode != EditMode.NONE || inEntranceEditMode || inTravelRegionEditMode;
         previewPanel.setCursor(crosshair ? Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR) : Cursor.getDefaultCursor());
         previewPanel.repaint();
     }
@@ -738,10 +859,18 @@ public class DoorEditorDialog extends JDialog {
 
     private String[] buildModeLabelLines() {
         if (inEntranceEditMode) {
-            String inst = entrancePointModeSelected
-                ? "Click on the preview to place the entrance point."
-                : "Click to add vertices.  Click near first vertex or right-click to close.";
-            return new String[] { "Placing entrance: " + (pendingEntranceName != null ? pendingEntranceName : ""), inst, " " };
+            return new String[] {
+                "Placing entrance: " + (pendingEntranceName != null ? pendingEntranceName : ""),
+                "Click on the preview to place the entrance point.",
+                "Right click or Esc to cancel."
+            };
+        }
+        if (inTravelRegionEditMode) {
+            return new String[] {
+                "Drawing travel region polygon (entrance: " + lastEntranceName + ")",
+                "Click to add vertices.  Click near first vertex or right-click to close.",
+                "Backspace removes last vertex.  Esc to cancel."
+            };
         }
         switch (editMode) {
             case OPEN_POLYGON:
@@ -835,10 +964,10 @@ public class DoorEditorDialog extends JDialog {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (inEntranceEditMode && !entrancePointModeSelected) {
+                if (inTravelRegionEditMode) {
                     if (pendingExitPolygon.npoints > 0) {
                         pendingExitPolygon = copyWithoutLastVertex(pendingExitPolygon);
-                        updateEntranceSummary();
+                        updateTravelRegionSummary();
                         previewPanel.repaint();
                     }
                     return;
@@ -863,7 +992,7 @@ public class DoorEditorDialog extends JDialog {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (inEntranceEditMode) {
+                if (inEntranceEditMode || inTravelRegionEditMode) {
                     return;
                 }
                 if (editMode == EditMode.NONE) {
@@ -889,6 +1018,10 @@ public class DoorEditorDialog extends JDialog {
             public void actionPerformed(ActionEvent e) {
                 if (inEntranceEditMode) {
                     exitEntranceEditMode();
+                    return;
+                }
+                if (inTravelRegionEditMode) {
+                    exitTravelRegionEditMode();
                     return;
                 }
                 if (editMode == EditMode.NONE) {
@@ -966,6 +1099,15 @@ public class DoorEditorDialog extends JDialog {
                         handleEntranceMousePressed(imagePoint, e);
                         return;
                     }
+                    if (inTravelRegionEditMode) {
+                        handleTravelRegionMousePressed(imagePoint, e);
+                        return;
+                    }
+                    if (editMode == EditMode.NONE
+                            && (javax.swing.SwingUtilities.isRightMouseButton(e) || e.isPopupTrigger())) {
+                        showPreviewContextMenu(e);
+                        return;
+                    }
                     if (editMode == EditMode.SET_LAUNCH_POINT
                             || editMode == EditMode.SET_OPEN_LOCATION_FRONT
                             || editMode == EditMode.SET_OPEN_LOCATION_BACK) {
@@ -983,7 +1125,7 @@ public class DoorEditorDialog extends JDialog {
                     if (imagePoint == null) {
                         return;
                     }
-                    if (editMode == EditMode.NONE && !inEntranceEditMode
+                    if (editMode == EditMode.NONE
                             && javax.swing.SwingUtilities.isLeftMouseButton(e)) {
                         if (isNearMarker(currentDoorData.getLaunchPoint(), imagePoint)) {
                             draggedMarkerMode = EditMode.SET_LAUNCH_POINT;
@@ -1064,8 +1206,8 @@ public class DoorEditorDialog extends JDialog {
                     currentMouseImagePoint = toImagePoint(e.getPoint());
                     boolean isNear = isNearAnyMarker();
                     boolean trackPolygon = editMode == EditMode.OPEN_POLYGON || editMode == EditMode.CLOSED_POLYGON
-                            || (inEntranceEditMode && !entrancePointModeSelected);
-                    if (editMode == EditMode.NONE && !inEntranceEditMode) {
+                            || inTravelRegionEditMode;
+                    if (editMode == EditMode.NONE && !inEntranceEditMode && !inTravelRegionEditMode) {
                         setCursor(isNear
                             ? Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR)
                             : Cursor.getDefaultCursor());
@@ -1078,7 +1220,7 @@ public class DoorEditorDialog extends JDialog {
                 @Override
                 public void mouseExited(MouseEvent e) {
                     currentMouseImagePoint = null;
-                    if (editMode == EditMode.NONE && !inEntranceEditMode) {
+                    if (editMode == EditMode.NONE && !inEntranceEditMode && !inTravelRegionEditMode) {
                         setCursor(Cursor.getDefaultCursor());
                     }
                     repaint();
@@ -1152,7 +1294,7 @@ public class DoorEditorDialog extends JDialog {
                 paintImpededCells(g2, currentDoorData.getOpenImpededCells(), new Color(80, 220, 255, 90));
                 paintImpededCells(g2, currentDoorData.getClosedImpededCells(), new Color(255, 180, 0, 90));
             }
-            boolean markerHoverActive = editMode == EditMode.NONE && !inEntranceEditMode;
+            boolean markerHoverActive = editMode == EditMode.NONE && !inEntranceEditMode && !inTravelRegionEditMode;
             paintPointMarker(g2, currentDoorData.getLaunchPoint(), new Color(0, 255, 80), "LP",
                 markerHoverActive && isNearMarker(currentDoorData.getLaunchPoint()));
             paintPointMarker(g2, currentDoorData.getOpenLocationFront(), new Color(255, 220, 0), "OF",
@@ -1161,11 +1303,14 @@ public class DoorEditorDialog extends JDialog {
                 markerHoverActive && isNearMarker(currentDoorData.getOpenLocationBack()));
             if (inEntranceEditMode) {
                 paintEntrancePointMarker(g2, pendingEntrancePoint, pendingEntranceOrientation);
-                if (!entrancePointModeSelected) {
-                    paintPolygonDraft(g2, pendingExitPolygon, new Color(0, 255, 128, 40), new Color(0, 255, 128));
-                } else if (pendingExitPolygon != null && pendingExitPolygon.npoints > 0) {
-                    paintPolygon(g2, pendingExitPolygon, new Color(0, 255, 128, 40), new Color(0, 255, 128));
+                if (lastExitPolygon != null && lastExitPolygon.npoints > 0) {
+                    paintPolygon(g2, lastExitPolygon, new Color(0, 255, 128, 40), new Color(0, 255, 128));
                 }
+            } else if (inTravelRegionEditMode) {
+                if (lastEntrancePoint != null) {
+                    paintEntrancePointMarker(g2, lastEntrancePoint, lastEntranceOrientation);
+                }
+                paintPolygonDraft(g2, pendingExitPolygon, new Color(0, 255, 128, 40), new Color(0, 255, 128));
             } else if (lastEntrancePoint != null) {
                 paintEntrancePointMarker(g2, lastEntrancePoint, lastEntranceOrientation);
                 if (lastExitPolygon != null && lastExitPolygon.npoints > 0) {
@@ -1392,37 +1537,70 @@ public class DoorEditorDialog extends JDialog {
         }
 
         private void handleEntranceMousePressed(Point imagePoint, MouseEvent e) {
-            if (!javax.swing.SwingUtilities.isLeftMouseButton(e) && !javax.swing.SwingUtilities.isRightMouseButton(e)) {
+            if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.isPopupTrigger()) {
+                exitEntranceEditMode();
                 return;
             }
-            if (entrancePointModeSelected) {
-                if (javax.swing.SwingUtilities.isLeftMouseButton(e) && imagePoint != null) {
-                    pendingEntrancePoint = new Point(imagePoint);
-                    updateEntranceSummary();
+            if (javax.swing.SwingUtilities.isLeftMouseButton(e) && imagePoint != null) {
+                pendingEntrancePoint = new Point(imagePoint);
+                updateEntranceSummary();
+                repaint();
+            }
+        }
+
+        private void handleTravelRegionMousePressed(Point imagePoint, MouseEvent e) {
+            if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.isPopupTrigger()) {
+                if (pendingExitPolygon.npoints >= 3) {
+                    confirmTravelRegion();
+                } else {
+                    exitTravelRegionEditMode();
+                }
+                return;
+            }
+            if (javax.swing.SwingUtilities.isLeftMouseButton(e) && imagePoint != null) {
+                if (pendingExitPolygon.npoints >= 3 && isCloseToFirstVertex(pendingExitPolygon, imagePoint)) {
+                    confirmTravelRegion();
+                } else {
+                    pendingExitPolygon.addPoint(imagePoint.x, imagePoint.y);
+                    updateTravelRegionSummary();
                     repaint();
                 }
-            } else {
-                if (javax.swing.SwingUtilities.isRightMouseButton(e) && pendingExitPolygon.npoints >= 3) {
-                    // close the polygon — switch back to point mode
-                    entrancePointModeSelected = true;
-                    entrancePointRadio.setSelected(true);
-                    currentMouseImagePoint = null;
-                    updateEntranceSummary();
-                    refreshUi();
-                } else if (javax.swing.SwingUtilities.isLeftMouseButton(e) && imagePoint != null) {
-                    if (pendingExitPolygon.npoints >= 3 && isCloseToFirstVertex(pendingExitPolygon, imagePoint)) {
-                        entrancePointModeSelected = true;
-                        entrancePointRadio.setSelected(true);
-                        currentMouseImagePoint = null;
-                        updateEntranceSummary();
-                        refreshUi();
-                    } else {
-                        pendingExitPolygon.addPoint(imagePoint.x, imagePoint.y);
-                        updateEntranceSummary();
-                        repaint();
-                    }
-                }
             }
+        }
+
+        private void showPreviewContextMenu(MouseEvent e) {
+            javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+
+            javax.swing.JMenuItem editEntranceItem = new javax.swing.JMenuItem("Edit Entrance");
+            editEntranceItem.addActionListener(ev -> startEditEntrance());
+            menu.add(editEntranceItem);
+
+            javax.swing.JMenuItem eraseEntranceItem = new javax.swing.JMenuItem("Erase Entrance");
+            eraseEntranceItem.setEnabled(!lastEntranceName.isEmpty());
+            eraseEntranceItem.addActionListener(ev -> {
+                listener.onEraseEntrance();
+                lastEntranceName = "";
+                lastEntrancePoint = null;
+                refreshUi();
+            });
+            menu.add(eraseEntranceItem);
+
+            menu.addSeparator();
+
+            javax.swing.JMenuItem editTravelRegionItem = new javax.swing.JMenuItem("Edit Travel Region");
+            editTravelRegionItem.addActionListener(ev -> startEditTravelRegion());
+            menu.add(editTravelRegionItem);
+
+            javax.swing.JMenuItem eraseTravelRegionItem = new javax.swing.JMenuItem("Erase Travel Region");
+            eraseTravelRegionItem.setEnabled(lastExitPolygon != null && lastExitPolygon.npoints > 0);
+            eraseTravelRegionItem.addActionListener(ev -> {
+                listener.onEraseTravelRegion();
+                lastExitPolygon = null;
+                refreshUi();
+            });
+            menu.add(eraseTravelRegionItem);
+
+            menu.show(PreviewPanel.this, e.getX(), e.getY());
         }
 
         private void paintCheckerboard(Graphics2D g2, int width, int height) {

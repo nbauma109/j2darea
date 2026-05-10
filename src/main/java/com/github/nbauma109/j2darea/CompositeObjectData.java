@@ -1,6 +1,7 @@
 package com.github.nbauma109.j2darea;
 
 import java.awt.Point;
+import java.awt.Polygon;
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -85,6 +86,14 @@ public class CompositeObjectData implements Externalizable {
             if (copy.getPastedObjectType().isEntrance() && copy.getEntranceData() != null) {
                 copy.getEntranceData().setX(safeAnchor.x + source.getEntranceData().getX());
                 copy.getEntranceData().setY(safeAnchor.y + source.getEntranceData().getY());
+                Polygon returnPoly = source.getEntranceData().getDestinationReturnPolygon();
+                if (returnPoly != null && returnPoly.npoints > 0) {
+                    copy.getEntranceData().setDestinationReturnPolygon(
+                        PolygonUtils.translatedPolygon(returnPoly, safeAnchor.x, safeAnchor.y));
+                }
+            }
+            if (copy.getPastedObjectType().isDoor()) {
+                copy.setDoorData(copy.getDoorData().translated(safeAnchor.x, safeAnchor.y));
             }
             instances.add(copy);
         }

@@ -4459,33 +4459,69 @@ public class J2DArea extends JFrame {
                 }
 
                 @Override
-                public void onEditEntranceTravelRegion() {
-                    if (doorEditorOpenedDoorObject != null) {
-                        editDoorEntranceTravelRegion(doorEditorOpenedDoorObject);
+                public void onSaveEntrance(String name, int orientation, java.awt.Point entrancePoint) {
+                    PastedObject existing = findEntranceByName(name);
+                    if (existing != null) {
+                        existing.getEntranceData().setX(entrancePoint.x);
+                        existing.getEntranceData().setY(entrancePoint.y);
+                        existing.getEntranceData().setOrientation(orientation);
+                        syncEntranceMarker(existing);
+                    } else {
+                        java.awt.image.BufferedImage markerImage = DirectionMarker.createEntranceMarkerImage(orientation);
+                        PastedObject entranceObject = new PastedObject(
+                            new java.awt.Point(entrancePoint.x - markerImage.getWidth() / 2, entrancePoint.y - markerImage.getHeight() / 2),
+                            new ExportableImage(markerImage), PastedObjectType.ENTRANCE
+                        );
+                        EntranceData entranceData = new EntranceData(name, entrancePoint.x, entrancePoint.y);
+                        entranceData.setOrientation(orientation);
+                        entranceObject.setEntranceData(entranceData);
+                        syncEntranceMarker(entranceObject);
+                        pastedObjects.add(entranceObject);
                     }
+                    recordHistoryState();
+                    repaint();
                 }
 
                 @Override
-                public void onCreateEntrance(String name, int orientation, java.awt.Point entrancePoint, java.awt.Polygon exitPolygon) {
-                    java.awt.image.BufferedImage markerImage = DirectionMarker.createEntranceMarkerImage(orientation);
-                    PastedObject entranceObject = new PastedObject(
-                        new java.awt.Point(entrancePoint.x - markerImage.getWidth() / 2, entrancePoint.y - markerImage.getHeight() / 2),
-                        new ExportableImage(markerImage), PastedObjectType.ENTRANCE
-                    );
-                    EntranceData entranceData = new EntranceData(name, entrancePoint.x, entrancePoint.y);
-                    entranceData.setOrientation(orientation);
-                    entranceObject.setEntranceData(entranceData);
-                    syncEntranceMarker(entranceObject);
-                    pastedObjects.add(entranceObject);
-                    if (exitPolygon != null && exitPolygon.npoints >= 3) {
-                        RegionData regionData = new RegionData(buildPairedTravelRegionName(name), 2, clonePolygon(exitPolygon));
-                        regionData.setPairedEntranceName(name);
+                public void onEraseEntrance() {
+                    if (doorEditorOpenedDoorObject == null) return;
+                    DoorEditContext ctx = buildDoorEditContext(doorEditorOpenedDoorObject);
+                    if (ctx == null) return;
+                    RegionData linkedRegion = findRegionByName(trimToEmpty(ctx.sharedData.getRegionLinkName()));
+                    if (linkedRegion != null) {
+                        PastedObject entrance = findEntranceByName(trimToEmpty(linkedRegion.getPairedEntranceName()));
+                        if (entrance != null) pastedObjects.remove(entrance);
+                    }
+                    recordHistoryState();
+                    repaint();
+                }
+
+                @Override
+                public void onSaveTravelRegion(String entranceName, java.awt.Polygon exitPolygon) {
+                    if (doorEditorOpenedDoorObject == null) return;
+                    DoorEditContext ctx = buildDoorEditContext(doorEditorOpenedDoorObject);
+                    if (ctx == null) return;
+                    RegionData linkedRegion = findRegionByName(trimToEmpty(ctx.sharedData.getRegionLinkName()));
+                    if (linkedRegion != null) {
+                        linkedRegion.setBounds(clonePolygon(exitPolygon));
+                    } else {
+                        RegionData regionData = new RegionData(buildPairedTravelRegionName(entranceName), 2, clonePolygon(exitPolygon));
+                        regionData.setPairedEntranceName(entranceName);
                         regions.add(regionData);
-                        if (doorEditorOpenedDoorObject != null) {
-                            linkDoorToRegion(doorEditorOpenedDoorObject, regionData);
-                        } else {
-                            offerToLinkDoorToRegion(regionData);
-                        }
+                        linkDoorToRegion(doorEditorOpenedDoorObject, regionData);
+                    }
+                    recordHistoryState();
+                    repaint();
+                }
+
+                @Override
+                public void onEraseTravelRegion() {
+                    if (doorEditorOpenedDoorObject == null) return;
+                    DoorEditContext ctx = buildDoorEditContext(doorEditorOpenedDoorObject);
+                    if (ctx == null) return;
+                    RegionData linkedRegion = findRegionByName(trimToEmpty(ctx.sharedData.getRegionLinkName()));
+                    if (linkedRegion != null) {
+                        linkedRegion.setBounds(new Polygon());
                     }
                     recordHistoryState();
                     repaint();
@@ -4548,6 +4584,22 @@ public class J2DArea extends JFrame {
             showDoorPolygonOverlays,
             showDoorImpededBlockOverlays
         );
+        doorEditorDialog.setSuggestedEntranceName(buildSuggestedDoorEntranceName(doorContext));
+        String regionLink = trimToEmpty(doorContext.sharedData.getRegionLinkName());
+        if (!regionLink.isEmpty()) {
+            RegionData linkedRegion = findRegionByName(regionLink);
+            if (linkedRegion != null) {
+                PastedObject linkedEntrance = findEntranceByName(trimToEmpty(linkedRegion.getPairedEntranceName()));
+                if (linkedEntrance != null) {
+                    doorEditorDialog.setLastEntranceState(
+                        trimToEmpty(linkedEntrance.getEntranceData().getName()),
+                        new Point(linkedEntrance.getEntranceData().getX(), linkedEntrance.getEntranceData().getY()),
+                        linkedRegion.getBounds(),
+                        linkedEntrance.getEntranceData().getOrientation()
+                    );
+                }
+            }
+        }
     }
 
     private void editDoorFlags(PastedObject doorObject) {
@@ -4563,38 +4615,6 @@ public class J2DArea extends JFrame {
         doorContext.sharedData.setFlags(dialog.getFlags());
         applyDoorData(doorContext);
         recordHistoryState();
-    }
-
-    private void editDoorEntranceTravelRegion(PastedObject doorObject) {
-        DoorEditContext doorContext = buildDoorEditContext(doorObject);
-        if (doorContext == null) {
-            return;
-        }
-
-        RegionData linkedRegion = findRegionByName(doorContext.sharedData.getRegionLinkName());
-        if (linkedRegion != null) {
-            PastedObject linkedEntrance = findEntranceByName(linkedRegion.getPairedEntranceName());
-            if (linkedEntrance != null) {
-                editEntrance(linkedEntrance);
-            }
-            String previousRegionName = trimToEmpty(linkedRegion.getName());
-            editRegion(linkedRegion);
-            doorContext.sharedData.setRegionLinkName(trimToEmpty(linkedRegion.getName()));
-            if (!trimToEmpty(previousRegionName).isEmpty() || !trimToEmpty(linkedRegion.getName()).isEmpty()) {
-                doorContext.sharedData.setFlags(doorContext.sharedData.getFlags() | DoorExportSupport.LINKED_FLAG);
-            }
-            applyDoorData(doorContext);
-            recordHistoryState();
-            return;
-        }
-
-        String entranceName = JOptionPane.showInputDialog(this, "Enter entrance name:", buildSuggestedDoorEntranceName(doorContext));
-        if (entranceName == null || entranceName.trim().isEmpty()) {
-            return;
-        }
-        beginTransitionPlacement(entranceName.trim(), doorContext.primaryDoorObject);
-        painting = false;
-        repaint();
     }
 
     private boolean handleDoorCanvasMousePressed(MouseEvent event) {
@@ -5677,13 +5697,6 @@ public class J2DArea extends JFrame {
     }
 
     private String buildSuggestedDoorEntranceName(DoorEditContext doorContext) {
-        if (doorContext == null) {
-            return "Entrance" + (countEntrances() + 1);
-        }
-        String linkedRegionName = trimToEmpty(doorContext.sharedData.getRegionLinkName());
-        if (!linkedRegionName.isEmpty()) {
-            return linkedRegionName;
-        }
         return "Door" + String.format("%02d", countDoorObjects()) + "_ENTRANCE";
     }
 

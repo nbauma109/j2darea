@@ -1,5 +1,6 @@
 package com.github.nbauma109.j2darea;
 
+import java.awt.Point;
 import java.awt.Polygon;
 
 public final class PolygonUtils {
@@ -22,5 +23,9 @@ public final class PolygonUtils {
         Polygon translated = clonePolygon(polygon);
         translated.translate(offsetX, offsetY);
         return translated;
+    }
+
+    public static Point translatePoint(Point point, int dx, int dy) {
+        return point != null ? new Point(point.x + dx, point.y + dy) : new Point();
     }
 }

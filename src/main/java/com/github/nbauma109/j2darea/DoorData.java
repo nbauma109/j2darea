@@ -81,6 +81,37 @@ public class DoorData implements Externalizable {
         return copy;
     }
 
+    /** Returns a copy with all polygon vertices and points shifted by (dx, dy). */
+    public DoorData translated(int dx, int dy) {
+        if (dx == 0 && dy == 0) {
+            return copy();
+        }
+        DoorData result = copy();
+        result.setOpenPolygon(PolygonUtils.translatedPolygon(openPolygon, dx, dy));
+        result.setClosedPolygon(PolygonUtils.translatedPolygon(closedPolygon, dx, dy));
+        result.setOpenImpededCells(translatedPoints(openImpededCells, dx, dy));
+        result.setClosedImpededCells(translatedPoints(closedImpededCells, dx, dy));
+        result.setLaunchPoint(translatedPoint(launchPoint, dx, dy));
+        result.setOpenLocationFront(translatedPoint(openLocationFront, dx, dy));
+        result.setOpenLocationBack(translatedPoint(openLocationBack, dx, dy));
+        return result;
+    }
+
+    private static List<Point> translatedPoints(List<Point> points, int dx, int dy) {
+        if (points == null) {
+            return new ArrayList<>();
+        }
+        List<Point> result = new ArrayList<>(points.size());
+        for (Point p : points) {
+            result.add(PolygonUtils.translatePoint(p, dx, dy));
+        }
+        return result;
+    }
+
+    private static Point translatedPoint(Point point, int dx, int dy) {
+        return PolygonUtils.translatePoint(point, dx, dy);
+    }
+
     public Polygon getOpenPolygon() {
         return clonePolygon(openPolygon);
     }
