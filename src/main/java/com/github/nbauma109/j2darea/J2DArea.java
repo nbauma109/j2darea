@@ -109,6 +109,7 @@ public class J2DArea extends JFrame {
 
     private static final Dimension MIN_SIZE = new Dimension(1200, 800);
     private static final int MAX_HISTORY_ENTRIES = 50;
+    private static final int DOOR_PIXEL_SNAP_RADIUS = 10;
 
     public static final Dimension BUTTON_SIZE = new Dimension(25, 25);
 
@@ -2808,6 +2809,7 @@ public class J2DArea extends JFrame {
                 }
             } else {
                 if (objectToMove != null || selectedWallGroup != null) {
+                    snapMovingDoorToBestPixelMatch();
                     clearObjectMoveSelection();
                     recordHistoryState();
                 } else if (hasSelectedSearchMapCells()) {
@@ -2818,6 +2820,82 @@ public class J2DArea extends JFrame {
             }
         }
         panel.repaint();
+    }
+
+    private void snapMovingDoorToBestPixelMatch() {
+        if (objectToMove == null || !objectToMove.getPastedObjectType().isDoor()) {
+            return;
+        }
+        BufferedImage renderedDoorImage = objectToMove.getRenderedImage(night);
+        BufferedImage underlyingImage = renderBuildContentUnderMovingObject();
+        int currentScore = DoorPixelMatcher.countMatchingOpaquePixels(
+            renderedDoorImage,
+            underlyingImage,
+            objectToMove.getX(),
+            objectToMove.getY()
+        );
+        Point bestLocation = DoorPixelMatcher.findBestLocation(
+            renderedDoorImage,
+            underlyingImage,
+            objectToMove.getX(),
+            objectToMove.getY(),
+            DOOR_PIXEL_SNAP_RADIUS
+        );
+        int bestScore = DoorPixelMatcher.countMatchingOpaquePixels(
+            renderedDoorImage,
+            underlyingImage,
+            bestLocation.x,
+            bestLocation.y
+        );
+        if (bestScore <= currentScore || (bestLocation.x == objectToMove.getX() && bestLocation.y == objectToMove.getY())) {
+            return;
+        }
+        moveCurrentObjectSelectionBy(bestLocation.x - objectToMove.getX(), bestLocation.y - objectToMove.getY());
+    }
+
+    private BufferedImage renderBuildContentUnderMovingObject() {
+        BufferedImage underlyingImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics graphics = underlyingImage.getGraphics();
+        if (night) {
+            graphics.drawImage(buildBackgroundNightImage, 0, 0, null);
+        } else {
+            graphics.drawImage(buildBackgroundImage, 0, 0, null);
+        }
+        int movingObjectIndex = objectToMoveIdx >= 0 ? objectToMoveIdx : pastedObjects.indexOf(objectToMove);
+        int upperBound = movingObjectIndex >= 0 ? movingObjectIndex : pastedObjects.size();
+        for (int i = 0; i < upperBound; i++) {
+            PastedObject pastedObject = pastedObjects.get(i);
+            if (pastedObject == objectToMove || isMovingCompositeObject(pastedObject) || !pastedObject.isVisible(drawClosed, night)) {
+                continue;
+            }
+            pastedObject.drawImage(graphics, night);
+        }
+        graphics.dispose();
+        return underlyingImage;
+    }
+
+    private boolean isMovingCompositeObject(PastedObject pastedObject) {
+        return movingCompositeGroupId != null
+            && pastedObject != null
+            && movingCompositeGroupId.equals(pastedObject.getCompositeGroupId());
+    }
+
+    private void moveCurrentObjectSelectionBy(int dx, int dy) {
+        if (dx == 0 && dy == 0) {
+            return;
+        }
+        if (movingCompositeGroupId != null && !movingCompositeBaseLocations.isEmpty()) {
+            for (PastedObject pastedObject : movingCompositeBaseLocations.keySet()) {
+                setPastedObjectLocation(pastedObject, pastedObject.getX() + dx, pastedObject.getY() + dy);
+            }
+            for (WallGroupData wallGroupData : movingCompositeBaseWallPolygons.keySet()) {
+                wallGroupData.setPolygon(PolygonUtils.translatedPolygon(wallGroupData.getPolygon(), dx, dy));
+            }
+        } else {
+            setPastedObjectLocation(objectToMove, objectToMove.getX() + dx, objectToMove.getY() + dy);
+        }
+        Rectangle anchorRect = getPastedObjectBounds(objectToMove);
+        movingRectangle = new Rectangle(anchorRect.x, anchorRect.y, anchorRect.width, anchorRect.height);
     }
 
     private void startSearchMapSelection() {

@@ -155,11 +155,14 @@ public class PastedObject implements Externalizable {
     }
 
     public void drawImage(Graphics g, boolean night) {
+        g.drawImage(getRenderedImage(night), getX(), getY(), null);
+    }
+
+    public BufferedImage getRenderedImage(boolean night) {
         if (!pastedObjectType.isNightLight() && night) {
-            g.drawImage(nightImage, getX(), getY(), null);
-        } else {
-            g.drawImage(image.getImage(), getX(), getY(), null);
+            return nightImage;
         }
+        return image.getImage();
     }
 
     public boolean isOpaque(int x, int y) {
