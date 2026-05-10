@@ -21,6 +21,7 @@ public final class UserPreferences {
     private static final String KEY_GAME_INSTALL_PATH = "gameInstallPath";
     private static final String KEY_ZOOM_FACTOR = "zoomFactor";
     private static final String KEY_GOOGLE_AI_API_KEY = "googleAiApiKey";
+    private static final String KEY_FILE_CHOOSER_DIRECTORY_PREFIX = "fileChooserDirectory.";
     private static final File STORAGE_FILE = resolveStorageFile();
     private static final Properties PROPERTIES = loadProperties();
 
@@ -61,6 +62,20 @@ public final class UserPreferences {
 
     public static String getStorageLocation() {
         return STORAGE_FILE.getAbsolutePath();
+    }
+
+    public static String getFileChooserDirectory(FileChooserLocation location) {
+        if (location == null) {
+            return "";
+        }
+        return get(KEY_FILE_CHOOSER_DIRECTORY_PREFIX + location.name(), "");
+    }
+
+    public static void setFileChooserDirectory(FileChooserLocation location, String directory) {
+        if (location == null) {
+            return;
+        }
+        put(KEY_FILE_CHOOSER_DIRECTORY_PREFIX + location.name(), directory != null ? directory : "");
     }
 
     public static List<String> getKnownOwnedAreas() {

@@ -2256,13 +2256,29 @@ public class J2DArea extends JFrame {
 
     public static File chooseFile(Frame parent, int mode, FileChooserLocation fileChooserLocation) {
         FileDialog chooser = new FileDialog(parent, "Choose a file", mode);
-        chooser.setDirectory(directories.get(fileChooserLocation));
+        chooser.setDirectory(getFileChooserDirectory(fileChooserLocation));
         chooser.setVisible(true);
         if (chooser.getFile() == null) {
             return null;
         }
-        directories.put(fileChooserLocation, chooser.getDirectory());
+        setFileChooserDirectory(fileChooserLocation, chooser.getDirectory());
         return new File(chooser.getDirectory(), chooser.getFile());
+    }
+
+    private static String getFileChooserDirectory(FileChooserLocation fileChooserLocation) {
+        String directory = directories.get(fileChooserLocation);
+        if (directory == null || directory.trim().isEmpty()) {
+            directory = UserPreferences.getFileChooserDirectory(fileChooserLocation);
+            if (directory != null && !directory.trim().isEmpty()) {
+                directories.put(fileChooserLocation, directory);
+            }
+        }
+        return directory;
+    }
+
+    private static void setFileChooserDirectory(FileChooserLocation fileChooserLocation, String directory) {
+        directories.put(fileChooserLocation, directory);
+        UserPreferences.setFileChooserDirectory(fileChooserLocation, directory);
     }
 
     private void paintObjects(Graphics g) {
