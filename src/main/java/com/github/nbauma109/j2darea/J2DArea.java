@@ -23,6 +23,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.Point2D;
@@ -449,7 +450,7 @@ public class J2DArea extends JFrame {
                     return;
                 }
                 extractZoom = newZoom;
-                applyZoom(extractScrollPane, extractPanel, oldZoom, newZoom, e.getPoint());
+                applyZoom(extractScrollPane, extractPanel, oldZoom, newZoom);
             }
         });
 
@@ -700,7 +701,7 @@ public class J2DArea extends JFrame {
                         return;
                     }
                     buildZoom = newZoom;
-                    applyZoom(buildScrollPane, buildPanel, oldZoom, newZoom, e.getPoint());
+                    applyZoom(buildScrollPane, buildPanel, oldZoom, newZoom);
                 }
             }
 
@@ -5200,6 +5201,18 @@ public class J2DArea extends JFrame {
             return;
         }
         scrollPane.setWheelScrollingEnabled(false);
+        for (MouseWheelListener listener : scrollPane.getMouseWheelListeners()) {
+            scrollPane.removeMouseWheelListener(listener);
+        }
+        MouseAdapter consumeWheelEvents = new MouseAdapter() {
+            @Override
+            public void mouseWheelMoved(MouseWheelEvent e) {
+                e.consume();
+            }
+        };
+        scrollPane.getViewport().addMouseWheelListener(consumeWheelEvents);
+        scrollPane.getHorizontalScrollBar().addMouseWheelListener(consumeWheelEvents);
+        scrollPane.getVerticalScrollBar().addMouseWheelListener(consumeWheelEvents);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
     }
@@ -5488,18 +5501,20 @@ public class J2DArea extends JFrame {
         return Math.max(0.25, Math.min(zoom, 4.0));
     }
 
-    private void applyZoom(JScrollPane scrollPane, JPanel panel, double oldZoom, double newZoom, Point mousePoint) {
-        if (scrollPane == null || panel == null || mousePoint == null) {
+    private void applyZoom(JScrollPane scrollPane, JPanel panel, double oldZoom, double newZoom) {
+        if (scrollPane == null || panel == null) {
             return;
         }
         JViewport viewport = scrollPane.getViewport();
         Point viewPosition = viewport.getViewPosition();
-        double contentX = (viewPosition.x + mousePoint.x) / oldZoom;
-        double contentY = (viewPosition.y + mousePoint.y) / oldZoom;
+        int anchorX = viewport.getWidth() / 2;
+        int anchorY = viewport.getHeight() / 2;
+        double contentX = (viewPosition.x + anchorX) / oldZoom;
+        double contentY = (viewPosition.y + anchorY) / oldZoom;
         panel.revalidate();
         panel.repaint();
-        int newViewX = (int) Math.round(contentX * newZoom - mousePoint.x);
-        int newViewY = (int) Math.round(contentY * newZoom - mousePoint.y);
+        int newViewX = (int) Math.round(contentX * newZoom - anchorX);
+        int newViewY = (int) Math.round(contentY * newZoom - anchorY);
         Dimension preferredSize = panel.getPreferredSize();
         int maxX = Math.max(0, preferredSize.width - viewport.getWidth());
         int maxY = Math.max(0, preferredSize.height - viewport.getHeight());
