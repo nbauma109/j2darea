@@ -1562,8 +1562,7 @@ public class J2DArea extends JFrame {
                     deltaX = 0;
                     deltaY = 0;
                     painting = false;
-                    night = true;
-                    repaint();
+                    setNightModeState(true);
                 }
             }
         });
@@ -1628,9 +1627,8 @@ public class J2DArea extends JFrame {
             
             @Override
             public void actionPerformed(ActionEvent e) {
-                night = !night;
                 painting = false;
-                repaint();
+                setNightModeState(!night);
             }
         });
         nightButton.setMaximumSize(BUTTON_SIZE);
