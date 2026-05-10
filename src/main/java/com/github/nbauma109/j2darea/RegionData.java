@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 /**
  * Stores metadata for an area region/trigger.
  * Regions define interactive areas that can trigger scripts, spawn encounters, etc.
@@ -361,6 +364,55 @@ public class RegionData implements Externalizable {
             boundsRectangle.x + (boundsRectangle.width / 2),
             boundsRectangle.y + (boundsRectangle.height / 2)
         );
+    }
+
+    public Element toXml(Document doc, String tag) {
+        Element el = doc.createElement(tag);
+        XmlIO.addText(doc, el, "name", name != null ? name : "");
+        XmlIO.addInt(doc, el, "type", type);
+        XmlIO.writePolygon(doc, el, "bounds", bounds);
+        XmlIO.addText(doc, el, "script", script != null ? script : "");
+        XmlIO.addInt(doc, el, "trapDetectionDifficulty", trapDetectionDifficulty);
+        XmlIO.addInt(doc, el, "trapRemovalDifficulty", trapRemovalDifficulty);
+        XmlIO.addBoolean(doc, el, "trapped", trapped);
+        XmlIO.addBoolean(doc, el, "trapDetected", trapDetected);
+        XmlIO.addText(doc, el, "trapScript", trapScript != null ? trapScript : "");
+        XmlIO.addText(doc, el, "destinationArea", destinationArea != null ? destinationArea : "");
+        XmlIO.addText(doc, el, "destinationEntrance", destinationEntrance != null ? destinationEntrance : "");
+        XmlIO.addInt(doc, el, "destinationAreaType",
+            destinationAreaType != null ? destinationAreaType.ordinal() : DestinationAreaType.EXISTING_GAME_AREA.ordinal());
+        XmlIO.addInt(doc, el, "flags", flags);
+        XmlIO.addInt(doc, el, "destinationPointX", destinationPointX);
+        XmlIO.addInt(doc, el, "destinationPointY", destinationPointY);
+        XmlIO.addInt(doc, el, "destinationPointOrientation", destinationPointOrientation);
+        XmlIO.addText(doc, el, "destinationPreviewImagePath",
+            destinationPreviewImagePath != null ? destinationPreviewImagePath : "");
+        XmlIO.writePolygon(doc, el, "destinationReturnPolygon", destinationReturnPolygon);
+        XmlIO.addText(doc, el, "pairedEntranceName", pairedEntranceName != null ? pairedEntranceName : "");
+        return el;
+    }
+
+    public void fromXml(Element el) {
+        name = XmlIO.readText(el, "name", "");
+        type = XmlIO.readInt(el, "type", 0);
+        bounds = XmlIO.readPolygon(el, "bounds");
+        script = XmlIO.readText(el, "script", "");
+        trapDetectionDifficulty = XmlIO.readInt(el, "trapDetectionDifficulty", 0);
+        trapRemovalDifficulty = XmlIO.readInt(el, "trapRemovalDifficulty", 0);
+        trapped = XmlIO.readBoolean(el, "trapped", false);
+        trapDetected = XmlIO.readBoolean(el, "trapDetected", false);
+        trapScript = XmlIO.readText(el, "trapScript", "");
+        destinationArea = XmlIO.readText(el, "destinationArea", "");
+        destinationEntrance = XmlIO.readText(el, "destinationEntrance", "");
+        destinationAreaType = DestinationAreaType.fromOrdinal(
+            XmlIO.readInt(el, "destinationAreaType", DestinationAreaType.EXISTING_GAME_AREA.ordinal()));
+        flags = XmlIO.readInt(el, "flags", 0);
+        destinationPointX = XmlIO.readInt(el, "destinationPointX", 0);
+        destinationPointY = XmlIO.readInt(el, "destinationPointY", 0);
+        destinationPointOrientation = XmlIO.readInt(el, "destinationPointOrientation", 0);
+        destinationPreviewImagePath = XmlIO.readText(el, "destinationPreviewImagePath", "");
+        destinationReturnPolygon = XmlIO.readPolygon(el, "destinationReturnPolygon");
+        pairedEntranceName = XmlIO.readText(el, "pairedEntranceName", "");
     }
 
     private static final class PolygonBoundsCenter {

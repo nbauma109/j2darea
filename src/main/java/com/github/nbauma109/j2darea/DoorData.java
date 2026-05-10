@@ -9,6 +9,9 @@ import java.io.ObjectOutput;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 public class DoorData implements Externalizable {
 
     private Polygon openPolygon;
@@ -231,5 +234,33 @@ public class DoorData implements Externalizable {
 
     private static Point copyPoint(Point point) {
         return point != null ? new Point(point) : new Point();
+    }
+
+    public Element toXml(Document doc, String tag) {
+        Element el = doc.createElement(tag);
+        XmlIO.writePolygon(doc, el, "openPolygon", openPolygon);
+        XmlIO.writePolygon(doc, el, "closedPolygon", closedPolygon);
+        XmlIO.writePointList(doc, el, "openImpededCells", openImpededCells);
+        XmlIO.writePointList(doc, el, "closedImpededCells", closedImpededCells);
+        XmlIO.addInt(doc, el, "flags", flags);
+        XmlIO.addText(doc, el, "regionLinkName", regionLinkName != null ? regionLinkName : "");
+        XmlIO.writePoint(doc, el, "launchPoint", launchPoint);
+        XmlIO.writePoint(doc, el, "openLocationFront", openLocationFront);
+        XmlIO.writePoint(doc, el, "openLocationBack", openLocationBack);
+        XmlIO.addInt(doc, el, "cursorIndex", cursorIndex);
+        return el;
+    }
+
+    public void fromXml(Element el) {
+        openPolygon = XmlIO.readPolygon(el, "openPolygon");
+        closedPolygon = XmlIO.readPolygon(el, "closedPolygon");
+        openImpededCells = XmlIO.readPointList(el, "openImpededCells");
+        closedImpededCells = XmlIO.readPointList(el, "closedImpededCells");
+        flags = XmlIO.readInt(el, "flags", 0);
+        regionLinkName = XmlIO.readText(el, "regionLinkName", "");
+        launchPoint = XmlIO.readPoint(el, "launchPoint");
+        openLocationFront = XmlIO.readPoint(el, "openLocationFront");
+        openLocationBack = XmlIO.readPoint(el, "openLocationBack");
+        cursorIndex = XmlIO.readInt(el, "cursorIndex", DoorExportSupport.DEFAULT_CURSOR_INDEX);
     }
 }

@@ -13,6 +13,9 @@ import java.io.ObjectOutput;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -331,5 +334,33 @@ public class SearchMapData implements Externalizable {
         int deltaX = centerX - nearestX;
         int deltaY = centerY - nearestY;
         return (deltaX * deltaX) + (deltaY * deltaY) <= radius * radius;
+    }
+
+    public Element toXml(Document doc, String tag) {
+        Element el = doc.createElement(tag);
+        XmlIO.addInt(doc, el, "widthInTiles", widthInTiles);
+        XmlIO.addInt(doc, el, "heightInTiles", heightInTiles);
+        XmlIO.writeBase64Bytes(doc, el, "tileTypes", tileTypes);
+        XmlIO.writeBase64Bytes(doc, el, "overrideTileTypes", overrideTileTypes);
+        return el;
+    }
+
+    public void fromXml(Element el) {
+        widthInTiles = XmlIO.readInt(el, "widthInTiles", 0);
+        heightInTiles = XmlIO.readInt(el, "heightInTiles", 0);
+        tileTypes = XmlIO.readBase64Bytes(el, "tileTypes");
+        overrideTileTypes = XmlIO.readBase64Bytes(el, "overrideTileTypes");
+        int expected = widthInTiles * heightInTiles;
+        if (tileTypes.length != expected) {
+            byte[] resized = new byte[expected];
+            Arrays.fill(resized, (byte) SearchMapTileType.UNKNOWN.ordinal());
+            System.arraycopy(tileTypes, 0, resized, 0, Math.min(tileTypes.length, expected));
+            tileTypes = resized;
+        }
+        if (overrideTileTypes.length != expected) {
+            byte[] resized = new byte[expected];
+            System.arraycopy(overrideTileTypes, 0, resized, 0, Math.min(overrideTileTypes.length, expected));
+            overrideTileTypes = resized;
+        }
     }
 }

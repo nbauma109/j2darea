@@ -25,10 +25,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.zip.GZIPOutputStream;
 
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
@@ -483,13 +481,14 @@ public class CompositeObjectEditorDialog extends JDialog {
             copyWallGroupsForExport()
         );
         try {
-            FileOutputStream fileOutputStream = new FileOutputStream(file);
-            GZIPOutputStream gzipOutputStream = new GZIPOutputStream(fileOutputStream);
-            ObjectOutputStream objectOutputStream = new ObjectOutputStream(gzipOutputStream);
+            byte[] xmlBytes;
             try {
-                compositeObjectData.writeExternal(objectOutputStream);
-            } finally {
-                objectOutputStream.close();
+                xmlBytes = compositeObjectData.toXmlBytes();
+            } catch (javax.xml.parsers.ParserConfigurationException | javax.xml.transform.TransformerException xmlEx) {
+                throw new IOException("Failed to serialize composite object to XML", xmlEx);
+            }
+            try (FileOutputStream fileOutputStream = new FileOutputStream(file)) {
+                fileOutputStream.write(xmlBytes);
             }
             JOptionPane.showMessageDialog(this, "Composite object exported.");
         } catch (IOException ex) {

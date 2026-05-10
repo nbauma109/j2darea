@@ -49,8 +49,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
@@ -254,6 +252,7 @@ public class J2DArea extends JFrame {
     private int brushRadius = 30;
     private double buildZoom = 1.0;
     private double extractZoom = 1.0;
+    private transient BufferedImage backgroundTile;
     private transient BufferedImage brushTexture;
     private transient BufferedImage brushPreview;
     private transient BufferedImage brushNightPreview;
@@ -964,6 +963,7 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 BufferedImage textureImage = chooseImageFile(FileChooserLocation.TEXTURE);
                 if (textureImage != null) {
+                    backgroundTile = textureImage;
                     for (int x = 0; x < buildBackgroundImage.getWidth(); x++) {
                         for (int y = 0; y < buildBackgroundImage.getHeight(); y++) {
                             buildBackgroundImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
@@ -991,16 +991,24 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
-                FileNameExtensionFilter filter = new FileNameExtensionFilter("J2DArea project files", "j2da");
+                FileNameExtensionFilter filter = new FileNameExtensionFilter("J2DArea project files (*.xml)", "xml");
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showOpenDialog(null);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
-                    try (FileInputStream fileInputStream = new FileInputStream(chooser.getSelectedFile());
-                            GZIPInputStream gzipInputStream = new GZIPInputStream(fileInputStream);
-                            ObjectInputStream objectInputStream = new ObjectInputStream(gzipInputStream)) {
+                    try {
+                        byte[] xmlBytes;
+                        try (FileInputStream fis = new FileInputStream(chooser.getSelectedFile())) {
+                            xmlBytes = fis.readAllBytes();
+                        }
                         ExportableArea exportableArea = new ExportableArea();
-                        exportableArea.readExternal(objectInputStream);
+                        try {
+                            exportableArea.fromXml(XmlIO.parseDocument(xmlBytes).getDocumentElement());
+                        } catch (javax.xml.parsers.ParserConfigurationException | org.xml.sax.SAXException xmlEx) {
+                            throw new IOException("Failed to parse area XML", xmlEx);
+                        }
                         buildBackgroundImage = exportableArea.getBackgroundImage().getImage();
+                        backgroundTile = exportableArea.getBackgroundTile() != null
+                            ? exportableArea.getBackgroundTile().getImage() : null;
                         backgroundWidth = buildBackgroundImage.getWidth();
                         backgroundHeight = buildBackgroundImage.getHeight();
                         buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
@@ -1020,7 +1028,7 @@ public class J2DArea extends JFrame {
                         resetHistoryToCurrentState();
                         setExtendedState(Frame.MAXIMIZED_BOTH);
                         repaint();
-                    } catch (IOException | ClassNotFoundException ex) {
+                    } catch (IOException ex) {
                         ex.printStackTrace();
                         JOptionPane.showMessageDialog(null, "Error opening file.", ERROR, JOptionPane.ERROR_MESSAGE);
                     }
@@ -1117,25 +1125,48 @@ public class J2DArea extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 JFileChooser chooser = new JFileChooser(new File(System.getProperty(USER_HOME)));
-                FileNameExtensionFilter filter = new FileNameExtensionFilter("J2DArea project files", "j2da");
+                FileNameExtensionFilter filter = new FileNameExtensionFilter("J2DArea project files (*.xml)", "xml");
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showSaveDialog(null);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
                     boolean success;
-                    ExportableArea exportableArea = new ExportableArea(
-                        new ExportableImage(buildBackgroundImage),
-                        pastedObjects,
-                        regions,
-                        containers,
-                        wallGroups,
-                        areaAttributes,
-                        searchMapData
-                    );
-                    try (FileOutputStream fileOutputStream = new FileOutputStream(chooser.getSelectedFile())) {
-                        try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(fileOutputStream)) {
-                            try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(gzipOutputStream)) {
-                                exportableArea.writeExternal(objectOutputStream);
-                            }
+                    File saveFile = chooser.getSelectedFile();
+                    if (!saveFile.getName().toLowerCase().endsWith(".xml")) {
+                        saveFile = new File(saveFile.getAbsolutePath() + ".xml");
+                    }
+                    ExportableArea exportableArea;
+                    if (backgroundTile != null) {
+                        exportableArea = new ExportableArea(
+                            new ExportableImage(backgroundTile),
+                            backgroundWidth,
+                            backgroundHeight,
+                            pastedObjects,
+                            regions,
+                            containers,
+                            wallGroups,
+                            areaAttributes,
+                            searchMapData
+                        );
+                    } else {
+                        exportableArea = new ExportableArea(
+                            new ExportableImage(buildBackgroundImage),
+                            pastedObjects,
+                            regions,
+                            containers,
+                            wallGroups,
+                            areaAttributes,
+                            searchMapData
+                        );
+                    }
+                    try {
+                        byte[] xmlBytes;
+                        try {
+                            xmlBytes = exportableArea.toXmlBytes();
+                        } catch (javax.xml.parsers.ParserConfigurationException | javax.xml.transform.TransformerException xmlEx) {
+                            throw new IOException("Failed to serialize area to XML", xmlEx);
+                        }
+                        try (FileOutputStream fileOutputStream = new FileOutputStream(saveFile)) {
+                            fileOutputStream.write(xmlBytes);
                         }
                         success = true;
                     } catch (IOException ex) {
@@ -2164,17 +2195,18 @@ public class J2DArea extends JFrame {
             return null;
         }
         try {
-            FileInputStream fileInputStream = new FileInputStream(file);
-            GZIPInputStream gzipInputStream = new GZIPInputStream(fileInputStream);
-            ObjectInputStream objectInputStream = new ObjectInputStream(gzipInputStream);
-            try {
-                CompositeObjectData compositeObjectData = new CompositeObjectData();
-                compositeObjectData.readExternal(objectInputStream);
-                return compositeObjectData;
-            } finally {
-                objectInputStream.close();
+            byte[] xmlBytes;
+            try (FileInputStream fis = new FileInputStream(file)) {
+                xmlBytes = fis.readAllBytes();
             }
-        } catch (IOException | ClassNotFoundException ex) {
+            CompositeObjectData compositeObjectData = new CompositeObjectData();
+            try {
+                compositeObjectData.fromXml(XmlIO.parseDocument(xmlBytes).getDocumentElement());
+            } catch (javax.xml.parsers.ParserConfigurationException | org.xml.sax.SAXException xmlEx) {
+                throw new IOException("Failed to parse composite object XML", xmlEx);
+            }
+            return compositeObjectData;
+        } catch (IOException ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this, "Error opening composite object file.", ERROR, JOptionPane.ERROR_MESSAGE);
             return null;
@@ -4565,25 +4597,6 @@ public class J2DArea extends JFrame {
         repaint();
     }
 
-    private void startDoorPointPlacement(PastedObject openedDoorObject, DoorPointType pointType, String title) {
-        DoorEditContext doorContext = buildDoorEditContext(openedDoorObject);
-        if (doorContext == null || doorContext.primaryDoorObject == null) {
-            return;
-        }
-        cancelDoorEditingSessions(false);
-        clearObjectMoveSelection();
-        searchMapSelectionSession = null;
-        wallGroupPlacementSession = null;
-        if (transitionPlacementSession != null) {
-            cancelTransitionPlacement(true);
-        }
-        doorPointPlacementSession = new DoorPointPlacementSession(doorContext.primaryDoorObject, pointType, title);
-        if (tabPane != null) {
-            tabPane.setSelectedComponent(buildScrollPane);
-        }
-        repaint();
-    }
-
     private boolean handleDoorCanvasMousePressed(MouseEvent event) {
         if (doorPointPlacementSession != null) {
             if (SwingUtilities.isLeftMouseButton(event)) {
@@ -5162,6 +5175,7 @@ public class J2DArea extends JFrame {
         }
         if (tabPane.getSelectedComponent() == buildScrollPane) {
             buildBackgroundImage = chosenImageFile;
+            backgroundTile = null;
             backgroundWidth = chosenImageFile.getWidth();
             backgroundHeight = chosenImageFile.getHeight();
             buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);

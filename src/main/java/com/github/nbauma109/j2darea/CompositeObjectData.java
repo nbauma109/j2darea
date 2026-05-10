@@ -8,6 +8,13 @@ import java.io.ObjectOutput;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.TransformerException;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+
 public class CompositeObjectData implements Externalizable {
 
     private int width;
@@ -110,5 +117,46 @@ public class CompositeObjectData implements Externalizable {
 
     public List<WallGroupData> getWallGroups() {
         return wallGroups;
+    }
+
+    public byte[] toXmlBytes() throws ParserConfigurationException, TransformerException, IOException {
+        Document doc = XmlIO.newDocument();
+        Element root = doc.createElement("compositeObject");
+        root.setAttribute("version", "1");
+        doc.appendChild(root);
+        XmlIO.addInt(doc, root, "width", width);
+        XmlIO.addInt(doc, root, "height", height);
+        Element objectsEl = XmlIO.addElement(doc, root, "pastedObjects");
+        for (PastedObject obj : pastedObjects) {
+            objectsEl.appendChild(obj.toXml(doc, "pastedObject"));
+        }
+        Element wallGroupsEl = XmlIO.addElement(doc, root, "wallGroups");
+        for (WallGroupData w : wallGroups) {
+            wallGroupsEl.appendChild(w.toXml(doc, "wallGroup"));
+        }
+        return XmlIO.documentToBytes(doc);
+    }
+
+    public void fromXml(Element root) throws IOException {
+        width = XmlIO.readInt(root, "width", 0);
+        height = XmlIO.readInt(root, "height", 0);
+        pastedObjects = new ArrayList<>();
+        NodeList objNodes = XmlIO.getChildElements(root, "pastedObjects/pastedObject");
+        if (objNodes != null) {
+            for (int i = 0; i < objNodes.getLength(); i++) {
+                PastedObject obj = new PastedObject();
+                obj.fromXml((Element) objNodes.item(i));
+                pastedObjects.add(obj);
+            }
+        }
+        wallGroups = new ArrayList<>();
+        NodeList wallGroupNodes = XmlIO.getChildElements(root, "wallGroups/wallGroup");
+        if (wallGroupNodes != null) {
+            for (int i = 0; i < wallGroupNodes.getLength(); i++) {
+                WallGroupData w = new WallGroupData();
+                w.fromXml((Element) wallGroupNodes.item(i));
+                wallGroups.add(w);
+            }
+        }
     }
 }

@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 /**
  * Stores metadata for an area entrance/exit that allows transitions between areas.
  * This data is serialized in project files and exported to ARE format.
@@ -243,5 +246,42 @@ public class EntranceData implements Externalizable {
         System.arraycopy(polygon.xpoints, 0, xpoints, 0, polygon.npoints);
         System.arraycopy(polygon.ypoints, 0, ypoints, 0, polygon.npoints);
         return new Polygon(xpoints, ypoints, polygon.npoints);
+    }
+
+    public Element toXml(Document doc, String tag) {
+        Element el = doc.createElement(tag);
+        XmlIO.addText(doc, el, "name", name != null ? name : "");
+        XmlIO.addInt(doc, el, "x", x);
+        XmlIO.addInt(doc, el, "y", y);
+        XmlIO.addInt(doc, el, "orientation", orientation);
+        XmlIO.addText(doc, el, "destinationArea", destinationArea != null ? destinationArea : "");
+        XmlIO.addText(doc, el, "destinationEntrance", destinationEntrance != null ? destinationEntrance : "");
+        XmlIO.addInt(doc, el, "destinationAreaType",
+            destinationAreaType != null ? destinationAreaType.ordinal() : DestinationAreaType.EXISTING_GAME_AREA.ordinal());
+        XmlIO.addBoolean(doc, el, "createDestinationReturnTransition", createDestinationReturnTransition);
+        XmlIO.addInt(doc, el, "destinationPointX", destinationPointX);
+        XmlIO.addInt(doc, el, "destinationPointY", destinationPointY);
+        XmlIO.addInt(doc, el, "destinationPointOrientation", destinationPointOrientation);
+        XmlIO.addText(doc, el, "destinationPreviewImagePath",
+            destinationPreviewImagePath != null ? destinationPreviewImagePath : "");
+        XmlIO.writePolygon(doc, el, "destinationReturnPolygon", destinationReturnPolygon);
+        return el;
+    }
+
+    public void fromXml(Element el) {
+        name = XmlIO.readText(el, "name", "");
+        x = XmlIO.readInt(el, "x", 0);
+        y = XmlIO.readInt(el, "y", 0);
+        orientation = XmlIO.readInt(el, "orientation", 0);
+        destinationArea = XmlIO.readText(el, "destinationArea", "");
+        destinationEntrance = XmlIO.readText(el, "destinationEntrance", "");
+        destinationAreaType = DestinationAreaType.fromOrdinal(
+            XmlIO.readInt(el, "destinationAreaType", DestinationAreaType.EXISTING_GAME_AREA.ordinal()));
+        createDestinationReturnTransition = XmlIO.readBoolean(el, "createDestinationReturnTransition", false);
+        destinationPointX = XmlIO.readInt(el, "destinationPointX", x);
+        destinationPointY = XmlIO.readInt(el, "destinationPointY", y);
+        destinationPointOrientation = XmlIO.readInt(el, "destinationPointOrientation", orientation);
+        destinationPreviewImagePath = XmlIO.readText(el, "destinationPreviewImagePath", "");
+        destinationReturnPolygon = XmlIO.readPolygon(el, "destinationReturnPolygon");
     }
 }

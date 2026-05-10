@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 public class WallGroupData implements Externalizable {
 
     public static final int FLAG_WALL = 0x01;
@@ -199,5 +202,31 @@ public class WallGroupData implements Externalizable {
         } else {
             this.compositeGroupId = compositeGroupId;
         }
+    }
+
+    public Element toXml(Document doc, String tag) {
+        Element el = doc.createElement(tag);
+        XmlIO.addText(doc, el, "name", name != null ? name : "");
+        XmlIO.writePolygon(doc, el, "polygon", polygon);
+        XmlIO.addBoolean(doc, el, "wall", wall);
+        XmlIO.addBoolean(doc, el, "semiTransparent", semiTransparent);
+        XmlIO.addBoolean(doc, el, "hoveringWall", hoveringWall);
+        XmlIO.addBoolean(doc, el, "coverAnimations", coverAnimations);
+        XmlIO.addBoolean(doc, el, "door", door);
+        XmlIO.addInt(doc, el, "height", height);
+        XmlIO.addText(doc, el, "compositeGroupId", compositeGroupId != null ? compositeGroupId : "");
+        return el;
+    }
+
+    public void fromXml(Element el) {
+        name = XmlIO.readText(el, "name", "");
+        polygon = XmlIO.readPolygon(el, "polygon");
+        wall = XmlIO.readBoolean(el, "wall", true);
+        semiTransparent = XmlIO.readBoolean(el, "semiTransparent", false);
+        hoveringWall = XmlIO.readBoolean(el, "hoveringWall", false);
+        coverAnimations = XmlIO.readBoolean(el, "coverAnimations", false);
+        door = XmlIO.readBoolean(el, "door", false);
+        height = XmlIO.readInt(el, "height", 0);
+        setCompositeGroupId(XmlIO.readText(el, "compositeGroupId", null));
     }
 }

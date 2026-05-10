@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 public class ExportableImage implements Externalizable {
 
     private transient BufferedImage image;
@@ -70,5 +73,13 @@ public class ExportableImage implements Externalizable {
 
     public boolean isOpaque(int x, int y) {
         return new Color(image.getRGB(x, y), true).getTransparency() == Transparency.OPAQUE;
+    }
+
+    public void toXml(Document doc, Element parent, String tag) throws IOException {
+        XmlIO.writeImage(doc, parent, tag, image);
+    }
+
+    public void fromXml(Element parent, String tag) throws IOException {
+        image = XmlIO.readImage(parent, tag);
     }
 }

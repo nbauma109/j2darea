@@ -9,6 +9,9 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 public class PastedObject implements Externalizable {
 
     private Point location;
@@ -305,6 +308,56 @@ public class PastedObject implements Externalizable {
             this.compositeGroupId = null;
         } else {
             this.compositeGroupId = compositeGroupId;
+        }
+    }
+
+    public Element toXml(Document doc, String tag) throws IOException {
+        Element el = doc.createElement(tag);
+        el.setAttribute("x", String.valueOf(location.x));
+        el.setAttribute("y", String.valueOf(location.y));
+        el.setAttribute("type", String.valueOf(pastedObjectType.ordinal()));
+        el.setAttribute("compositeGroupId", compositeGroupId != null ? compositeGroupId : "");
+        image.toXml(doc, el, "image");
+        if (pastedObjectType.isEntrance() && entranceData != null) {
+            el.appendChild(entranceData.toXml(doc, "entranceData"));
+        }
+        if (pastedObjectType.isDoor() && doorData != null) {
+            el.appendChild(doorData.toXml(doc, "doorData"));
+        }
+        return el;
+    }
+
+    public void fromXml(Element el) throws IOException {
+        int x = 0, y = 0;
+        try { x = Integer.parseInt(el.getAttribute("x")); } catch (NumberFormatException ignored) {}
+        try { y = Integer.parseInt(el.getAttribute("y")); } catch (NumberFormatException ignored) {}
+        location = new Point(x, y);
+        int typeOrdinal = 0;
+        try { typeOrdinal = Integer.parseInt(el.getAttribute("type")); } catch (NumberFormatException ignored) {}
+        PastedObjectType[] types = PastedObjectType.values();
+        pastedObjectType = (typeOrdinal >= 0 && typeOrdinal < types.length) ? types[typeOrdinal] : PastedObjectType.STANDARD;
+        setCompositeGroupId(el.getAttribute("compositeGroupId"));
+        image = new ExportableImage();
+        image.fromXml(el, "image");
+        if (!pastedObjectType.isNightLight() && image.getImage() != null) {
+            nightImage = ImageFilter.applyNightFilter(image.getImage());
+        }
+        Element edEl = XmlIO.getChildElement(el, "entranceData");
+        if (edEl != null) {
+            entranceData = new EntranceData();
+            entranceData.fromXml(edEl);
+        } else if (pastedObjectType.isEntrance()) {
+            entranceData = new EntranceData("", location.x, location.y);
+        }
+        Element ddEl = XmlIO.getChildElement(el, "doorData");
+        if (ddEl != null) {
+            doorData = new DoorData();
+            doorData.fromXml(ddEl);
+        } else if (pastedObjectType.isDoor()) {
+            doorData = new DoorData();
+        }
+        if (image.getImage() != null) {
+            initBuffers();
         }
     }
 }

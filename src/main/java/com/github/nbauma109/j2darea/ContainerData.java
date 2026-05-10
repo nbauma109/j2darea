@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 /**
  * Stores metadata for a container (chest, barrel, etc.).
  */
@@ -234,5 +237,40 @@ public class ContainerData implements Externalizable {
             new int[] {y - halfHeight, y - halfHeight, y + halfHeight, y + halfHeight},
             4
         );
+    }
+
+    public Element toXml(Document doc, String tag) {
+        Element el = doc.createElement(tag);
+        XmlIO.addText(doc, el, "name", name != null ? name : "");
+        XmlIO.addInt(doc, el, "x", x);
+        XmlIO.addInt(doc, el, "y", y);
+        XmlIO.addInt(doc, el, "containerType", containerType);
+        XmlIO.addInt(doc, el, "lockDifficulty", lockDifficulty);
+        XmlIO.addInt(doc, el, "trapDetectionDifficulty", trapDetectionDifficulty);
+        XmlIO.addInt(doc, el, "trapRemovalDifficulty", trapRemovalDifficulty);
+        XmlIO.addBoolean(doc, el, "trapped", trapped);
+        XmlIO.addBoolean(doc, el, "trapDetected", trapDetected);
+        XmlIO.addBoolean(doc, el, "locked", locked);
+        XmlIO.addText(doc, el, "keyItem", keyItem != null ? keyItem : "");
+        XmlIO.addText(doc, el, "script", script != null ? script : "");
+        XmlIO.writePolygon(doc, el, "bounds", bounds);
+        return el;
+    }
+
+    public void fromXml(Element el) {
+        name = XmlIO.readText(el, "name", "");
+        x = XmlIO.readInt(el, "x", 0);
+        y = XmlIO.readInt(el, "y", 0);
+        containerType = XmlIO.readInt(el, "containerType", 1);
+        lockDifficulty = XmlIO.readInt(el, "lockDifficulty", 0);
+        trapDetectionDifficulty = XmlIO.readInt(el, "trapDetectionDifficulty", 0);
+        trapRemovalDifficulty = XmlIO.readInt(el, "trapRemovalDifficulty", 0);
+        trapped = XmlIO.readBoolean(el, "trapped", false);
+        trapDetected = XmlIO.readBoolean(el, "trapDetected", false);
+        locked = XmlIO.readBoolean(el, "locked", false);
+        keyItem = XmlIO.readText(el, "keyItem", "");
+        script = XmlIO.readText(el, "script", "");
+        Polygon readBounds = XmlIO.readPolygon(el, "bounds");
+        bounds = (readBounds.npoints > 0) ? readBounds : defaultBounds(x, y);
     }
 }

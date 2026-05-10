@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 /**
  * Serializable area-level export attributes for Infinity Engine resources.
  */
@@ -116,5 +119,29 @@ public class AreaAttributes implements Externalizable {
 
     public void setAreaScript(String areaScript) {
         this.areaScript = areaScript;
+    }
+
+    public Element toXml(Document doc, String tag) {
+        Element el = doc.createElement(tag);
+        XmlIO.addInt(doc, el, "areaFlags", areaFlags);
+        XmlIO.addInt(doc, el, "areaTypeFlags", areaTypeFlags);
+        XmlIO.addInt(doc, el, "rainProbability", rainProbability);
+        XmlIO.addInt(doc, el, "snowProbability", snowProbability);
+        XmlIO.addInt(doc, el, "fogProbability", fogProbability);
+        XmlIO.addInt(doc, el, "lightningProbability", lightningProbability);
+        XmlIO.addInt(doc, el, "overlayTransparency", overlayTransparency);
+        XmlIO.addText(doc, el, "areaScript", areaScript != null ? areaScript : "");
+        return el;
+    }
+
+    public void fromXml(Element el) {
+        areaFlags = XmlIO.readInt(el, "areaFlags", 0);
+        areaTypeFlags = XmlIO.readInt(el, "areaTypeFlags", 0x0003);
+        rainProbability = XmlIO.readInt(el, "rainProbability", 0);
+        snowProbability = XmlIO.readInt(el, "snowProbability", 0);
+        fogProbability = XmlIO.readInt(el, "fogProbability", 0);
+        lightningProbability = XmlIO.readInt(el, "lightningProbability", 0);
+        overlayTransparency = XmlIO.readInt(el, "overlayTransparency", 0);
+        areaScript = XmlIO.readText(el, "areaScript", "");
     }
 }
