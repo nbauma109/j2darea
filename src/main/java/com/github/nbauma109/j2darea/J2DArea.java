@@ -23,7 +23,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
-import java.awt.event.MouseWheelListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.Point2D;
@@ -5198,18 +5197,6 @@ public class J2DArea extends JFrame {
             return;
         }
         scrollPane.setWheelScrollingEnabled(false);
-        for (MouseWheelListener listener : scrollPane.getMouseWheelListeners()) {
-            scrollPane.removeMouseWheelListener(listener);
-        }
-        MouseAdapter consumeWheelEvents = new MouseAdapter() {
-            @Override
-            public void mouseWheelMoved(MouseWheelEvent e) {
-                e.consume();
-            }
-        };
-        scrollPane.getViewport().addMouseWheelListener(consumeWheelEvents);
-        scrollPane.getHorizontalScrollBar().addMouseWheelListener(consumeWheelEvents);
-        scrollPane.getVerticalScrollBar().addMouseWheelListener(consumeWheelEvents);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
     }
