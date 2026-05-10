@@ -1509,8 +1509,7 @@ public class J2DArea extends JFrame {
                     deltaX = 0;
                     deltaY = 0;
                     painting = false;
-                    drawClosed = false;
-                    repaint();
+                    setDrawClosedState(false);
                 }
             }
         });
@@ -1537,8 +1536,7 @@ public class J2DArea extends JFrame {
                     deltaX = 0;
                     deltaY = 0;
                     painting = false;
-                    drawClosed = true;
-                    repaint();
+                    setDrawClosedState(true);
                 }
             }
         });
@@ -1607,9 +1605,8 @@ public class J2DArea extends JFrame {
             
             @Override
             public void actionPerformed(ActionEvent e) {
-                drawClosed = !drawClosed;
                 painting = false;
-                repaint();
+                setDrawClosedState(!drawClosed);
             }
         });
         drawClosedDoorButton.setMaximumSize(BUTTON_SIZE);
