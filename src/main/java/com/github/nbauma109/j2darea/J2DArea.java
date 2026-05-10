@@ -111,7 +111,7 @@ public class J2DArea extends JFrame {
     private static final int MAX_HISTORY_ENTRIES = 50;
     private static final int DOOR_PIXEL_SNAP_RADIUS = 10;
 
-    public static final Dimension BUTTON_SIZE = new Dimension(25, 25);
+    public static final Dimension BUTTON_SIZE = new Dimension(22, 22);
 
     private static final long serialVersionUID = 1L;
 
