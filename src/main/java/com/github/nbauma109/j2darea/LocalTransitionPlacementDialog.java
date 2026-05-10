@@ -41,8 +41,8 @@ public class LocalTransitionPlacementDialog extends JDialog {
         getContentPane().setLayout(new BorderLayout(10, 10));
 
         JPanel toolPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        pointModeButton = new JRadioButton("Pick Spawn Point", true);
-        polygonModeButton = new JRadioButton("Draw Exit Polygon");
+        pointModeButton = new JRadioButton("Pick Entrance Point", true);
+        polygonModeButton = new JRadioButton("Draw Exit Travel Region Polygon");
         ButtonGroup modeGroup = new ButtonGroup();
         modeGroup.add(pointModeButton);
         modeGroup.add(polygonModeButton);
@@ -122,7 +122,7 @@ public class LocalTransitionPlacementDialog extends JDialog {
 
     public void setSelectionSummary(boolean hasPoint, int pointX, int pointY, int polygonVertices) {
         String pointLabel = hasPoint ? (pointX + ", " + pointY) : "(unset)";
-        summaryLabel.setText("Spawn: " + pointLabel
+        summaryLabel.setText("Entrance: " + pointLabel
             + " | Orientation: " + DirectionMarker.getOrientationName(getSelectedOrientation())
             + " | Exit polygon vertices: " + polygonVertices);
     }

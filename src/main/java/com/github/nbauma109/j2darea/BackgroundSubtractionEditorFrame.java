@@ -934,12 +934,6 @@ public final class BackgroundSubtractionEditorFrame extends JFrame {
                 && backgroundCellSelectionMask[row][column];
     }
 
-    private Point toOriginalImagePoint(MouseEvent event, boolean nearest) {
-        Point point = new Point(event.getXOnScreen(), event.getYOnScreen());
-        SwingUtilities.convertPointFromScreen(point, originalImagePanel);
-        return nearest ? originalImagePanel.toNearestImagePoint(point) : originalImagePanel.toImagePoint(point);
-    }
-
     private Point toOriginalCell(MouseEvent event, boolean nearest) {
         Point panelPoint = new Point(event.getXOnScreen(), event.getYOnScreen());
         SwingUtilities.convertPointFromScreen(panelPoint, originalImagePanel);
@@ -1073,21 +1067,6 @@ public final class BackgroundSubtractionEditorFrame extends JFrame {
             }
         }
         return false;
-    }
-
-    private static int countTrue(boolean[][] mask) {
-        if (mask == null) {
-            return 0;
-        }
-        int count = 0;
-        for (int y = 0; y < mask.length; y++) {
-            for (int x = 0; x < mask[y].length; x++) {
-                if (mask[y][x]) {
-                    count++;
-                }
-            }
-        }
-        return count;
     }
 
     private static JToggleButton createToolButton(String iconFileName, String toolTipText) {

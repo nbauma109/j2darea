@@ -18,6 +18,8 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -72,6 +74,8 @@ public class CompositeObjectEditorDialog extends JDialog {
     private Point panStartMouseScreen;
     private Point panStartView;
     private WallGroupPlacementSession wallGroupPlacementSession;
+    private DoorEditorDialog doorEditorDialog;
+    private PastedObject doorEditorOpenedDoorObject;
 
     public CompositeObjectEditorDialog(Frame owner, BufferedImage initialImage) {
         super(owner, "Composite Object Editor", false);
@@ -152,6 +156,10 @@ public class CompositeObjectEditorDialog extends JDialog {
                     return;
                 }
                 if (showWallGroupContextMenu(scaledEvent)) {
+                    buildPanel.repaint();
+                    return;
+                }
+                if (showDoorContextMenu(scaledEvent)) {
                     buildPanel.repaint();
                     return;
                 }
@@ -861,6 +869,172 @@ public class CompositeObjectEditorDialog extends JDialog {
             Math.max(1, (int) Math.round(width * scale)),
             Math.max(1, (int) Math.round(height * scale))
         );
+    }
+
+    private boolean showDoorContextMenu(MouseEvent event) {
+        if (!SwingUtilities.isRightMouseButton(event) && !event.isPopupTrigger()) {
+            return false;
+        }
+        PastedObject doorObject = findDoorObjectAtPoint(new Point(event.getX(), event.getY()));
+        if (doorObject == null) {
+            return false;
+        }
+        javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+        javax.swing.JMenuItem editItem = new javax.swing.JMenuItem("Edit Door");
+        editItem.addActionListener(e -> openDoorEditor(doorObject));
+        menu.add(editItem);
+        menu.show(event.getComponent(), event.getX(), event.getY());
+        return true;
+    }
+
+    private PastedObject findDoorObjectAtPoint(Point point) {
+        for (int i = pastedObjects.size() - 1; i >= 0; i--) {
+            PastedObject pastedObject = pastedObjects.get(i);
+            if (!pastedObject.getPastedObjectType().isDoor()) {
+                continue;
+            }
+            if (!pastedObject.isVisible(drawClosed, night)) {
+                continue;
+            }
+            Rectangle rect = getPastedObjectBounds(pastedObject);
+            if (rect.contains(point) && isClickablePastedObjectHit(pastedObject, point.x - rect.x, point.y - rect.y)) {
+                return pastedObject;
+            }
+        }
+        return null;
+    }
+
+    private void openDoorEditor(PastedObject doorObject) {
+        PastedObject openDoorObject = doorObject.getPastedObjectType().isOpenDoor() ? doorObject : findDoorPairInComposite(doorObject, true);
+        doorEditorOpenedDoorObject = openDoorObject != null ? openDoorObject : doorObject;
+
+        DoorData sharedData = doorEditorOpenedDoorObject.getDoorData();
+        if (sharedData == null) {
+            sharedData = new DoorData();
+        } else {
+            sharedData = sharedData.copy();
+        }
+
+        if (doorEditorDialog == null || !doorEditorDialog.isDisplayable()) {
+            final DoorData[] liveData = { sharedData };
+            doorEditorDialog = new DoorEditorDialog(owner, new DoorEditorDialog.Listener() {
+                @Override
+                public void onToggleDoorPolygons(boolean selected) {
+                    buildPanel.repaint();
+                }
+
+                @Override
+                public void onToggleImpededBlocks(boolean selected) {
+                    buildPanel.repaint();
+                }
+
+                @Override
+                public void onDoorDataChanged(DoorData doorData) {
+                    liveData[0] = doorData != null ? doorData.copy() : new DoorData();
+                    applyCompositeDoorData(doorEditorOpenedDoorObject, liveData[0]);
+                    buildPanel.repaint();
+                }
+
+                @Override
+                public void onEditFlags() {
+                    DoorFlagsDialog flagsDialog = new DoorFlagsDialog(owner, liveData[0].getFlags());
+                    flagsDialog.setVisible(true);
+                    if (flagsDialog.isConfirmed()) {
+                        liveData[0].setFlags(flagsDialog.getFlags());
+                        applyCompositeDoorData(doorEditorOpenedDoorObject, liveData[0]);
+                        refreshDoorEditorDialogState(doorEditorOpenedDoorObject);
+                    }
+                }
+
+                @Override
+                public void onEditRegionLink() {
+                    String current = liveData[0].getRegionLinkName() != null ? liveData[0].getRegionLinkName().trim() : "";
+                    String value = javax.swing.JOptionPane.showInputDialog(doorEditorDialog, "Enter linked region name:", current);
+                    if (value == null) {
+                        return;
+                    }
+                    value = value.trim();
+                    liveData[0].setRegionLinkName(value);
+                    if (value.isEmpty()) {
+                        liveData[0].setFlags(liveData[0].getFlags() & ~DoorExportSupport.LINKED_FLAG);
+                    } else {
+                        liveData[0].setFlags(liveData[0].getFlags() | DoorExportSupport.LINKED_FLAG);
+                    }
+                    applyCompositeDoorData(doorEditorOpenedDoorObject, liveData[0]);
+                    refreshDoorEditorDialogState(doorEditorOpenedDoorObject);
+                }
+
+                @Override
+                public void onEditEntranceTravelRegion() {
+                    // Not supported in composite object editor
+                }
+
+                @Override
+                public void onCreateEntrance(String name, int orientation, java.awt.Point entrancePoint, java.awt.Polygon exitPolygon) {
+                    java.awt.image.BufferedImage markerImage = DirectionMarker.createEntranceMarkerImage(orientation);
+                    PastedObject entranceObject = new PastedObject(
+                        new java.awt.Point(entrancePoint.x - markerImage.getWidth() / 2, entrancePoint.y - markerImage.getHeight() / 2),
+                        new ExportableImage(markerImage), PastedObjectType.ENTRANCE
+                    );
+                    entranceObject.getEntranceData().setName(name);
+                    entranceObject.getEntranceData().setOrientation(orientation);
+                    entranceObject.getEntranceData().setX(entrancePoint.x);
+                    entranceObject.getEntranceData().setY(entrancePoint.y);
+                    syncEntranceMarker(entranceObject);
+                    pastedObjects.add(entranceObject);
+                    buildPanel.repaint();
+                }
+            });
+            doorEditorDialog.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosed(WindowEvent e) {
+                    doorEditorDialog = null;
+                    doorEditorOpenedDoorObject = null;
+                }
+            });
+        }
+
+        refreshDoorEditorDialogState(doorObject);
+        doorEditorDialog.setLocationRelativeTo(this);
+        doorEditorDialog.setVisible(true);
+        doorEditorDialog.toFront();
+        doorEditorDialog.requestFocus();
+    }
+
+    private void applyCompositeDoorData(PastedObject primaryDoorObject, DoorData doorData) {
+        for (PastedObject pastedObject : pastedObjects) {
+            if (pastedObject.getPastedObjectType().isDoor()) {
+                pastedObject.setDoorData(doorData.copy());
+            }
+        }
+    }
+
+    private void refreshDoorEditorDialogState(PastedObject doorObject) {
+        if (doorEditorDialog == null || !doorEditorDialog.isDisplayable()) {
+            return;
+        }
+        PastedObject openDoor = doorObject.getPastedObjectType().isOpenDoor() ? doorObject : findDoorPairInComposite(doorObject, true);
+        BufferedImage openedDoorImage = openDoor != null && openDoor.getImage() != null ? openDoor.getImage().getImage() : null;
+        Point openedDoorLocation = openDoor != null ? openDoor.getLocation() : doorObject.getLocation();
+        DoorData data = doorEditorOpenedDoorObject != null && doorEditorOpenedDoorObject.getDoorData() != null
+            ? doorEditorOpenedDoorObject.getDoorData().copy()
+            : new DoorData();
+        doorEditorDialog.setDoorState(data, openedDoorImage, openedDoorLocation, true, true);
+    }
+
+    private PastedObject findDoorPairInComposite(PastedObject doorObject, boolean findOpen) {
+        for (PastedObject candidate : pastedObjects) {
+            if (candidate == doorObject) {
+                continue;
+            }
+            if (findOpen && candidate.getPastedObjectType().isOpenDoor()) {
+                return candidate;
+            }
+            if (!findOpen && candidate.getPastedObjectType().isClosedDoor()) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private static final class WallGroupPlacementSession {
