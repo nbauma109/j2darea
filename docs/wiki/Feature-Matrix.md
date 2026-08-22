@@ -28,7 +28,7 @@ Status values:
 | Light map export | Partial | Export currently writes a flat gray placeholder map. |
 | Height map export | Partial | Export currently writes a flat black placeholder map. |
 | WeiDU-ready mod packaging | Partial | Owned areas export packaged resources, and the same package can include generated `COPY_EXISTING` transition patches for referenced existing destination areas. WeiDU binary bundling and broader project-specific integration are still missing. |
-| Randomized ground generation | Implemented | `Background -> Generate Random Ground...` builds a non-repeating grass / sand / earth / clay / stone background with flower clusters, pebbles and border tufts, edited through a live-preview settings dialog. Projects store the generator settings instead of the bitmap and regenerate the identical ground on open. See [Ground Generator](Ground-Generator.md). |
+| Randomized ground generation | Implemented | `Background -> Generate Random Ground...` builds a non-repeating grass / sand / earth / stone background with flower clusters, pebbles and border tufts, edited through a live-preview settings dialog. Projects store the generator settings instead of the bitmap and regenerate the identical ground on open. See [Ground Generator](Ground-Generator.md). |
 | Ground attribute polygon editing | Partial | Search-map authoring now covers grass / stone / wood classification plus polygon-marked non-walkable areas. More terrain types and a fuller editing workflow are still needed. |
 | NPC / monster placement and customization | Planned | No actor or creature authoring workflow yet. |
 | Dialog and quest authoring | Planned | Not started. |

@@ -69,7 +69,7 @@ public class GroundGeneratorTest {
         settings.setPatchSize(640);
         settings.setEdgeIrregularity(0.7d);
         settings.setEdgeSoftness(0.2d);
-        settings.setCoverage(GroundMaterial.CLAY, 0.33d);
+        settings.setCoverage(GroundMaterial.EARTH, 0.33d);
         settings.setGrassDryness(-0.4d);
         settings.setBrightness(1.2d);
         settings.setFlowerDensity(0.8d);
@@ -86,7 +86,7 @@ public class GroundGeneratorTest {
         assertEquals(settings.getPatchSize(), restored.getPatchSize());
         assertEquals(settings.getEdgeIrregularity(), restored.getEdgeIrregularity(), 1e-9d);
         assertEquals(settings.getEdgeSoftness(), restored.getEdgeSoftness(), 1e-9d);
-        assertEquals(settings.getCoverage(GroundMaterial.CLAY), restored.getCoverage(GroundMaterial.CLAY), 1e-9d);
+        assertEquals(settings.getCoverage(GroundMaterial.EARTH), restored.getCoverage(GroundMaterial.EARTH), 1e-9d);
         assertEquals(settings.getGrassDryness(), restored.getGrassDryness(), 1e-9d);
         assertEquals(settings.getBrightness(), restored.getBrightness(), 1e-9d);
         assertEquals(settings.getFlowerDensity(), restored.getFlowerDensity(), 1e-9d);

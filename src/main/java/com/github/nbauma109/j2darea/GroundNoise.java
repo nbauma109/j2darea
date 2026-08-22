@@ -67,7 +67,7 @@ public final class GroundNoise {
     /**
      * Cellular (Worley) noise returning the normalized gap between the two nearest
      * feature points. Values near zero sit on a cell border, which is what the
-     * generator uses for stone joints and dried clay cracks.
+     * generator uses for stone joints.
      */
     public static double cellularEdge(double x, double y, double cellSize, long salt) {
         double scaledX = x / cellSize;

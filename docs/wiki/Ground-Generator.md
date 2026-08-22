@@ -2,7 +2,7 @@
 
 The ground generator builds a non-repeating Baldur's Gate style background for
 the build area: a dark grass base with varied greens, bare patches of sand,
-earth, clay and stone worn into it, raw stones, grass tufts and small groups of
+earth and stone worn into it, raw stones, grass tufts and small groups of
 flowers.
 
 Everything is drawn for the engine's isometric camera rather than as a plan
@@ -40,7 +40,7 @@ repeating one seamless tile over the whole canvas. Both remain available.
 | Patch size | Average size of a bare-ground patch, in pixels. Large values give a few broad worn areas, small values many little ones. |
 | Edge irregularity | How far the patch outline is displaced by the fraying noise, in pixels. |
 | Edge softness | Width, in pixels, of the blend between a patch and the ground under it. |
-| Sand / Earth / Clay / Stone coverage | Share of the map each material claims. Grass keeps whatever is left, so low values give the strong grass base BG areas usually have. |
+| Sand / Earth / Stone coverage | Share of the map each material claims. Grass keeps whatever is left, so low values give the strong grass base BG areas usually have. |
 | Grass tone variation | Spread between the dark and light greens across the map, and how strongly the fresher green patches come through. |
 | Grass dryness | Shifts the grass between a cold blue-green (negative) and a dry yellow-green (positive). |
 | Brightness | Overall lightness of the generated ground. |
@@ -55,7 +55,7 @@ repeating one seamless tile over the whole canvas. Both remain available.
 - retypes every search-map cell from the generated pixels, using the same
   classification rules as the pattern fill, so grass cells become `GRASS` and
   stone cells become `STONE`
-  Earth and clay currently classify as `WOOD`, because that is the closest
+  Earth currently classifies as `WOOD`, because that is the closest
   terrain the search-map model has for brown ground; a dedicated dirt terrain
   type is still missing.
 - records an undo step

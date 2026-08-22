@@ -1011,7 +1011,7 @@ public class J2DArea extends JFrame {
             }
         });
         generateGroundButton.setMaximumSize(BUTTON_SIZE);
-        generateGroundButton.setToolTipText("Generate a randomized grass, earth, clay and stone ground");
+        generateGroundButton.setToolTipText("Generate a randomized grass, earth and stone ground");
         configureToolbarButton(generateGroundButton);
         generateGroundToolbarButton = generateGroundButton;
         generateGroundMenuItem = new JMenuItem(generateGroundButton.getAction());

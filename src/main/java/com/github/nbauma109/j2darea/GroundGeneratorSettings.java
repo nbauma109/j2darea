@@ -42,7 +42,6 @@ public class GroundGeneratorSettings implements Externalizable {
         edgeSoftness = 0.5d;
         coverage.put(GroundMaterial.SAND, 0d);
         coverage.put(GroundMaterial.EARTH, 0.13d);
-        coverage.put(GroundMaterial.CLAY, 0.03d);
         coverage.put(GroundMaterial.STONE, 0.02d);
         grassToneVariation = 0.55d;
         grassDryness = 0d;

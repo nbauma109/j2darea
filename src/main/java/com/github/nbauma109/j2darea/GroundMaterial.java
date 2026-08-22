@@ -15,7 +15,6 @@ public enum GroundMaterial {
     GRASS("Grass", new Color(26, 34, 17), new Color(48, 60, 28), new Color(90, 100, 46)),
     SAND("Sand", new Color(104, 88, 56), new Color(144, 124, 84), new Color(180, 162, 118)),
     EARTH("Earth", new Color(56, 42, 22), new Color(112, 86, 48), new Color(172, 148, 88)),
-    CLAY("Clay", new Color(102, 74, 44), new Color(140, 108, 66), new Color(174, 146, 104)),
     STONE("Stone", new Color(44, 37, 21), new Color(84, 71, 38), new Color(126, 111, 62));
 
     /** Lush green of a thicker grass clump. */
@@ -66,6 +65,6 @@ public enum GroundMaterial {
 
     /** Materials that are painted as patches over the grass base. */
     public static GroundMaterial[] patchMaterials() {
-        return new GroundMaterial[] { SAND, EARTH, CLAY, STONE };
+        return new GroundMaterial[] { SAND, EARTH, STONE };
     }
 }

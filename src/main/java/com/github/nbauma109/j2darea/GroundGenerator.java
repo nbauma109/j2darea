@@ -10,7 +10,7 @@ import java.util.stream.IntStream;
  *
  * <p>Unlike the seamless-tile fill, which repeats one bitmap, this builds a
  * non-repeating background: a grass base whose green varies over the whole map,
- * bare ground of sand, earth, clay and gravel worn into it, moss and grass
+ * bare ground of sand, earth and gravel worn into it, moss and grass
  * clumps colonizing the bare ground, loose stones and small groups of flowers.
  *
  * <p>The textures are built to match the painted grounds of the original game:
@@ -376,27 +376,6 @@ public final class GroundGenerator {
                 rgb[0] += delta;
                 rgb[1] += delta * 0.9d;
                 rgb[2] += delta * 0.74d;
-                break;
-            }
-            case CLAY: {
-                double clayWarpX = worldX + ((GroundNoise.valueNoise(
-                    worldX * 0.28d, groundY * 0.28d, seed + 3329L) - 0.5d) * 4d);
-                double clayWarpY = groundY + ((GroundNoise.valueNoise(
-                    (worldX * 0.28d) + 4.3d, (groundY * 0.28d) - 2.7d, seed + 3331L) - 0.5d) * 4d);
-                double patches = GroundNoise.fbm(worldX * 0.007d, groundY * 0.007d, seed + 3337L, 2) - 0.5d;
-                double mottle = GroundNoise.fbm(worldX * 0.018d, groundY * 0.018d, seed + 3307L, 3) - 0.5d;
-                double clods = GroundNoise.fbm(worldX * 0.11d, groundY * 0.11d, seed + 3313L, 3) - 0.5d;
-                double micro = GroundNoise.fbm(worldX * 0.38d, groundY * 0.38d, seed + 3317L, 2) - 0.5d;
-                double grit = GroundNoise.cellularCellValue(clayWarpX, clayWarpY, 4.2d, seed + 3319L) - 0.5d;
-                double delta = ((patches * 15d) + (mottle * 24d) + (clods * 22d) + (micro * 14d)
-                    + (grit * 9d) + (grain * 8d)) * strength;
-                delta += stoneBed(clayWarpX, clayWarpY, 4.6d, 0.72d, 16d, 1.2d, seed + 3341L, null) * strength;
-                delta += stoneBed(clayWarpX, clayWarpY, 10d, 0.86d, 20d, 1.4d, seed + 3343L, null) * strength;
-                double chip = GroundNoise.cellularCellValue(clayWarpX, clayWarpY, 3d, seed + 3323L);
-                delta += GroundNoise.smoothStep(0.95d, 0.997d, chip) * 28d * strength;
-                rgb[0] += delta;
-                rgb[1] += delta * 0.86d;
-                rgb[2] += delta * 0.64d;
                 break;
             }
             case STONE: {
