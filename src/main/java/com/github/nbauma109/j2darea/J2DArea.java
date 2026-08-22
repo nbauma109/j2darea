@@ -49,10 +49,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultListCellRenderer;
@@ -61,6 +64,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -72,6 +76,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.JProgressBar;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
@@ -84,6 +89,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import com.github.nbauma109.j2darea.ie.AREFile;
@@ -172,6 +178,7 @@ public class J2DArea extends JFrame {
     private transient JMenu viewMenu;
     private transient JMenu toolsMenu;
     private transient JMenuItem fillMenuItem;
+    private transient JMenuItem generateGroundMenuItem;
     private transient JMenuItem openBrushTextureMenuItem;
     private transient JMenuItem tileSeamlessMenuItem;
     private transient JMenuItem saveDoorsMenuItem;
@@ -194,6 +201,7 @@ public class J2DArea extends JFrame {
     private transient JButton undoToolbarButton;
     private transient JButton redoToolbarButton;
     private transient JButton fillToolbarButton;
+    private transient JButton generateGroundToolbarButton;
     private transient JButton openBrushTextureToolbarButton;
     private transient JButton exportDoorTilesToolbarButton;
     private transient JButton tileSeamlessToolbarButton;
@@ -254,6 +262,7 @@ public class J2DArea extends JFrame {
     private double buildZoom = 1.0;
     private double extractZoom = 1.0;
     private transient BufferedImage backgroundTile;
+    private transient GroundGeneratorSettings groundSettings;
     private transient BufferedImage brushTexture;
     private transient BufferedImage brushPreview;
     private transient BufferedImage brushNightPreview;
@@ -504,6 +513,9 @@ public class J2DArea extends JFrame {
                 }
                 ensureSearchMapSized();
                 buildBrushStrokeModified = true;
+                // The background no longer matches its recipe once it is painted on,
+                // so the project has to save the pixels from here on.
+                groundSettings = null;
                 for (int x = e.getX() - brushRadius; x < e.getX() + brushRadius; x++) {
                     for (int y = e.getY() - brushRadius; y < e.getY() + brushRadius; y++) {
                         double dist = Point2D.distance(x, y, e.getX(), e.getY());
@@ -900,6 +912,8 @@ public class J2DArea extends JFrame {
                         buildBackgroundImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
                         buildBackgroundNightImage = new BufferedImage(backgroundWidth, backgroundHeight, BufferedImage.TYPE_INT_RGB);
                         searchMapData = new SearchMapData(backgroundWidth, backgroundHeight);
+                        backgroundTile = null;
+                        groundSettings = null;
                         pastedObjects.clear();
                         regions.clear();
                         containers.clear();
@@ -965,6 +979,7 @@ public class J2DArea extends JFrame {
                 BufferedImage textureImage = chooseImageFile(FileChooserLocation.TEXTURE);
                 if (textureImage != null) {
                     backgroundTile = textureImage;
+                    groundSettings = null;
                     for (int x = 0; x < buildBackgroundImage.getWidth(); x++) {
                         for (int y = 0; y < buildBackgroundImage.getHeight(); y++) {
                             buildBackgroundImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
@@ -984,6 +999,24 @@ public class J2DArea extends JFrame {
         fillMenuItem = new JMenuItem(fillButton.getAction());
         fillMenuItem.setText("Fill With Pattern...");
         backgroundMenu.add(fillMenuItem);
+
+        JButton generateGroundButton = new JButton(new AbstractAction(null,
+                loadOptionalIcon("/icons/grass.png", "/icons/background.png")) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                generateRandomGround();
+            }
+        });
+        generateGroundButton.setMaximumSize(BUTTON_SIZE);
+        generateGroundButton.setToolTipText("Generate a randomized grass, earth, clay and stone ground");
+        configureToolbarButton(generateGroundButton);
+        generateGroundToolbarButton = generateGroundButton;
+        generateGroundMenuItem = new JMenuItem(generateGroundButton.getAction());
+        generateGroundMenuItem.setText("Generate Random Ground...");
+        backgroundMenu.add(generateGroundMenuItem);
 
         JButton openButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/open.png"))) {
 
@@ -1007,9 +1040,18 @@ public class J2DArea extends JFrame {
                         } catch (javax.xml.parsers.ParserConfigurationException | org.xml.sax.SAXException xmlEx) {
                             throw new IOException("Failed to parse area XML", xmlEx);
                         }
+                        if (exportableArea.getGroundSettings() != null) {
+                            BufferedImage regenerated = runWithProgress("Random Ground",
+                                "Rebuilding the generated ground...",
+                                listener -> exportableArea.buildGeneratedBackground(listener));
+                            if (regenerated == null) {
+                                return;
+                            }
+                        }
                         buildBackgroundImage = exportableArea.getBackgroundImage().getImage();
                         backgroundTile = exportableArea.getBackgroundTile() != null
                             ? exportableArea.getBackgroundTile().getImage() : null;
+                        groundSettings = exportableArea.getGroundSettings();
                         backgroundWidth = buildBackgroundImage.getWidth();
                         backgroundHeight = buildBackgroundImage.getHeight();
                         buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
@@ -1136,7 +1178,19 @@ public class J2DArea extends JFrame {
                         saveFile = new File(saveFile.getAbsolutePath() + ".xml");
                     }
                     ExportableArea exportableArea;
-                    if (backgroundTile != null) {
+                    if (groundSettings != null) {
+                        exportableArea = new ExportableArea(
+                            groundSettings,
+                            backgroundWidth,
+                            backgroundHeight,
+                            pastedObjects,
+                            regions,
+                            containers,
+                            wallGroups,
+                            areaAttributes,
+                            searchMapData
+                        );
+                    } else if (backgroundTile != null) {
                         exportableArea = new ExportableArea(
                             new ExportableImage(backgroundTile),
                             backgroundWidth,
@@ -1960,6 +2014,7 @@ public class J2DArea extends JFrame {
         menubar.add(exportModButton);
         menubar.add(exportDoorTilesToolbarButton);
         menubar.add(fillToolbarButton);
+        menubar.add(generateGroundToolbarButton);
         menubar.add(regionsToolbarButton);
         menubar.add(wallGroupsToolbarButton);
         menubar.add(nonWalkableToolbarButton);
@@ -1997,6 +2052,7 @@ public class J2DArea extends JFrame {
         buildOnlyToolbarButtons.add(exportButton);
         buildOnlyToolbarButtons.add(exportModButton);
         buildOnlyToolbarButtons.add(fillToolbarButton);
+        buildOnlyToolbarButtons.add(generateGroundToolbarButton);
         buildOnlyToolbarButtons.add(openBrushTextureToolbarButton);
         buildOnlyToolbarButtons.add(regionsToolbarButton);
         buildOnlyToolbarButtons.add(wallGroupsToolbarButton);
@@ -3925,6 +3981,134 @@ public class J2DArea extends JFrame {
         }
     }
 
+    /** A unit of work that reports progress, run off the event thread by {@link #runWithProgress}. */
+    private interface ProgressTask<T> {
+        T run(GroundGenerator.ProgressListener listener) throws Exception;
+    }
+
+    /**
+     * Runs a slow task on a worker thread behind a modal progress dialog and
+     * returns its result, or {@code null} if it failed. Generating a full canvas
+     * takes seconds, which is far too long to spend on the event thread.
+     */
+    private <T> T runWithProgress(String title, String message, ProgressTask<T> task) {
+        JProgressBar progressBar = new JProgressBar(0, 100);
+        progressBar.setStringPainted(true);
+        JPanel progressPanel = new JPanel(new BorderLayout(0, 8));
+        progressPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        progressPanel.add(new JLabel(message), BorderLayout.NORTH);
+        progressPanel.add(progressBar, BorderLayout.CENTER);
+        JDialog progressDialog = new JDialog(this, title, true);
+        progressDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        progressDialog.getContentPane().add(progressPanel);
+        progressDialog.pack();
+        progressDialog.setLocationRelativeTo(this);
+
+        List<T> result = new ArrayList<T>(1);
+        SwingWorker<T, Void> worker = new SwingWorker<T, Void>() {
+
+            @Override
+            protected T doInBackground() throws Exception {
+                AtomicInteger reportedPercent = new AtomicInteger();
+                return task.run(fraction -> {
+                    int percent = (int) Math.round(fraction * 100d);
+                    if (reportedPercent.getAndAccumulate(percent, Math::max) < percent) {
+                        setProgress(Math.max(0, Math.min(100, percent)));
+                    }
+                });
+            }
+
+            @Override
+            protected void done() {
+                progressDialog.dispose();
+                try {
+                    result.add(get());
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                } catch (ExecutionException ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(J2DArea.this,
+                        ex.getCause() != null && ex.getCause().getMessage() != null
+                            ? ex.getCause().getMessage() : "Operation failed.",
+                        ERROR, JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.addPropertyChangeListener(event -> {
+            if ("progress".equals(event.getPropertyName())) {
+                progressBar.setValue(((Integer) event.getNewValue()).intValue());
+            }
+        });
+        worker.execute();
+        progressDialog.setVisible(true);
+        return result.isEmpty() ? null : result.get(0);
+    }
+
+    /** Opens the randomized ground editor and applies the ground it produces. */
+    private void generateRandomGround() {
+        GroundGeneratorSettings initialSettings = groundSettings != null
+            ? new GroundGeneratorSettings(groundSettings)
+            : new GroundGeneratorSettings();
+        GroundGeneratorDialog dialog = new GroundGeneratorDialog(this, initialSettings, backgroundWidth, backgroundHeight);
+        dialog.setVisible(true);
+        GroundGeneratorSettings chosenSettings = dialog.getConfirmedSettings();
+        if (chosenSettings != null) {
+            applyGeneratedGround(chosenSettings);
+        }
+    }
+
+    private void applyGeneratedGround(GroundGeneratorSettings settings) {
+        ensureSearchMapSized();
+        final int width = backgroundWidth;
+        final int height = backgroundHeight;
+        final int tilesWide = searchMapData.getWidthInTiles();
+        final int tilesHigh = searchMapData.getHeightInTiles();
+
+        GeneratedGround generated = runWithProgress("Random Ground",
+            "Generating " + width + " x " + height + " ground...",
+            listener -> {
+                BufferedImage image = GroundGenerator.generate(settings, width, height, listener);
+                return new GeneratedGround(image, classifySearchMapTypes(image, tilesWide, tilesHigh));
+            });
+        if (generated == null) {
+            return;
+        }
+        buildBackgroundImage = generated.getImage();
+        backgroundTile = null;
+        groundSettings = settings;
+        buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
+        applySearchMapTypes(generated.getTileTypes(), tilesWide, tilesHigh);
+        searchMapSelectionSession = null;
+        recordHistoryState();
+        repaint();
+    }
+
+    /** Classifies every search-map cell of a background from the pixels it covers. */
+    private SearchMapTileType[] classifySearchMapTypes(BufferedImage sourceImage, int tilesWide, int tilesHigh) {
+        SearchMapTileType[] tileTypes = new SearchMapTileType[tilesWide * tilesHigh];
+        for (int tileY = 0; tileY < tilesHigh; tileY++) {
+            for (int tileX = 0; tileX < tilesWide; tileX++) {
+                int x = tileX * SearchMapData.CELL_WIDTH;
+                int y = tileY * SearchMapData.CELL_HEIGHT;
+                int cellWidth = Math.min(SearchMapData.CELL_WIDTH, sourceImage.getWidth() - x);
+                int cellHeight = Math.min(SearchMapData.CELL_HEIGHT, sourceImage.getHeight() - y);
+                tileTypes[(tileY * tilesWide) + tileX] = cellWidth > 0 && cellHeight > 0
+                    ? SearchMapTileType.classifyTexture(sourceImage.getSubimage(x, y, cellWidth, cellHeight))
+                    : SearchMapTileType.UNKNOWN;
+            }
+        }
+        return tileTypes;
+    }
+
+    private void applySearchMapTypes(SearchMapTileType[] tileTypes, int tilesWide, int tilesHigh) {
+        ensureSearchMapSized();
+        for (int tileY = 0; tileY < tilesHigh && tileY < searchMapData.getHeightInTiles(); tileY++) {
+            for (int tileX = 0; tileX < tilesWide && tileX < searchMapData.getWidthInTiles(); tileX++) {
+                searchMapData.setTileType(tileX, tileY, tileTypes[(tileY * tilesWide) + tileX]);
+            }
+        }
+    }
+
     private void applyWholeBackgroundSearchType(BufferedImage sourceImage) {
         ensureSearchMapSized();
         searchMapData.setAll(SearchMapTileType.classifyTexture(sourceImage));
@@ -5084,6 +5268,7 @@ public class J2DArea extends JFrame {
         setUiVisible(toolsMenu, buildTabSelected || extractionTabSelected);
 
         setUiVisible(fillMenuItem, buildTabSelected);
+        setUiVisible(generateGroundMenuItem, buildTabSelected);
         setUiVisible(openBrushTextureMenuItem, buildTabSelected);
         setUiVisible(tileSeamlessMenuItem, extractionTabSelected);
         setUiVisible(saveDoorsMenuItem, buildTabSelected);
@@ -5285,6 +5470,7 @@ public class J2DArea extends JFrame {
         if (tabPane.getSelectedComponent() == buildScrollPane) {
             buildBackgroundImage = chosenImageFile;
             backgroundTile = null;
+            groundSettings = null;
             backgroundWidth = chosenImageFile.getWidth();
             backgroundHeight = chosenImageFile.getHeight();
             buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
@@ -5388,7 +5574,7 @@ public class J2DArea extends JFrame {
                 areaAttributes,
                 searchMapData
             );
-            HistoryState historyState = new HistoryState(exportableArea, drawClosed, night);
+            HistoryState historyState = new HistoryState(exportableArea, drawClosed, night, groundSettings);
             historyState.writeExternal(objectOutputStream);
             objectOutputStream.flush();
             return byteArrayOutputStream.toByteArray();
@@ -5417,6 +5603,7 @@ public class J2DArea extends JFrame {
                 ? exportableArea.getSearchMapData()
                 : new SearchMapData(backgroundWidth, backgroundHeight);
             searchMapData.resizeForPixels(backgroundWidth, backgroundHeight);
+            groundSettings = historyState.getGroundSettings();
             searchMapSelectionSession = null;
             wallGroupPlacementSession = null;
             cancelDoorEditingSessions(false);
@@ -6201,24 +6388,50 @@ public class J2DArea extends JFrame {
         return translated;
     }
 
+    /** Result of one background generation run: the image and its search-map typing. */
+    private static final class GeneratedGround {
+        private final BufferedImage image;
+        private final SearchMapTileType[] tileTypes;
+
+        private GeneratedGround(BufferedImage image, SearchMapTileType[] tileTypes) {
+            this.image = image;
+            this.tileTypes = tileTypes;
+        }
+
+        private BufferedImage getImage() {
+            return image;
+        }
+
+        private SearchMapTileType[] getTileTypes() {
+            return tileTypes;
+        }
+    }
+
     private static final class HistoryState {
         private ExportableArea area;
         private boolean drawClosed;
         private boolean night;
+        private GroundGeneratorSettings groundSettings;
 
         private HistoryState() {
         }
 
-        private HistoryState(ExportableArea area, boolean drawClosed, boolean night) {
+        private HistoryState(ExportableArea area, boolean drawClosed, boolean night,
+                GroundGeneratorSettings groundSettings) {
             this.area = area;
             this.drawClosed = drawClosed;
             this.night = night;
+            this.groundSettings = groundSettings;
         }
 
         private void writeExternal(ObjectOutputStream out) throws IOException {
             area.writeExternal(out);
             out.writeBoolean(drawClosed);
             out.writeBoolean(night);
+            out.writeBoolean(groundSettings != null);
+            if (groundSettings != null) {
+                groundSettings.writeExternal(out);
+            }
         }
 
         private void readExternal(ObjectInputStream in) throws IOException, ClassNotFoundException {
@@ -6226,6 +6439,11 @@ public class J2DArea extends JFrame {
             area.readExternal(in);
             drawClosed = in.readBoolean();
             night = in.readBoolean();
+            groundSettings = null;
+            if (in.readBoolean()) {
+                groundSettings = new GroundGeneratorSettings();
+                groundSettings.readExternal(in);
+            }
         }
 
         private ExportableArea getArea() {
@@ -6238,6 +6456,10 @@ public class J2DArea extends JFrame {
 
         private boolean isNight() {
             return night;
+        }
+
+        private GroundGeneratorSettings getGroundSettings() {
+            return groundSettings;
         }
     }
 

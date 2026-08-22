@@ -14,6 +14,7 @@ Use it as the current project truth for:
 - [Exporter Notes](Exporter.md)
 - [External Resources](External-Resources.md)
 - [Search Map Geometry](Search-Map-Geometry.md)
+- [Ground Generator](Ground-Generator.md)
 
 ## Current direction
 

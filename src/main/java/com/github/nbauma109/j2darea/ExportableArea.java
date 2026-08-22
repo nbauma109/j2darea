@@ -22,6 +22,7 @@ public class ExportableArea implements Externalizable {
 
     private ExportableImage backgroundImage;
     private ExportableImage backgroundTile;
+    private GroundGeneratorSettings groundSettings;
     private int backgroundWidth;
     private int backgroundHeight;
     private List<PastedObject> pastedObjects;
@@ -52,6 +53,25 @@ public class ExportableArea implements Externalizable {
             List<RegionData> regions, List<ContainerData> containers, List<WallGroupData> wallGroups, AreaAttributes areaAttributes,
             SearchMapData searchMapData) {
         this.backgroundImage = backgroundImage;
+        this.pastedObjects = pastedObjects;
+        this.regions = regions;
+        this.containers = containers;
+        this.wallGroups = wallGroups;
+        this.areaAttributes = areaAttributes;
+        this.searchMapData = searchMapData != null ? searchMapData : new SearchMapData();
+    }
+
+    /**
+     * Constructor for XML file save of a generated ground: stores the generator
+     * settings and canvas dimensions, from which the background is rebuilt.
+     */
+    public ExportableArea(GroundGeneratorSettings groundSettings, int backgroundWidth, int backgroundHeight,
+            List<PastedObject> pastedObjects,
+            List<RegionData> regions, List<ContainerData> containers, List<WallGroupData> wallGroups,
+            AreaAttributes areaAttributes, SearchMapData searchMapData) {
+        this.groundSettings = groundSettings;
+        this.backgroundWidth = backgroundWidth;
+        this.backgroundHeight = backgroundHeight;
         this.pastedObjects = pastedObjects;
         this.regions = regions;
         this.containers = containers;
@@ -159,7 +179,22 @@ public class ExportableArea implements Externalizable {
     }
 
     public ExportableImage getBackgroundImage() {
+        if (backgroundImage == null && groundSettings != null) {
+            backgroundImage = new ExportableImage(buildGeneratedBackground(null));
+        }
         return backgroundImage;
+    }
+
+    /**
+     * Renders the generated ground this area stores the recipe for, reporting
+     * progress as it goes. Callers that can afford to block may simply use
+     * {@link #getBackgroundImage()}.
+     */
+    public BufferedImage buildGeneratedBackground(GroundGenerator.ProgressListener listener) {
+        BufferedImage image = GroundGenerator.generate(
+            groundSettings, Math.max(1, backgroundWidth), Math.max(1, backgroundHeight), listener);
+        backgroundImage = new ExportableImage(image);
+        return image;
     }
 
     public void setBackgroundImage(ExportableImage backgroundImage) {
@@ -218,6 +253,14 @@ public class ExportableArea implements Externalizable {
         return backgroundTile;
     }
 
+    public GroundGeneratorSettings getGroundSettings() {
+        return groundSettings;
+    }
+
+    public void setGroundSettings(GroundGeneratorSettings groundSettings) {
+        this.groundSettings = groundSettings;
+    }
+
     public int getBackgroundWidth() {
         return backgroundWidth;
     }
@@ -247,7 +290,11 @@ public class ExportableArea implements Externalizable {
         Element root = doc.createElement("j2darea");
         root.setAttribute("version", "1");
         doc.appendChild(root);
-        if (backgroundTile != null) {
+        if (groundSettings != null) {
+            root.appendChild(groundSettings.toXml(doc, "groundSettings"));
+            XmlIO.addInt(doc, root, "backgroundWidth", backgroundWidth);
+            XmlIO.addInt(doc, root, "backgroundHeight", backgroundHeight);
+        } else if (backgroundTile != null) {
             backgroundTile.toXml(doc, root, "backgroundTile");
             XmlIO.addInt(doc, root, "backgroundWidth", backgroundWidth);
             XmlIO.addInt(doc, root, "backgroundHeight", backgroundHeight);
@@ -277,7 +324,16 @@ public class ExportableArea implements Externalizable {
 
     /** Populates this area from the root element of an XML document. */
     public void fromXml(Element root) throws IOException {
-        if (XmlIO.getChildElement(root, "backgroundTile") != null) {
+        Element groundSettingsEl = XmlIO.getChildElement(root, "groundSettings");
+        if (groundSettingsEl != null) {
+            groundSettings = new GroundGeneratorSettings();
+            groundSettings.fromXml(groundSettingsEl);
+            backgroundWidth = XmlIO.readInt(root, "backgroundWidth", 0);
+            backgroundHeight = XmlIO.readInt(root, "backgroundHeight", 0);
+            // Left unbuilt: regenerating a full canvas takes seconds, so the caller
+            // gets to run it off the event thread. getBackgroundImage() builds it.
+            backgroundImage = null;
+        } else if (XmlIO.getChildElement(root, "backgroundTile") != null) {
             backgroundTile = new ExportableImage();
             backgroundTile.fromXml(root, "backgroundTile");
             backgroundWidth = XmlIO.readInt(root, "backgroundWidth", 0);

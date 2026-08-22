@@ -28,6 +28,7 @@ Implemented now:
 - Composite object authoring in a dedicated transparent-background editor, plus grouped composite-object paste into the build area with wallgroups preserved
 - Search-map authoring on the build canvas, including automatic tile typing from fill/brush textures, polygon-based non-walkable marking, and a grid overlay toggle
 - Game ARE backgrounds can now be loaded into the extraction area with a selectable closed-door default, and extraction keeps a separate closed-door toggle that reloads the same source ARE in the opposite state
+- Randomized Baldur's Gate style ground generation for the build-area background, drawn for the isometric camera, with a live-preview settings dialog, seeded and reproducible output, and search-map cells typed from the generated pixels
 - Extraction-area rectangle selection can now be sent through a single Nano Banana 2 cleanup-and-extract flow: it opens in a persistent editor window where you can run background removal and red-mask cleanup in either order before exporting the current preview as a transparent-background image
 
 Partially implemented:
@@ -80,6 +81,15 @@ Transition editing notes:
 
 Generated patch files are prefixed; only the `COPY_EXISTING` targets keep the original in-game area resrefs.
 
+Randomized ground workflow:
+
+1. Open the build tab and use `Background -> Generate Random Ground...`, or the grass toolbar button.
+2. Tune the seed, patch shape, per-material coverage, grass tone, surface detail, flowers and stones; the preview updates live and can be switched between a 1:1 detail view and the whole area.
+3. `Generate` fills the whole build-area background at the current canvas size, rebuilds the night background, and retypes the search map from the generated ground.
+4. Saving the project stores the generator settings rather than the bitmap, so reopening it regenerates the identical ground; painting over the background with the texture brush falls back to saving the image.
+
+`Fill With Pattern...` is unchanged and still repeats a single seamless tile. Details are in [Ground Generator](docs/wiki/Ground-Generator.md).
+
 Composite object workflow:
 
 1. Use `File -> New Composite Object...` and choose the initial image that defines the starting transparent canvas size.
@@ -102,6 +112,7 @@ The repo now uses `docs/wiki/` as a local, versioned wiki:
 
 - [Wiki Home](docs/wiki/Home.md)
 - [Feature Matrix](docs/wiki/Feature-Matrix.md)
+- [Ground Generator](docs/wiki/Ground-Generator.md)
 - [Exporter Notes](docs/wiki/Exporter.md)
 - [External Resources](docs/wiki/External-Resources.md)
 
