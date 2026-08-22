@@ -52,12 +52,7 @@ repeating one seamless tile over the whole canvas. Both remain available.
 
 - replaces the build-area background, and rebuilds the night background from it
 - clears the seamless background tile, since the ground no longer repeats
-- retypes every search-map cell from the generated pixels, using the same
-  classification rules as the pattern fill, so grass cells become `GRASS` and
-  stone cells become `STONE`
-  Earth currently classifies as `WOOD`, because that is the closest
-  terrain the search-map model has for brown ground; a dedicated dirt terrain
-  type is still missing.
+- leaves the search map unchanged
 - records an undo step
 
 ## Storage

@@ -4058,55 +4058,21 @@ public class J2DArea extends JFrame {
     }
 
     private void applyGeneratedGround(GroundGeneratorSettings settings) {
-        ensureSearchMapSized();
         final int width = backgroundWidth;
         final int height = backgroundHeight;
-        final int tilesWide = searchMapData.getWidthInTiles();
-        final int tilesHigh = searchMapData.getHeightInTiles();
 
-        GeneratedGround generated = runWithProgress("Random Ground",
+        BufferedImage generated = runWithProgress("Random Ground",
             "Generating " + width + " x " + height + " ground...",
-            listener -> {
-                BufferedImage image = GroundGenerator.generate(settings, width, height, listener);
-                return new GeneratedGround(image, classifySearchMapTypes(image, tilesWide, tilesHigh));
-            });
+            listener -> GroundGenerator.generate(settings, width, height, listener));
         if (generated == null) {
             return;
         }
-        buildBackgroundImage = generated.getImage();
+        buildBackgroundImage = generated;
         backgroundTile = null;
         groundSettings = settings;
         buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
-        applySearchMapTypes(generated.getTileTypes(), tilesWide, tilesHigh);
-        searchMapSelectionSession = null;
         recordHistoryState();
         repaint();
-    }
-
-    /** Classifies every search-map cell of a background from the pixels it covers. */
-    private SearchMapTileType[] classifySearchMapTypes(BufferedImage sourceImage, int tilesWide, int tilesHigh) {
-        SearchMapTileType[] tileTypes = new SearchMapTileType[tilesWide * tilesHigh];
-        for (int tileY = 0; tileY < tilesHigh; tileY++) {
-            for (int tileX = 0; tileX < tilesWide; tileX++) {
-                int x = tileX * SearchMapData.CELL_WIDTH;
-                int y = tileY * SearchMapData.CELL_HEIGHT;
-                int cellWidth = Math.min(SearchMapData.CELL_WIDTH, sourceImage.getWidth() - x);
-                int cellHeight = Math.min(SearchMapData.CELL_HEIGHT, sourceImage.getHeight() - y);
-                tileTypes[(tileY * tilesWide) + tileX] = cellWidth > 0 && cellHeight > 0
-                    ? SearchMapTileType.classifyTexture(sourceImage.getSubimage(x, y, cellWidth, cellHeight))
-                    : SearchMapTileType.UNKNOWN;
-            }
-        }
-        return tileTypes;
-    }
-
-    private void applySearchMapTypes(SearchMapTileType[] tileTypes, int tilesWide, int tilesHigh) {
-        ensureSearchMapSized();
-        for (int tileY = 0; tileY < tilesHigh && tileY < searchMapData.getHeightInTiles(); tileY++) {
-            for (int tileX = 0; tileX < tilesWide && tileX < searchMapData.getWidthInTiles(); tileX++) {
-                searchMapData.setTileType(tileX, tileY, tileTypes[(tileY * tilesWide) + tileX]);
-            }
-        }
     }
 
     private void applyWholeBackgroundSearchType(BufferedImage sourceImage) {
@@ -6386,25 +6352,6 @@ public class J2DArea extends JFrame {
             translated.add(new Point(cell.x + cellDx, cell.y + cellDy));
         }
         return translated;
-    }
-
-    /** Result of one background generation run: the image and its search-map typing. */
-    private static final class GeneratedGround {
-        private final BufferedImage image;
-        private final SearchMapTileType[] tileTypes;
-
-        private GeneratedGround(BufferedImage image, SearchMapTileType[] tileTypes) {
-            this.image = image;
-            this.tileTypes = tileTypes;
-        }
-
-        private BufferedImage getImage() {
-            return image;
-        }
-
-        private SearchMapTileType[] getTileTypes() {
-            return tileTypes;
-        }
     }
 
     private static final class HistoryState {
