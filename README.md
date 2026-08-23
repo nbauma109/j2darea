@@ -100,7 +100,7 @@ Randomized ground workflow:
 Wood floor workflow:
 
 1. Start the parallelogram tool from the toolbar or `Insert -> Filled Parallelogram` and click the three corners as usual.
-2. Pick `WOOD FLOOR` on the radial selector that opens under the pointer; `SEAMLESS TEXTURE` opens the usual image chooser, `BRICKS` generates small masonry, `FLOOR TILES` generates square stone slabs, `WALLPAPER` repeats a wall pattern, and `CARPET` weaves a geometric carpet. The selector answers to the mouse, number keys, the arrow keys and `Enter`, and cancels on `Esc`, on its hub, or on a click outside the ring.
+2. Pick `WOOD FLOOR` on the radial selector that opens under the pointer; `SEAMLESS TEXTURE` opens the usual image chooser, `BRICKS` generates small masonry, `FLOOR TILES` generates square stone slabs, `WALLPAPER` repeats a wall pattern, `WINDOWS` fits framed glazing with optional curtains, and `CARPET` weaves a geometric carpet. The selector answers to the mouse, number keys, the arrow keys and `Enter`, and cancels on `Esc`, on its hub, or on a click outside the ring.
 3. Tune the board size, stagger, seams, tone, grain, knots and wear; the preview updates live and can be switched between a 1:1 detail view and the whole shape.
 4. `Generate` renders the floor and pastes it under the objects already placed, marked as laying `WOOD` over the search-map cells it covers.
 
@@ -115,6 +115,8 @@ none. Details are in [Bricks and Floor Tiles](docs/wiki/Brick-Floor-Generator.md
 Carpets are laid out in the shape's own frame instead, mirrored about both centre lines so the weave is symmetric, and they are pasted over the floors rather than under them; details are in [Carpet Generator](docs/wiki/Carpet-Generator.md).
 
 Wallpaper is a canvas-anchored wall object containing only a seamless all-over repeat; it carries no terrain. Details are in [Wallpaper Generator](docs/wiki/Wallpaper-Generator.md).
+
+Windows are fitted to the shape with one to four panes across and one to three panes down. Curtains can be switched on and adjusted for opening and length; screen orientation is normalized so they always hang from the upper edge. Windows are ordinary wall objects and carry no terrain. Details are in [Window Generator](docs/wiki/Window-Generator.md).
 
 The search-map terrain a floor lays down is derived from the pasted object rather than painted into the map: it is rebuilt whenever the project changes, so it follows the floor when the floor moves and leaves nothing behind. Cells painted by hand still win over it. A parallelogram filled with a seamless texture types its cells the same way, classified from that texture. Details are in [Wood Floor Generator](docs/wiki/Wood-Floor-Generator.md).
 
@@ -144,6 +146,7 @@ The repo now uses `docs/wiki/` as a local, versioned wiki:
 - [Wood Floor Generator](docs/wiki/Wood-Floor-Generator.md)
 - [Bricks and Floor Tiles](docs/wiki/Brick-Floor-Generator.md)
 - [Wallpaper Generator](docs/wiki/Wallpaper-Generator.md)
+- [Window Generator](docs/wiki/Window-Generator.md)
 - [Carpet Generator](docs/wiki/Carpet-Generator.md)
 - [Exporter Notes](docs/wiki/Exporter.md)
 - [External Resources](docs/wiki/External-Resources.md)

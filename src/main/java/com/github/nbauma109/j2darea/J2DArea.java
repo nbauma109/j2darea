@@ -274,6 +274,8 @@ public class J2DArea extends JFrame {
     private transient BrickFloorSettings floorTileSettings;
     /** Last repeated wallpaper generated, kept independently from carpet settings. */
     private transient WallpaperSettings wallpaperSettings;
+    /** Last fitted window generated, including whether its curtains were enabled. */
+    private transient WindowSettings windowSettings;
     /** Last carpet the user wove, reused as the defaults for the next parallelogram. */
     private transient CarpetSettings carpetSettings;
     private transient BufferedImage brushTexture;
@@ -2921,6 +2923,10 @@ public class J2DArea extends JFrame {
             fillImage = generateWallpaper(parallelogram);
             tileType = wallpaperSearchMapTileType();
             stacking = wallpaperStacking();
+        } else if (fill == ParallelogramFill.WINDOWS) {
+            fillImage = generateWindow(parallelogram);
+            tileType = windowSearchMapTileType();
+            stacking = windowStacking();
         } else if (fill == ParallelogramFill.CARPET) {
             fillImage = generateCarpet(parallelogram);
             // A carpet lies on whatever floor is already there, and the search map
@@ -2971,6 +2977,16 @@ public class J2DArea extends JFrame {
         return PastedObjectStacking.OBJECT;
     }
 
+    /** Windows are wall objects and never replace the terrain beneath them. */
+    static SearchMapTileType windowSearchMapTileType() {
+        return null;
+    }
+
+    /** A fitted window is pasted with other wall art, above generated floors. */
+    static PastedObjectStacking windowStacking() {
+        return PastedObjectStacking.OBJECT;
+    }
+
     /** How the user chose to fill a parallelogram drawn with the textured tool. */
     private enum ParallelogramFill {
         TEXTURE,
@@ -2978,6 +2994,7 @@ public class J2DArea extends JFrame {
         BRICKS,
         FLOOR_TILES,
         WALLPAPER,
+        WINDOWS,
         CARPET
     }
 
@@ -2999,6 +3016,8 @@ public class J2DArea extends JFrame {
                 J2DArea::paintFloorTileSymbol),
             new RadialMenuDialog.Option("WALL PAPER", "Repeat an ornamental pattern over a wall",
                 J2DArea::paintWallpaperSymbol),
+            new RadialMenuDialog.Option("WINDOWS", "Fit framed glass, with optional curtains",
+                J2DArea::paintWindowSymbol),
             new RadialMenuDialog.Option("CARPET", "Weave a random geometric carpet",
                 J2DArea::paintCarpetSymbol));
         int choice = RadialMenuDialog.choose(this, "Fill Parallelogram", options, null);
@@ -3014,6 +3033,8 @@ public class J2DArea extends JFrame {
             case 4:
                 return ParallelogramFill.WALLPAPER;
             case 5:
+                return ParallelogramFill.WINDOWS;
+            case 6:
                 return ParallelogramFill.CARPET;
             default:
                 return null;
@@ -3099,6 +3120,33 @@ public class J2DArea extends JFrame {
         }
         graphics.setClip(oldClip);
         graphics.drawRect(-half, -half, size, size);
+    }
+
+    /** Framed panes with parted drapes, for the fitted-window generator. */
+    private static void paintWindowSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int half = size / 2;
+        int inset = Math.max(3, size / 9);
+        graphics.drawRect(-half, -half, size, size);
+        graphics.drawRect(-half + inset, -half + inset, size - (inset * 2), size - (inset * 2));
+        graphics.drawLine(0, -half + inset, 0, half - inset);
+        graphics.drawLine(-half + inset, 0, half - inset, 0);
+        int railY = -half + inset + Math.max(2, size / 12);
+        graphics.drawLine(-half + inset / 2, railY, half - inset / 2, railY);
+        java.awt.geom.Path2D leftCurtain = new java.awt.geom.Path2D.Double();
+        leftCurtain.moveTo(-half + inset, railY);
+        leftCurtain.curveTo(-half + inset, 0, -half + inset, half - inset,
+            -size / 7d, half - inset);
+        leftCurtain.curveTo(-size / 5d, 0, -size / 4d, -size / 6d, -size / 5d, railY);
+        graphics.draw(leftCurtain);
+        java.awt.geom.Path2D rightCurtain = new java.awt.geom.Path2D.Double();
+        rightCurtain.moveTo(half - inset, railY);
+        rightCurtain.curveTo(half - inset, 0, half - inset, half - inset,
+            size / 7d, half - inset);
+        rightCurtain.curveTo(size / 5d, 0, size / 4d, -size / 6d, size / 5d, railY);
+        graphics.draw(rightCurtain);
     }
 
     /** A bordered rug with a medallion and fringed ends, for the generated carpet. */
@@ -3220,6 +3268,24 @@ public class J2DArea extends JFrame {
         return runWithProgress("Wallpaper",
             "Printing " + bounds.width + " x " + bounds.height + " wallpaper...",
             listener -> WallpaperGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
+    }
+
+    /** Opens the window editor and renders framed glass with optional curtains. */
+    private BufferedImage generateWindow(Polygon parallelogram) {
+        WindowSettings initialSettings = windowSettings != null
+            ? new WindowSettings(windowSettings)
+            : new WindowSettings();
+        WindowDialog dialog = new WindowDialog(this, initialSettings, parallelogram);
+        dialog.setVisible(true);
+        final WindowSettings chosenSettings = dialog.getConfirmedSettings();
+        if (chosenSettings == null) {
+            return null;
+        }
+        windowSettings = chosenSettings;
+        Rectangle bounds = parallelogram.getBounds();
+        return runWithProgress("Window",
+            "Building " + bounds.width + " x " + bounds.height + " window...",
+            listener -> WindowGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
     }
 
     /**
