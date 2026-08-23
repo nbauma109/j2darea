@@ -276,6 +276,8 @@ public class J2DArea extends JFrame {
     private transient WallpaperSettings wallpaperSettings;
     /** Last fitted window generated, including whether its curtains were enabled. */
     private transient WindowSettings windowSettings;
+    /** Last bookcase generated, reused as the defaults for the next one. */
+    private transient BookcaseSettings bookcaseSettings;
     /** Last carpet the user wove, reused as the defaults for the next parallelogram. */
     private transient CarpetSettings carpetSettings;
     private transient BufferedImage brushTexture;
@@ -2927,6 +2929,10 @@ public class J2DArea extends JFrame {
             fillImage = generateWindow(parallelogram);
             tileType = windowSearchMapTileType();
             stacking = windowStacking();
+        } else if (fill == ParallelogramFill.BOOKCASE) {
+            fillImage = generateBookcase(parallelogram);
+            tileType = bookcaseSearchMapTileType();
+            stacking = bookcaseStacking();
         } else if (fill == ParallelogramFill.CARPET) {
             fillImage = generateCarpet(parallelogram);
             // A carpet lies on whatever floor is already there, and the search map
@@ -2987,6 +2993,16 @@ public class J2DArea extends JFrame {
         return PastedObjectStacking.OBJECT;
     }
 
+    /** A fitted bookcase is wall decoration, not walkable terrain. */
+    static SearchMapTileType bookcaseSearchMapTileType() {
+        return null;
+    }
+
+    /** Bookcases sit in the ordinary object layer above generated floors. */
+    static PastedObjectStacking bookcaseStacking() {
+        return PastedObjectStacking.OBJECT;
+    }
+
     /** How the user chose to fill a parallelogram drawn with the textured tool. */
     private enum ParallelogramFill {
         TEXTURE,
@@ -2995,6 +3011,7 @@ public class J2DArea extends JFrame {
         FLOOR_TILES,
         WALLPAPER,
         WINDOWS,
+        BOOKCASE,
         CARPET
     }
 
@@ -3018,6 +3035,8 @@ public class J2DArea extends JFrame {
                 J2DArea::paintWallpaperSymbol),
             new RadialMenuDialog.Option("WINDOWS", "Fit framed glass, with optional curtains",
                 J2DArea::paintWindowSymbol),
+            new RadialMenuDialog.Option("BOOKCASE", "Fit flat shelves into a wall shape",
+                J2DArea::paintBookcaseSymbol),
             new RadialMenuDialog.Option("CARPET", "Weave a random geometric carpet",
                 J2DArea::paintCarpetSymbol));
         int choice = RadialMenuDialog.choose(this, "Fill Parallelogram", options, null);
@@ -3035,6 +3054,8 @@ public class J2DArea extends JFrame {
             case 5:
                 return ParallelogramFill.WINDOWS;
             case 6:
+                return ParallelogramFill.BOOKCASE;
+            case 7:
                 return ParallelogramFill.CARPET;
             default:
                 return null;
@@ -3147,6 +3168,30 @@ public class J2DArea extends JFrame {
             size / 7d, half - inset);
         rightCurtain.curveTo(size / 5d, 0, size / 4d, -size / 6d, size / 5d, railY);
         graphics.draw(rightCurtain);
+    }
+
+    /** A flat framed shelf with uneven book spines. */
+    private static void paintBookcaseSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int half = size / 2;
+        int inset = Math.max(3, size / 10);
+        graphics.drawRect(-half, -half, size, size);
+        graphics.drawRect(-half + inset, -half + inset, size - (inset * 2), size - (inset * 2));
+        int shelfWidth = size - (inset * 2);
+        for (int row = 1; row <= 2; row++) {
+            int shelfY = -half + inset + (row * (size - inset * 2) / 3);
+            graphics.drawLine(-half + inset, shelfY, half - inset, shelfY);
+            int bookBottom = shelfY - 1;
+            int startX = -half + inset + 2;
+            for (int book = 0; book < 4; book++) {
+                int width = Math.max(2, size / 12);
+                int height = size / 7 + ((book + row) % 3) * 2;
+                graphics.drawRect(startX + book * width, bookBottom - height, width - 1, height);
+            }
+        }
+        graphics.drawLine(-half + inset, half - inset, -half + inset + shelfWidth, half - inset);
     }
 
     /** A bordered rug with a medallion and fringed ends, for the generated carpet. */
@@ -3286,6 +3331,22 @@ public class J2DArea extends JFrame {
         return runWithProgress("Window",
             "Building " + bounds.width + " x " + bounds.height + " window...",
             listener -> WindowGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
+    }
+
+    /** Opens the bookcase editor and renders its confirmed shelves and books. */
+    private BufferedImage generateBookcase(Polygon parallelogram) {
+        BookcaseSettings initialSettings = bookcaseSettings != null
+            ? new BookcaseSettings(bookcaseSettings)
+            : new BookcaseSettings();
+        BookcaseDialog dialog = new BookcaseDialog(this, initialSettings, parallelogram);
+        dialog.setVisible(true);
+        final BookcaseSettings chosenSettings = dialog.getConfirmedSettings();
+        if (chosenSettings == null) return null;
+        bookcaseSettings = chosenSettings;
+        Rectangle bounds = parallelogram.getBounds();
+        return runWithProgress("Bookcase",
+            "Filling " + bounds.width + " x " + bounds.height + " bookcase...",
+            listener -> BookcaseGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
     }
 
     /**

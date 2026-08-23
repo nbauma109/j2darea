@@ -49,6 +49,7 @@ variation everywhere and anything that fine is otherwise averaged away.
    [Bricks and Floor Tiles](Brick-Floor-Generator.md),
    `WALLPAPER` creates an all-over [wallpaper repeat](Wallpaper-Generator.md),
    `WINDOWS` fits a framed [window](Window-Generator.md),
+   `BOOKCASE` stocks a flat [bookcase](Bookcase-Generator.md),
    and `CARPET` weaves a [carpet](Carpet-Generator.md) instead. See
    [The fill selector](#the-fill-selector).
 4. Tune the settings; the preview updates as you drag the sliders:
