@@ -15,6 +15,8 @@ Use it as the current project truth for:
 - [External Resources](External-Resources.md)
 - [Search Map Geometry](Search-Map-Geometry.md)
 - [Ground Generator](Ground-Generator.md)
+- [Wood Floor Generator](Wood-Floor-Generator.md)
+- [Carpet Generator](Carpet-Generator.md)
 
 ## Current direction
 

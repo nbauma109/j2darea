@@ -1,5 +1,6 @@
 package com.github.nbauma109.j2darea;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -15,6 +16,7 @@ import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
@@ -263,6 +265,10 @@ public class J2DArea extends JFrame {
     private double extractZoom = 1.0;
     private transient BufferedImage backgroundTile;
     private transient GroundGeneratorSettings groundSettings;
+    /** Last wood floor the user generated, reused as the defaults for the next parallelogram. */
+    private transient WoodFloorSettings woodFloorSettings;
+    /** Last carpet the user wove, reused as the defaults for the next parallelogram. */
+    private transient CarpetSettings carpetSettings;
     private transient BufferedImage brushTexture;
     private transient BufferedImage brushPreview;
     private transient BufferedImage brushNightPreview;
@@ -1531,11 +1537,11 @@ public class J2DArea extends JFrame {
             }
         });
         parallelogramTextureButton.setMaximumSize(BUTTON_SIZE);
-        parallelogramTextureButton.setToolTipText("Draw and fill a new parallelogram with a texture");
+        parallelogramTextureButton.setToolTipText("Draw a new parallelogram and fill it with a texture or a generated wood floor");
         configureToolbarButton(parallelogramTextureButton);
         parallelogramTextureToolbarButton = parallelogramTextureButton;
         JMenuItem parallelogramTextureMenuItem = new JMenuItem(parallelogramTextureButton.getAction());
-        parallelogramTextureMenuItem.setText("Textured Parallelogram");
+        parallelogramTextureMenuItem.setText("Textured Or Wood Parallelogram");
         insertMenu.add(parallelogramTextureMenuItem);
 
         JButton pasteFromOpenDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/opened_door.png"))) {
@@ -2803,29 +2809,10 @@ public class J2DArea extends JFrame {
                 if (p.npoints == 3) {
                     p.addPoint(p.xpoints[0] + p.xpoints[2] - p.xpoints[1], p.ypoints[0] + p.ypoints[2] - p.ypoints[1]);
                     panel.repaint();
-                    BufferedImage textureImage = editingBlackParallelogram ? null : chooseImageFile(FileChooserLocation.TEXTURE);
+                    boolean black = editingBlackParallelogram;
                     editingBlackParallelogram = editingTextureParallelogram = false;
-                    BufferedImage floorImage = new BufferedImage(p.getBounds().width, p.getBounds().height, BufferedImage.TYPE_INT_ARGB);
-                    for (int x = 0; x < floorImage.getWidth(); x++) {
-                        for (int y = 0; y < floorImage.getHeight(); y++) {
-                            if (p.contains(p.getBounds().getMinX() + x, p.getBounds().getMinY() + y)) {
-                                if (textureImage != null) {
-                                    floorImage.setRGB(x, y, textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
-                                } else {
-                                    floorImage.setRGB(x, y, Color.BLACK.getRGB());
-                                }
-                            } else {
-                                floorImage.setRGB(x, y, 0);
-                            }
-                        }
-                    }
-                    if (textureImage != null) {
-                        pastedObjects.add(0, new PastedObject(new Point(p.getBounds().x, p.getBounds().y), new ExportableImage(floorImage)));
-                    } else {
-                        pastedObjects.add(new PastedObject(new Point(p.getBounds().x, p.getBounds().y), new ExportableImage(floorImage)));
-                    }
+                    fillCompletedParallelogram(p, black);
                     parallelograms.remove(parallelograms.size() - 1);
-                    recordHistoryState();
                 }
             }
         } else {
@@ -2887,6 +2874,210 @@ public class J2DArea extends JFrame {
             }
         }
         panel.repaint();
+    }
+
+    /**
+     * Fills a parallelogram the user has just closed and pastes it into the build
+     * area. A black parallelogram is filled straight away; a textured one first
+     * asks whether to repeat a seamless texture over it or to generate a wood
+     * floor for it, since a repeated tile cannot carry a plank floor.
+     */
+    private void fillCompletedParallelogram(Polygon parallelogram, boolean black) {
+        Rectangle bounds = parallelogram.getBounds();
+        Point location = new Point(bounds.x, bounds.y);
+        if (black) {
+            pastedObjects.add(new PastedObject(location,
+                new ExportableImage(fillParallelogram(parallelogram, null))));
+            recordHistoryState();
+            return;
+        }
+        ParallelogramFill fill = chooseParallelogramFill();
+        if (fill == null) {
+            return;
+        }
+        BufferedImage fillImage;
+        SearchMapTileType tileType;
+        PastedObjectStacking stacking;
+        if (fill == ParallelogramFill.WOOD) {
+            fillImage = generateWoodFloor(parallelogram);
+            tileType = SearchMapTileType.WOOD;
+            stacking = PastedObjectStacking.FLOOR;
+        } else if (fill == ParallelogramFill.CARPET) {
+            fillImage = generateCarpet(parallelogram);
+            // A carpet lies on whatever floor is already there, and the search map
+            // has no terrain for one, so it leaves the terrain under it alone.
+            tileType = null;
+            stacking = PastedObjectStacking.GROUND_COVER;
+        } else {
+            BufferedImage textureImage = chooseImageFile(FileChooserLocation.TEXTURE);
+            fillImage = textureImage != null ? fillParallelogram(parallelogram, textureImage) : null;
+            tileType = textureImage != null ? SearchMapTileType.classifyTexture(textureImage) : null;
+            stacking = PastedObjectStacking.FLOOR;
+        }
+        if (fillImage == null) {
+            return;
+        }
+        PastedObject pastedFill = new PastedObject(location, new ExportableImage(fillImage));
+        // A floor carries its own terrain, so the search map follows it when it is
+        // moved rather than being painted once where it first landed.
+        pastedFill.setSearchMapTileType(tileType);
+        pastedFill.setStacking(stacking);
+        pastedObjects.add(PastedObjectStacking.insertIndex(pastedObjects, stacking), pastedFill);
+        recordHistoryState();
+    }
+
+    /** How the user chose to fill a parallelogram drawn with the textured tool. */
+    private enum ParallelogramFill {
+        TEXTURE,
+        WOOD,
+        CARPET
+    }
+
+    /**
+     * Asks how a textured parallelogram should be filled, on a radial selector
+     * that opens under the pointer where the shape was just closed.
+     *
+     * @return {@code null} when the user cancelled, which abandons the shape
+     */
+    private ParallelogramFill chooseParallelogramFill() {
+        List<RadialMenuDialog.Option> options = Arrays.asList(
+            new RadialMenuDialog.Option("SEAMLESS TEXTURE", "Repeat one tile over the shape",
+                J2DArea::paintTextureSymbol),
+            new RadialMenuDialog.Option("WOOD FLOOR", "Generate planks laid along an edge",
+                J2DArea::paintWoodFloorSymbol),
+            new RadialMenuDialog.Option("CARPET", "Weave a random geometric carpet",
+                J2DArea::paintCarpetSymbol));
+        int choice = RadialMenuDialog.choose(this, "Fill Parallelogram", options, null);
+        switch (choice) {
+            case 0:
+                return ParallelogramFill.TEXTURE;
+            case 1:
+                return ParallelogramFill.WOOD;
+            case 2:
+                return ParallelogramFill.CARPET;
+            default:
+                return null;
+        }
+    }
+
+    /** A tiled grid, for the seamless texture fill. */
+    private static void paintTextureSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f));
+        int cell = size / 3;
+        int origin = -((cell * 3) / 2);
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                graphics.drawRect(origin + (column * cell), origin + (row * cell), cell, cell);
+            }
+        }
+    }
+
+    /** Boards running off at the isometric angle, for the generated wood floor. */
+    private static void paintWoodFloorSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int half = size / 2;
+        int skew = half / 2;
+        int pitch = size / 5;
+        for (int board = -2; board <= 2; board++) {
+            int y = board * pitch;
+            graphics.drawLine(-half, y + skew, half, y - skew);
+        }
+        // Two butt joints, each crossing one board only, staggered like the real ones.
+        graphics.drawLine(-half / 3, -pitch + skew / 3, -half / 3 + pitch, -pitch + skew / 3 - pitch / 2);
+        graphics.drawLine(half / 4, pitch - skew / 3, half / 4 + pitch, pitch - skew / 3 - pitch / 2);
+    }
+
+    /** A bordered rug with a medallion and fringed ends, for the generated carpet. */
+    private static void paintCarpetSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        // Nested diamonds: the rug as it lies under the isometric camera, its
+        // border inside it, and its medallion inside that.
+        int half = size / 2;
+        int rise = (int) Math.round(size * 0.3d);
+        graphics.drawPolygon(new int[] { -half, 0, half, 0 }, new int[] { 0, -rise, 0, rise }, 4);
+        int borderHalf = half - (size / 6);
+        int borderRise = rise - (size / 10);
+        graphics.drawPolygon(new int[] { -borderHalf, 0, borderHalf, 0 },
+            new int[] { 0, -borderRise, 0, borderRise }, 4);
+        int medallion = size / 6;
+        graphics.drawPolygon(new int[] { -medallion, 0, medallion, 0 },
+            new int[] { 0, -medallion / 2, 0, medallion / 2 }, 4);
+        // A few threads of fringe off each end.
+        for (int thread = -1; thread <= 1; thread++) {
+            int offset = thread * (size / 12);
+            graphics.drawLine(-half, offset, -half - (size / 10), offset);
+            graphics.drawLine(half, offset, half + (size / 10), offset);
+        }
+    }
+
+    /** Repeats a texture over a parallelogram, or fills it black when there is none. */
+    private BufferedImage fillParallelogram(Polygon parallelogram, BufferedImage textureImage) {
+        Rectangle bounds = parallelogram.getBounds();
+        BufferedImage floorImage = new BufferedImage(Math.max(1, bounds.width), Math.max(1, bounds.height),
+            BufferedImage.TYPE_INT_ARGB);
+        for (int x = 0; x < floorImage.getWidth(); x++) {
+            for (int y = 0; y < floorImage.getHeight(); y++) {
+                if (!parallelogram.contains(bounds.getMinX() + x, bounds.getMinY() + y)) {
+                    floorImage.setRGB(x, y, 0);
+                } else if (textureImage != null) {
+                    floorImage.setRGB(x, y,
+                        textureImage.getRGB(x % textureImage.getWidth(), y % textureImage.getHeight()));
+                } else {
+                    floorImage.setRGB(x, y, Color.BLACK.getRGB());
+                }
+            }
+        }
+        return floorImage;
+    }
+
+    /**
+     * Opens the wood floor editor for a parallelogram and renders the floor it
+     * produces. The settings are kept for the next parallelogram, so a room built
+     * from several shapes can be laid with the same boards.
+     */
+    private BufferedImage generateWoodFloor(Polygon parallelogram) {
+        WoodFloorSettings initialSettings = woodFloorSettings != null
+            ? new WoodFloorSettings(woodFloorSettings)
+            : new WoodFloorSettings();
+        WoodFloorDialog dialog = new WoodFloorDialog(this, initialSettings, parallelogram);
+        dialog.setVisible(true);
+        final WoodFloorSettings chosenSettings = dialog.getConfirmedSettings();
+        if (chosenSettings == null) {
+            return null;
+        }
+        woodFloorSettings = chosenSettings;
+        Rectangle bounds = parallelogram.getBounds();
+        return runWithProgress("Wood Floor",
+            "Generating " + bounds.width + " x " + bounds.height + " wood floor...",
+            listener -> WoodFloorGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
+    }
+
+    /**
+     * Opens the carpet editor for a parallelogram and weaves the carpet it
+     * produces. The settings are kept for the next parallelogram, so a matching
+     * pair of rugs takes one `Randomize` less than the first one did.
+     */
+    private BufferedImage generateCarpet(Polygon parallelogram) {
+        CarpetSettings initialSettings = carpetSettings != null
+            ? new CarpetSettings(carpetSettings)
+            : new CarpetSettings();
+        CarpetDialog dialog = new CarpetDialog(this, initialSettings, parallelogram);
+        dialog.setVisible(true);
+        final CarpetSettings chosenSettings = dialog.getConfirmedSettings();
+        if (chosenSettings == null) {
+            return null;
+        }
+        carpetSettings = chosenSettings;
+        Rectangle bounds = parallelogram.getBounds();
+        return runWithProgress("Carpet",
+            "Weaving " + bounds.width + " x " + bounds.height + " carpet...",
+            listener -> CarpetGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
     }
 
     private void snapMovingDoorToBestPixelMatch() {
@@ -4073,6 +4264,20 @@ public class J2DArea extends JFrame {
         buildBackgroundNightImage = ImageFilter.applyNightFilter(buildBackgroundImage);
         recordHistoryState();
         repaint();
+    }
+
+    /**
+     * Rebuilds the search-map layer contributed by the pasted objects that carry
+     * a terrain, such as generated wood floors.
+     *
+     * <p>The layer is derived rather than painted into the map, and rebuilt
+     * whenever the project changes, which is what makes a floor's terrain follow
+     * the floor when it is moved, copied, deleted or undone. Cells the user
+     * painted by hand still win over it.
+     */
+    private void refreshObjectSearchMapTypes() {
+        ensureSearchMapSized();
+        searchMapData.applyObjectTypes(pastedObjects);
     }
 
     private void applyWholeBackgroundSearchType(BufferedImage sourceImage) {
@@ -5497,6 +5702,9 @@ public class J2DArea extends JFrame {
 
     private void resetHistoryToCurrentState() {
         try {
+            // A project that was just opened or started carries objects whose
+            // terrain layer has not been derived yet.
+            refreshObjectSearchMapTypes();
             undoHistory.clear();
             redoHistory.clear();
             currentHistoryState = serializeHistoryState();
@@ -5508,6 +5716,7 @@ public class J2DArea extends JFrame {
 
     private void recordHistoryState() {
         try {
+            refreshObjectSearchMapTypes();
             byte[] newState = serializeHistoryState();
             if (currentHistoryState != null && Arrays.equals(currentHistoryState, newState)) {
                 updateHistoryButtons();
@@ -5569,6 +5778,9 @@ public class J2DArea extends JFrame {
                 ? exportableArea.getSearchMapData()
                 : new SearchMapData(backgroundWidth, backgroundHeight);
             searchMapData.resizeForPixels(backgroundWidth, backgroundHeight);
+            // The object layer is derived, not stored, so an undone state comes
+            // back without it and has to have it rebuilt from the restored objects.
+            refreshObjectSearchMapTypes();
             groundSettings = historyState.getGroundSettings();
             searchMapSelectionSession = null;
             wallGroupPlacementSession = null;

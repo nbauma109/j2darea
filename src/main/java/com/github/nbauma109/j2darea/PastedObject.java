@@ -24,6 +24,19 @@ public class PastedObject implements Externalizable {
     private EntranceData entranceData; // Only used when pastedObjectType == ENTRANCE
     private DoorData doorData; // Only used when pastedObjectType is a door
     private String compositeGroupId;
+    /**
+     * Terrain this object lays over the search map, or {@code null} when it does
+     * not carry any. A generated floor types the cells it covers, and because the
+     * typing is derived from the object rather than painted into the map, it
+     * follows the object when it is moved or removed.
+     */
+    private SearchMapTileType searchMapTileType;
+    /**
+     * Where this object belongs in the stack of the area. Only generated fills set
+     * it; anything else is an {@link PastedObjectStacking#OBJECT} standing on the
+     * ground.
+     */
+    private PastedObjectStacking stacking = PastedObjectStacking.OBJECT;
 
     public PastedObject() {
     }
@@ -67,6 +80,8 @@ public class PastedObject implements Externalizable {
         } else {
             out.writeBoolean(false);
         }
+        out.writeUTF(searchMapTileType != null ? searchMapTileType.name() : "");
+        out.writeUTF(stacking != null ? stacking.name() : "");
     }
 
     @Override
@@ -100,6 +115,12 @@ public class PastedObject implements Externalizable {
             }
         } catch (EOFException ex) {
             doorData = pastedObjectType.isDoor() ? new DoorData() : null;
+        }
+        try {
+            setSearchMapTileType(parseSearchMapTileType(in.readUTF()));
+            setStacking(parseStacking(in.readUTF()));
+        } catch (EOFException ex) {
+            searchMapTileType = null;
         }
         initBuffers();
     }
@@ -279,6 +300,8 @@ public class PastedObject implements Externalizable {
         if (doorData != null) {
             copied.doorData = doorData.copy();
         }
+        copied.searchMapTileType = searchMapTileType;
+        copied.stacking = stacking;
         copied.compositeGroupId = null;
         return copied;
     }
@@ -302,6 +325,46 @@ public class PastedObject implements Externalizable {
         this.doorData = doorData != null ? doorData : (pastedObjectType != null && pastedObjectType.isDoor() ? new DoorData() : null);
     }
 
+    /** Terrain this object lays over the search map, or {@code null} for none. */
+    public SearchMapTileType getSearchMapTileType() {
+        return searchMapTileType;
+    }
+
+    public void setSearchMapTileType(SearchMapTileType searchMapTileType) {
+        this.searchMapTileType = searchMapTileType == SearchMapTileType.UNKNOWN ? null : searchMapTileType;
+    }
+
+    /** Where this object belongs in the stack of the area; never {@code null}. */
+    public PastedObjectStacking getStacking() {
+        return stacking != null ? stacking : PastedObjectStacking.OBJECT;
+    }
+
+    public void setStacking(PastedObjectStacking stacking) {
+        this.stacking = stacking != null ? stacking : PastedObjectStacking.OBJECT;
+    }
+
+    private static PastedObjectStacking parseStacking(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return PastedObjectStacking.OBJECT;
+        }
+        try {
+            return PastedObjectStacking.valueOf(name.trim());
+        } catch (IllegalArgumentException ex) {
+            return PastedObjectStacking.OBJECT;
+        }
+    }
+
+    private static SearchMapTileType parseSearchMapTileType(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return SearchMapTileType.valueOf(name.trim());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
     public String getCompositeGroupId() {
         return compositeGroupId;
     }
@@ -320,6 +383,8 @@ public class PastedObject implements Externalizable {
         el.setAttribute("y", String.valueOf(location.y));
         el.setAttribute("type", String.valueOf(pastedObjectType.ordinal()));
         el.setAttribute("compositeGroupId", compositeGroupId != null ? compositeGroupId : "");
+        el.setAttribute("searchMapTileType", searchMapTileType != null ? searchMapTileType.name() : "");
+        el.setAttribute("stacking", getStacking().name());
         image.toXml(doc, el, "image");
         if (pastedObjectType.isEntrance() && entranceData != null) {
             el.appendChild(entranceData.toXml(doc, "entranceData"));
@@ -340,6 +405,8 @@ public class PastedObject implements Externalizable {
         PastedObjectType[] types = PastedObjectType.values();
         pastedObjectType = (typeOrdinal >= 0 && typeOrdinal < types.length) ? types[typeOrdinal] : PastedObjectType.STANDARD;
         setCompositeGroupId(el.getAttribute("compositeGroupId"));
+        setSearchMapTileType(parseSearchMapTileType(el.getAttribute("searchMapTileType")));
+        setStacking(parseStacking(el.getAttribute("stacking")));
         image = new ExportableImage();
         image.fromXml(el, "image");
         if (!pastedObjectType.isNightLight() && image.getImage() != null) {

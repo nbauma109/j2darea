@@ -29,6 +29,11 @@ Implemented now:
 - Search-map authoring on the build canvas, including automatic tile typing from fill/brush textures, polygon-based non-walkable marking, and a grid overlay toggle
 - Game ARE backgrounds can now be loaded into the extraction area with a selectable closed-door default, and extraction keeps a separate closed-door toggle that reloads the same source ARE in the opposite state
 - Randomized Baldur's Gate style ground generation for the build-area background, drawn for the isometric camera, with a live-preview settings dialog, seeded and reproducible output, and search-map cells typed from the generated pixels
+- Generated Baldur's Gate style wood plank floors for drawn parallelograms, laid along a drawn edge and cut parallel to the other one, lit with broad pools of light and shade, with a live-preview settings dialog, offered as an alternative to the seamless texture fill
+- Search-map terrain carried by pasted floors rather than painted into the map, so a floor's `WOOD` or texture-classified cells follow it when it is moved, copied, deleted or undone
+- Randomized geometric carpets for drawn parallelograms, symmetric about both their axes, with field patterns, border motifs, medallion sizes and dye sets that can each be pinned or left to the seed, woven on a knot grid with fringe, pile and wear
+- Generated fills stack the way a room does: floors under everything, carpets over the floors and under whatever stands on them
+- A reusable radial selector, drawn as a lit compass, used for the parallelogram fill choice in place of a message box
 - Extraction-area rectangle selection can now be sent through a single Nano Banana 2 cleanup-and-extract flow: it opens in a persistent editor window where you can run background removal and red-mask cleanup in either order before exporting the current preview as a transparent-background image
 
 Partially implemented:
@@ -85,10 +90,23 @@ Randomized ground workflow:
 
 1. Open the build tab and use `Background -> Generate Random Ground...`, or the grass toolbar button.
 2. Tune the seed, patch shape, per-material coverage, grass tone, surface detail, flowers and stones; the preview updates live and can be switched between a 1:1 detail view and the whole area.
-3. `Generate` fills the whole build-area background at the current canvas size, rebuilds the night background, and retypes the search map from the generated ground.
+3. `Generate` fills the whole build-area background at the current canvas size and rebuilds the night background; the search map is left unchanged.
 4. Saving the project stores the generator settings rather than the bitmap, so reopening it regenerates the identical ground; painting over the background with the texture brush falls back to saving the image.
 
 `Fill With Pattern...` is unchanged and still repeats a single seamless tile. Details are in [Ground Generator](docs/wiki/Ground-Generator.md).
+
+Wood floor workflow:
+
+1. Start the textured parallelogram tool from the toolbar or `Insert -> Textured Or Wood Parallelogram` and click the three corners as usual.
+2. Pick `WOOD FLOOR` on the radial selector that opens under the pointer; `SEAMLESS TEXTURE` still opens the usual image chooser, and `CARPET` weaves a randomized geometric carpet instead. The selector answers to the mouse, to `1`/`2`, to the arrow keys and `Enter`, and cancels on `Esc`, on its hub, or on a click outside the ring.
+3. Tune the board size, stagger, seams, tone, grain, knots and wear; the preview updates live and can be switched between a 1:1 detail view and the whole shape.
+4. `Generate` renders the floor and pastes it under the objects already placed, marked as laying `WOOD` over the search-map cells it covers.
+
+Boards run along one of the two edges you drew, their ends are cut parallel to the other edge, and the pattern is anchored to the canvas, so several parallelograms drawn the same way carry the same boards across without a joint. The settings are kept as the defaults for the next parallelogram of the session.
+
+Carpets are laid out in the shape's own frame instead, mirrored about both centre lines so the weave is symmetric, and they are pasted over the floors rather than under them; details are in [Carpet Generator](docs/wiki/Carpet-Generator.md).
+
+The search-map terrain a floor lays down is derived from the pasted object rather than painted into the map: it is rebuilt whenever the project changes, so it follows the floor when the floor moves and leaves nothing behind. Cells painted by hand still win over it. A parallelogram filled with a seamless texture types its cells the same way, classified from that texture. Details are in [Wood Floor Generator](docs/wiki/Wood-Floor-Generator.md).
 
 Composite object workflow:
 
@@ -113,6 +131,8 @@ The repo now uses `docs/wiki/` as a local, versioned wiki:
 - [Wiki Home](docs/wiki/Home.md)
 - [Feature Matrix](docs/wiki/Feature-Matrix.md)
 - [Ground Generator](docs/wiki/Ground-Generator.md)
+- [Wood Floor Generator](docs/wiki/Wood-Floor-Generator.md)
+- [Carpet Generator](docs/wiki/Carpet-Generator.md)
 - [Exporter Notes](docs/wiki/Exporter.md)
 - [External Resources](docs/wiki/External-Resources.md)
 

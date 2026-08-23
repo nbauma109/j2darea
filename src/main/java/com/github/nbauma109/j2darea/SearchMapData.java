@@ -29,12 +29,20 @@ public class SearchMapData implements Externalizable {
     private int heightInTiles;
     private byte[] tileTypes;
     private byte[] overrideTileTypes;
+    /**
+     * Terrain contributed by the pasted objects lying on the map, rebuilt from
+     * those objects rather than stored: a generated floor types the cells it
+     * covers, and rebuilding the layer is what makes that typing follow the floor
+     * when it is moved, copied or deleted.
+     */
+    private byte[] objectTileTypes;
 
     public SearchMapData() {
         this.widthInTiles = 0;
         this.heightInTiles = 0;
         this.tileTypes = new byte[0];
         this.overrideTileTypes = new byte[0];
+        this.objectTileTypes = new byte[0];
     }
 
     public SearchMapData(int pixelWidth, int pixelHeight) {
@@ -62,6 +70,7 @@ public class SearchMapData implements Externalizable {
         widthInTiles = in.readInt();
         heightInTiles = in.readInt();
         int count = in.readInt();
+        objectTileTypes = new byte[count];
         tileTypes = new byte[count];
         for (int i = 0; i < count; i++) {
             tileTypes[i] = in.readByte();
@@ -100,11 +109,13 @@ public class SearchMapData implements Externalizable {
         int newHeightInTiles = Math.max(1, (pixelHeight + CELL_HEIGHT - 1) / CELL_HEIGHT);
         if (newWidthInTiles == widthInTiles && newHeightInTiles == heightInTiles
                 && tileTypes.length == newWidthInTiles * newHeightInTiles
-                && overrideTileTypes.length == newWidthInTiles * newHeightInTiles) {
+                && overrideTileTypes.length == newWidthInTiles * newHeightInTiles
+                && objectTileTypes.length == newWidthInTiles * newHeightInTiles) {
             return;
         }
         byte[] newTileTypes = new byte[newWidthInTiles * newHeightInTiles];
         byte[] newOverrideTileTypes = new byte[newWidthInTiles * newHeightInTiles];
+        byte[] newObjectTileTypes = new byte[newWidthInTiles * newHeightInTiles];
         Arrays.fill(newTileTypes, (byte) SearchMapTileType.UNKNOWN.ordinal());
         for (int y = 0; y < Math.min(heightInTiles, newHeightInTiles); y++) {
             for (int x = 0; x < Math.min(widthInTiles, newWidthInTiles); x++) {
@@ -114,12 +125,16 @@ public class SearchMapData implements Externalizable {
                 if (oldIndex < overrideTileTypes.length) {
                     newOverrideTileTypes[newIndex] = overrideTileTypes[oldIndex];
                 }
+                if (oldIndex < objectTileTypes.length) {
+                    newObjectTileTypes[newIndex] = objectTileTypes[oldIndex];
+                }
             }
         }
         widthInTiles = newWidthInTiles;
         heightInTiles = newHeightInTiles;
         tileTypes = newTileTypes;
         overrideTileTypes = newOverrideTileTypes;
+        objectTileTypes = newObjectTileTypes;
     }
 
     public void setAll(SearchMapTileType type) {
@@ -143,6 +158,92 @@ public class SearchMapData implements Externalizable {
         int ordinal = tileTypes[(tileY * widthInTiles) + tileX] & 0xFF;
         SearchMapTileType[] values = SearchMapTileType.values();
         return ordinal >= 0 && ordinal < values.length ? values[ordinal] : SearchMapTileType.UNKNOWN;
+    }
+
+    /** Drops every cell the pasted objects contributed, before they are re-applied. */
+    public void clearObjectTileTypes() {
+        Arrays.fill(objectTileTypes, (byte) 0);
+    }
+
+    public void setObjectTileType(int tileX, int tileY, SearchMapTileType type) {
+        if (tileX < 0 || tileY < 0 || tileX >= widthInTiles || tileY >= heightInTiles) {
+            return;
+        }
+        objectTileTypes[(tileY * widthInTiles) + tileX] = encodeOverride(type);
+    }
+
+    public SearchMapTileType getObjectTileType(int tileX, int tileY) {
+        if (tileX < 0 || tileY < 0 || tileX >= widthInTiles || tileY >= heightInTiles
+                || (tileY * widthInTiles) + tileX >= objectTileTypes.length) {
+            return null;
+        }
+        return decodeOverride(objectTileTypes[(tileY * widthInTiles) + tileX]);
+    }
+
+    /**
+     * Rebuilds the whole object layer from the objects lying on the map. Objects
+     * without a terrain contribute nothing, and because the layer is rebuilt from
+     * scratch, a floor that has moved leaves nothing behind where it used to be.
+     */
+    public void applyObjectTypes(Iterable<PastedObject> pastedObjects) {
+        clearObjectTileTypes();
+        if (pastedObjects == null) {
+            return;
+        }
+        for (PastedObject pastedObject : pastedObjects) {
+            applyObjectType(pastedObject);
+        }
+    }
+
+    /** Types every cell one object covers, if that object carries a terrain. */
+    private void applyObjectType(PastedObject pastedObject) {
+        SearchMapTileType tileType = pastedObject != null ? pastedObject.getSearchMapTileType() : null;
+        if (tileType == null || pastedObject.getWidth() <= 0 || pastedObject.getHeight() <= 0) {
+            return;
+        }
+        int startTileX = Math.max(0, Math.floorDiv(pastedObject.getX(), CELL_WIDTH));
+        int startTileY = Math.max(0, Math.floorDiv(pastedObject.getY(), CELL_HEIGHT));
+        int endTileX = Math.min(widthInTiles - 1,
+            Math.floorDiv(pastedObject.getX() + pastedObject.getWidth() - 1, CELL_WIDTH));
+        int endTileY = Math.min(heightInTiles - 1,
+            Math.floorDiv(pastedObject.getY() + pastedObject.getHeight() - 1, CELL_HEIGHT));
+        for (int tileY = startTileY; tileY <= endTileY; tileY++) {
+            for (int tileX = startTileX; tileX <= endTileX; tileX++) {
+                if (isCellMostlyCovered(pastedObject, tileX, tileY)) {
+                    setObjectTileType(tileX, tileY, tileType);
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether an object covers at least half of a cell. A cell is either walkable
+     * terrain or it is not, so a floor claims only the cells it really covers, and
+     * its antialiased border, which is not fully opaque, does not claim the row of
+     * cells past its edge.
+     */
+    private static boolean isCellMostlyCovered(PastedObject pastedObject, int tileX, int tileY) {
+        int samplesAcross = 4;
+        int samplesDown = 3;
+        int covered = 0;
+        for (int sampleY = 0; sampleY < samplesDown; sampleY++) {
+            int localY = (tileY * CELL_HEIGHT)
+                + (((2 * sampleY) + 1) * CELL_HEIGHT / (2 * samplesDown)) - pastedObject.getY();
+            if (localY < 0 || localY >= pastedObject.getHeight()) {
+                continue;
+            }
+            for (int sampleX = 0; sampleX < samplesAcross; sampleX++) {
+                int localX = (tileX * CELL_WIDTH)
+                    + (((2 * sampleX) + 1) * CELL_WIDTH / (2 * samplesAcross)) - pastedObject.getX();
+                if (localX < 0 || localX >= pastedObject.getWidth()) {
+                    continue;
+                }
+                if (pastedObject.isOpaque(localX, localY)) {
+                    covered++;
+                }
+            }
+        }
+        return covered * 2 >= samplesAcross * samplesDown;
     }
 
     public void setOverrideTileType(int tileX, int tileY, SearchMapTileType type) {
@@ -171,10 +272,19 @@ public class SearchMapData implements Externalizable {
         return getResolvedTileType(tileX, tileY) == SearchMapTileType.NON_WALKABLE;
     }
 
+    /**
+     * The terrain of a cell: what the user painted over it if anything, else what
+     * an object lying on it contributes, else what the background under it is.
+     * A hand-painted cell always wins, since the user asked for it explicitly.
+     */
     public SearchMapTileType getResolvedTileType(int tileX, int tileY) {
         SearchMapTileType overrideType = getOverrideTileType(tileX, tileY);
         if (overrideType != null) {
             return overrideType;
+        }
+        SearchMapTileType objectType = getObjectTileType(tileX, tileY);
+        if (objectType != null) {
+            return objectType;
         }
         return getTileType(tileX, tileY);
     }
@@ -351,6 +461,7 @@ public class SearchMapData implements Externalizable {
         tileTypes = XmlIO.readBase64Bytes(el, "tileTypes");
         overrideTileTypes = XmlIO.readBase64Bytes(el, "overrideTileTypes");
         int expected = widthInTiles * heightInTiles;
+        objectTileTypes = new byte[expected];
         if (tileTypes.length != expected) {
             byte[] resized = new byte[expected];
             Arrays.fill(resized, (byte) SearchMapTileType.UNKNOWN.ordinal());
