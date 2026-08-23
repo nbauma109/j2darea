@@ -18,7 +18,9 @@ next column sits halfway between the two vertically repeated fans beside it.
 
 The repeat can follow either drawn edge. Its lattice is anchored to the canvas,
 so neighbouring wallpaper parallelograms with matching settings continue the
-same motif without restarting at their boundaries.
+same motif without restarting at their boundaries. Repeat axes are normalized
+toward screen-right and screen-down, so drawing the same vertices in reverse or
+starting at the opposite corner cannot turn the wallpaper upside down.
 
 ## Colours and surface
 

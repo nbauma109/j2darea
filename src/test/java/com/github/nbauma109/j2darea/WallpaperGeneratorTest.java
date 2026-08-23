@@ -175,6 +175,28 @@ public class WallpaperGeneratorTest {
     }
 
     @Test
+    public void reversingParallelogramVerticesNeverTurnsWallpaperUpsideDown() {
+        Polygon original = polygon(
+            20, 40, 230, 40, 285, 145, 75, 145);
+        Polygon reversedFirstEdge = polygon(
+            230, 40, 20, 40, 75, 145, 285, 145);
+        Polygon oppositeCorner = polygon(
+            75, 145, 285, 145, 230, 40, 20, 40);
+        Polygon oppositeCornerReversed = polygon(
+            285, 145, 75, 145, 20, 40, 230, 40);
+        WallpaperSettings settings = settings(133L);
+        settings.setPattern(WallpaperPattern.FLEUR_DE_LIS);
+
+        BufferedImage expected = WallpaperGenerator.generate(settings, original, null);
+        assertTrue(differences(expected,
+            WallpaperGenerator.generate(settings, reversedFirstEdge, null)) <= 4L);
+        assertTrue(differences(expected,
+            WallpaperGenerator.generate(settings, oppositeCorner, null)) <= 4L);
+        assertTrue(differences(expected,
+            WallpaperGenerator.generate(settings, oppositeCornerReversed, null)) <= 4L);
+    }
+
+    @Test
     public void settingsClampCopyAndWallSemanticsAreStable() {
         WallpaperSettings settings = settings(137L);
         settings.setRepeatSize(Integer.MAX_VALUE);
@@ -197,6 +219,14 @@ public class WallpaperGeneratorTest {
 
     private static int alpha(BufferedImage image, int x, int y) {
         return (image.getRGB(x, y) >>> 24) & 0xFF;
+    }
+
+    private static Polygon polygon(int... coordinates) {
+        Polygon polygon = new Polygon();
+        for (int index = 0; index < coordinates.length; index += 2) {
+            polygon.addPoint(coordinates[index], coordinates[index + 1]);
+        }
+        return polygon;
     }
 
     private static long differences(BufferedImage first, BufferedImage second) {

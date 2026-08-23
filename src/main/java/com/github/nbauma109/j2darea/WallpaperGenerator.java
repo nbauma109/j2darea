@@ -120,8 +120,14 @@ public final class WallpaperGenerator {
             double lengthB = Math.hypot(edgeBx, edgeBy);
             double sinAngle = Math.abs(determinant) / (lengthA * lengthB);
             this.alongFirstEdge = settings.isAlongFirstEdge();
-            this.alongScale = alongFirstEdge ? lengthA : lengthB;
-            this.acrossScale = (alongFirstEdge ? lengthB : lengthA) * sinAngle;
+            double alongX = alongFirstEdge ? edgeAx : edgeBx;
+            double alongY = alongFirstEdge ? edgeAy : edgeBy;
+            double acrossX = alongFirstEdge ? edgeBx : edgeAx;
+            double acrossY = alongFirstEdge ? edgeBy : edgeAy;
+            this.alongScale = (alongFirstEdge ? lengthA : lengthB)
+                * screenRightSign(alongX, alongY);
+            this.acrossScale = (alongFirstEdge ? lengthB : lengthA) * sinAngle
+                * screenDownSign(acrossX, acrossY);
             double originU = ((edgeBy * originX) - (edgeBx * originY)) * inverseDeterminant;
             double originV = ((edgeAx * originY) - (edgeAy * originX)) * inverseDeterminant;
             this.alongOrigin = (alongFirstEdge ? originU : originV) * alongScale;
@@ -161,6 +167,22 @@ public final class WallpaperGenerator {
             }
             return new Paper(settings, originX, originY,
                 edgeAx, edgeAy, edgeBx, edgeBy, determinant);
+        }
+
+        /** Keeps the motif's horizontal axis pointing right when vertex order reverses. */
+        private static double screenRightSign(double x, double y) {
+            if (Math.abs(x) > 1e-9d) {
+                return x < 0d ? -1d : 1d;
+            }
+            return y < 0d ? -1d : 1d;
+        }
+
+        /** Keeps the motif's vertical axis pointing down when vertex order reverses. */
+        private static double screenDownSign(double x, double y) {
+            if (Math.abs(y) > 1e-9d) {
+                return y < 0d ? -1d : 1d;
+            }
+            return x < 0d ? -1d : 1d;
         }
 
         private int sample(double worldX, double worldY, double[] rgb) {
