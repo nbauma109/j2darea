@@ -30,6 +30,7 @@ Implemented now:
 - Game ARE backgrounds can now be loaded into the extraction area with a selectable closed-door default, and extraction keeps a separate closed-door toggle that reloads the same source ARE in the opposite state
 - Randomized Baldur's Gate style ground generation for the build-area background, drawn for the isometric camera, with a live-preview settings dialog, seeded and reproducible output, and search-map cells typed from the generated pixels
 - Generated Baldur's Gate style wood plank floors for drawn parallelograms, laid along a drawn edge and cut parallel to the other one, lit with broad pools of light and shade, with a live-preview settings dialog, offered as an alternative to the seamless texture fill
+- Separate brick and floor-tile generators: AR3401-style large square stone tiles, plus TU0018/BD0117-style small running bricks usable on floors or walls, with fifteen natural stone and masonry palettes and worn hand-painted faces
 - Search-map terrain carried by pasted floors rather than painted into the map, so a floor's `WOOD` or texture-classified cells follow it when it is moved, copied, deleted or undone
 - Randomized geometric carpets for drawn parallelograms, symmetric about both their axes, with field patterns, border motifs, medallion sizes and dye sets that can each be pinned or left to the seed, woven on a knot grid with fringe, pile and wear
 - Generated fills stack the way a room does: floors under everything, carpets over the floors and under whatever stands on them
@@ -97,12 +98,18 @@ Randomized ground workflow:
 
 Wood floor workflow:
 
-1. Start the textured parallelogram tool from the toolbar or `Insert -> Textured Or Wood Parallelogram` and click the three corners as usual.
-2. Pick `WOOD FLOOR` on the radial selector that opens under the pointer; `SEAMLESS TEXTURE` still opens the usual image chooser, and `CARPET` weaves a randomized geometric carpet instead. The selector answers to the mouse, to `1`/`2`, to the arrow keys and `Enter`, and cancels on `Esc`, on its hub, or on a click outside the ring.
+1. Start the parallelogram tool from the toolbar or `Insert -> Filled Parallelogram` and click the three corners as usual.
+2. Pick `WOOD FLOOR` on the radial selector that opens under the pointer; `SEAMLESS TEXTURE` opens the usual image chooser, `BRICKS` generates small masonry for a floor or wall, `FLOOR TILES` generates large square stone slabs, and `CARPET` weaves a randomized geometric carpet. The selector answers to the mouse, number keys, the arrow keys and `Enter`, and cancels on `Esc`, on its hub, or on a click outside the ring.
 3. Tune the board size, stagger, seams, tone, grain, knots and wear; the preview updates live and can be switched between a 1:1 detail view and the whole shape.
 4. `Generate` renders the floor and pastes it under the objects already placed, marked as laying `WOOD` over the search-map cells it covers.
 
 Boards run along one of the two edges you drew, their ends are cut parallel to the other edge, and the pattern is anchored to the canvas, so several parallelograms drawn the same way carry the same boards across without a joint. The settings are kept as the defaults for the next parallelogram of the session.
+
+Bricks and floor tiles use the same directional, canvas-anchored layout. Bricks
+offer running, quarter or stack bonds and can be placed on a floor or wall;
+floor tiles use a separate square grid and floor-only editor. Ground use carries
+`STONE` search-map terrain, while wall bricks are ordinary objects and carry
+none. Details are in [Bricks and Floor Tiles](docs/wiki/Brick-Floor-Generator.md).
 
 Carpets are laid out in the shape's own frame instead, mirrored about both centre lines so the weave is symmetric, and they are pasted over the floors rather than under them; details are in [Carpet Generator](docs/wiki/Carpet-Generator.md).
 
@@ -132,6 +139,7 @@ The repo now uses `docs/wiki/` as a local, versioned wiki:
 - [Feature Matrix](docs/wiki/Feature-Matrix.md)
 - [Ground Generator](docs/wiki/Ground-Generator.md)
 - [Wood Floor Generator](docs/wiki/Wood-Floor-Generator.md)
+- [Bricks and Floor Tiles](docs/wiki/Brick-Floor-Generator.md)
 - [Carpet Generator](docs/wiki/Carpet-Generator.md)
 - [Exporter Notes](docs/wiki/Exporter.md)
 - [External Resources](docs/wiki/External-Resources.md)

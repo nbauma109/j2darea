@@ -152,6 +152,13 @@ public class RadialMenuDialog extends JDialog {
         } else {
             setBackground(BACKDROP_OUTER);
         }
+        // On macOS, an undecorated per-pixel-translucent window has its native
+        // drop shadow recomputed on every repaint, and that recompute itself
+        // flashes visibly — which is what reads as the whole wheel blinking each
+        // time the hovered choice changes, even though the repaint underneath it
+        // is already minimal. The shadow serves no purpose on a lit HUD console,
+        // so it is turned off. Ignored harmlessly on platforms that don't honor it.
+        getRootPane().putClientProperty("Window.shadow", Boolean.FALSE);
         WheelPanel wheel = new WheelPanel();
         wheel.setPreferredSize(new Dimension(DIAMETER, DIAMETER));
         setContentPane(wheel);

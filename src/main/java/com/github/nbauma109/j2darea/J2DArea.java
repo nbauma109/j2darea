@@ -267,6 +267,10 @@ public class J2DArea extends JFrame {
     private transient GroundGeneratorSettings groundSettings;
     /** Last wood floor the user generated, reused as the defaults for the next parallelogram. */
     private transient WoodFloorSettings woodFloorSettings;
+    /** Last brick surface generated, reused as the defaults for the next parallelogram. */
+    private transient BrickFloorSettings brickFloorSettings;
+    /** Last tiled floor generated, kept independently from the brick defaults. */
+    private transient BrickFloorSettings floorTileSettings;
     /** Last carpet the user wove, reused as the defaults for the next parallelogram. */
     private transient CarpetSettings carpetSettings;
     private transient BufferedImage brushTexture;
@@ -1537,11 +1541,11 @@ public class J2DArea extends JFrame {
             }
         });
         parallelogramTextureButton.setMaximumSize(BUTTON_SIZE);
-        parallelogramTextureButton.setToolTipText("Draw a new parallelogram and fill it with a texture or a generated wood floor");
+        parallelogramTextureButton.setToolTipText("Draw a parallelogram and fill it with a texture or generated surface");
         configureToolbarButton(parallelogramTextureButton);
         parallelogramTextureToolbarButton = parallelogramTextureButton;
         JMenuItem parallelogramTextureMenuItem = new JMenuItem(parallelogramTextureButton.getAction());
-        parallelogramTextureMenuItem.setText("Textured Or Wood Parallelogram");
+        parallelogramTextureMenuItem.setText("Filled Parallelogram");
         insertMenu.add(parallelogramTextureMenuItem);
 
         JButton pasteFromOpenDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/opened_door.png"))) {
@@ -2879,8 +2883,8 @@ public class J2DArea extends JFrame {
     /**
      * Fills a parallelogram the user has just closed and pastes it into the build
      * area. A black parallelogram is filled straight away; a textured one first
-     * asks whether to repeat a seamless texture over it or to generate a wood
-     * floor for it, since a repeated tile cannot carry a plank floor.
+     * asks whether to repeat a seamless texture or generate one of the available
+     * surfaces, since directional floors cannot be represented by a repeated tile.
      */
     private void fillCompletedParallelogram(Polygon parallelogram, boolean black) {
         Rectangle bounds = parallelogram.getBounds();
@@ -2902,6 +2906,14 @@ public class J2DArea extends JFrame {
             fillImage = generateWoodFloor(parallelogram);
             tileType = SearchMapTileType.WOOD;
             stacking = PastedObjectStacking.FLOOR;
+        } else if (fill == ParallelogramFill.BRICKS) {
+            fillImage = generateBricks(parallelogram);
+            tileType = brickSearchMapTileType(brickFloorSettings);
+            stacking = brickStacking(brickFloorSettings);
+        } else if (fill == ParallelogramFill.FLOOR_TILES) {
+            fillImage = generateFloorTiles(parallelogram);
+            tileType = SearchMapTileType.STONE;
+            stacking = PastedObjectStacking.FLOOR;
         } else if (fill == ParallelogramFill.CARPET) {
             fillImage = generateCarpet(parallelogram);
             // A carpet lies on whatever floor is already there, and the search map
@@ -2918,18 +2930,36 @@ public class J2DArea extends JFrame {
             return;
         }
         PastedObject pastedFill = new PastedObject(location, new ExportableImage(fillImage));
-        // A floor carries its own terrain, so the search map follows it when it is
-        // moved rather than being painted once where it first landed.
+        // Ground surfaces carry terrain with them; wall brickwork deliberately
+        // contributes none and behaves like ordinary pasted art.
         pastedFill.setSearchMapTileType(tileType);
         pastedFill.setStacking(stacking);
-        pastedObjects.add(PastedObjectStacking.insertIndex(pastedObjects, stacking), pastedFill);
+        if (stacking == PastedObjectStacking.OBJECT) {
+            pastedObjects.add(pastedFill);
+        } else {
+            pastedObjects.add(PastedObjectStacking.insertIndex(pastedObjects, stacking), pastedFill);
+        }
         recordHistoryState();
+    }
+
+    /** Search-map contribution of confirmed brickwork; wall faces are not terrain. */
+    static SearchMapTileType brickSearchMapTileType(BrickFloorSettings settings) {
+        return settings != null && settings.getApplication() == BrickApplication.WALL
+            ? null : SearchMapTileType.STONE;
+    }
+
+    /** Floors lie at ground level while wall faces behave like ordinary pasted art. */
+    static PastedObjectStacking brickStacking(BrickFloorSettings settings) {
+        return settings != null && settings.getApplication() == BrickApplication.WALL
+            ? PastedObjectStacking.OBJECT : PastedObjectStacking.FLOOR;
     }
 
     /** How the user chose to fill a parallelogram drawn with the textured tool. */
     private enum ParallelogramFill {
         TEXTURE,
         WOOD,
+        BRICKS,
+        FLOOR_TILES,
         CARPET
     }
 
@@ -2945,6 +2975,10 @@ public class J2DArea extends JFrame {
                 J2DArea::paintTextureSymbol),
             new RadialMenuDialog.Option("WOOD FLOOR", "Generate planks laid along an edge",
                 J2DArea::paintWoodFloorSymbol),
+            new RadialMenuDialog.Option("BRICKS", "Lay small bricks on a floor or wall",
+                J2DArea::paintBrickFloorSymbol),
+            new RadialMenuDialog.Option("FLOOR TILES", "Lay large square stone tiles",
+                J2DArea::paintFloorTileSymbol),
             new RadialMenuDialog.Option("CARPET", "Weave a random geometric carpet",
                 J2DArea::paintCarpetSymbol));
         int choice = RadialMenuDialog.choose(this, "Fill Parallelogram", options, null);
@@ -2954,6 +2988,10 @@ public class J2DArea extends JFrame {
             case 1:
                 return ParallelogramFill.WOOD;
             case 2:
+                return ParallelogramFill.BRICKS;
+            case 3:
+                return ParallelogramFill.FLOOR_TILES;
+            case 4:
                 return ParallelogramFill.CARPET;
             default:
                 return null;
@@ -2989,6 +3027,39 @@ public class J2DArea extends JFrame {
         // Two butt joints, each crossing one board only, staggered like the real ones.
         graphics.drawLine(-half / 3, -pitch + skew / 3, -half / 3 + pitch, -pitch + skew / 3 - pitch / 2);
         graphics.drawLine(half / 4, pitch - skew / 3, half / 4 + pitch, pitch - skew / 3 - pitch / 2);
+    }
+
+    /** Staggered masonry courses, for generated floor or wall brickwork. */
+    private static void paintBrickFloorSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int half = size / 2;
+        int rowHeight = Math.max(4, size / 5);
+        int brickLength = Math.max(8, size / 2);
+        for (int row = -2; row <= 1; row++) {
+            int y = row * rowHeight;
+            graphics.drawLine(-half, y, half, y);
+            int offset = Math.floorMod(row, 2) == 0 ? 0 : brickLength / 2;
+            for (int x = -half - brickLength + offset; x < half; x += brickLength) {
+                graphics.drawLine(x, y, x, y + rowHeight);
+            }
+        }
+        graphics.drawLine(-half, 2 * rowHeight, half, 2 * rowHeight);
+    }
+
+    /** Large square joints, distinct from the small running bricks beside it. */
+    private static void paintFloorTileSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int half = size / 2;
+        int pitch = Math.max(7, size / 3);
+        for (int offset = -pitch; offset <= pitch; offset += pitch) {
+            graphics.drawLine(-half, offset, half, offset);
+            graphics.drawLine(offset, -half, offset, half);
+        }
+        graphics.drawRect(-half, -half, size, size);
     }
 
     /** A bordered rug with a medallion and fringed ends, for the generated carpet. */
@@ -3056,6 +3127,42 @@ public class J2DArea extends JFrame {
         return runWithProgress("Wood Floor",
             "Generating " + bounds.width + " x " + bounds.height + " wood floor...",
             listener -> WoodFloorGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
+    }
+
+    /** Opens the brick editor and renders the confirmed floor or wall surface. */
+    private BufferedImage generateBricks(Polygon parallelogram) {
+        BrickFloorSettings initialSettings = brickFloorSettings != null
+            ? new BrickFloorSettings(brickFloorSettings)
+            : new BrickFloorSettings(MasonryMaterial.BRICKS);
+        BrickFloorDialog dialog = new BrickFloorDialog(this, initialSettings, parallelogram);
+        dialog.setVisible(true);
+        final BrickFloorSettings chosenSettings = dialog.getConfirmedSettings();
+        if (chosenSettings == null) {
+            return null;
+        }
+        brickFloorSettings = chosenSettings;
+        Rectangle bounds = parallelogram.getBounds();
+        return runWithProgress("Bricks",
+            "Rendering " + bounds.width + " x " + bounds.height + " bricks...",
+            listener -> BrickFloorGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
+    }
+
+    /** Opens the separate square-tile editor and renders a stone floor. */
+    private BufferedImage generateFloorTiles(Polygon parallelogram) {
+        BrickFloorSettings initialSettings = floorTileSettings != null
+            ? new BrickFloorSettings(floorTileSettings)
+            : new BrickFloorSettings(MasonryMaterial.FLOOR_TILES);
+        FloorTileDialog dialog = new FloorTileDialog(this, initialSettings, parallelogram);
+        dialog.setVisible(true);
+        final BrickFloorSettings chosenSettings = dialog.getConfirmedSettings();
+        if (chosenSettings == null) {
+            return null;
+        }
+        floorTileSettings = chosenSettings;
+        Rectangle bounds = parallelogram.getBounds();
+        return runWithProgress("Floor Tiles",
+            "Rendering " + bounds.width + " x " + bounds.height + " floor tiles...",
+            listener -> BrickFloorGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
     }
 
     /**

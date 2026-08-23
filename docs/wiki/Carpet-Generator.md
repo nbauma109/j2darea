@@ -3,8 +3,9 @@
 The carpet generator weaves a randomized geometric carpet into a drawn
 parallelogram: field pattern, border, medallion, fringe and all.
 
-It is the third choice on the parallelogram fill selector, beside the seamless
-texture and the [Wood Floor Generator](Wood-Floor-Generator.md).
+It is one choice on the parallelogram fill selector, beside seamless texture,
+the [Wood Floor Generator](Wood-Floor-Generator.md), and the
+[Bricks and Floor Tiles](Brick-Floor-Generator.md).
 
 ## A carpet is an object, not a texture
 

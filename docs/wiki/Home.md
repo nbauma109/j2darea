@@ -16,6 +16,7 @@ Use it as the current project truth for:
 - [Search Map Geometry](Search-Map-Geometry.md)
 - [Ground Generator](Ground-Generator.md)
 - [Wood Floor Generator](Wood-Floor-Generator.md)
+- [Bricks and Floor Tiles](Brick-Floor-Generator.md)
 - [Carpet Generator](Carpet-Generator.md)
 
 ## Current direction

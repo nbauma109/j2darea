@@ -39,13 +39,16 @@ variation everywhere and anything that fine is otherwise averaged away.
 
 ## Using it
 
-1. Open the build tab and start the textured parallelogram tool, from the
-   toolbar or `Insert -> Textured Or Wood Parallelogram`.
+1. Open the build tab and start the parallelogram tool, from the toolbar or
+   `Insert -> Filled Parallelogram`.
 2. Click three corners. The fourth is completed for you, as before.
 3. A radial selector opens under the pointer, on the spot where the shape was
-   closed. Throw the mouse up to `WOOD FLOOR` and click; `SEAMLESS TEXTURE`
-   still opens the usual image chooser, and `CARPET` weaves a
-   [carpet](Carpet-Generator.md) instead. See [The fill selector](#the-fill-selector).
+   closed. Throw the mouse to `WOOD FLOOR` and click; `SEAMLESS TEXTURE` opens
+   the usual image chooser, `BRICKS` generates floor or wall masonry,
+   `FLOOR TILES` generates square stone slabs described in
+   [Bricks and Floor Tiles](Brick-Floor-Generator.md),
+   and `CARPET` weaves a [carpet](Carpet-Generator.md) instead. See
+   [The fill selector](#the-fill-selector).
 4. Tune the settings; the preview updates as you drag the sliders:
    - `Detail (1:1)` shows the floor at final resolution — drag the preview to
      look at another part of the shape
