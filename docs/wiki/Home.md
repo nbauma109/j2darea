@@ -17,6 +17,7 @@ Use it as the current project truth for:
 - [Ground Generator](Ground-Generator.md)
 - [Wood Floor Generator](Wood-Floor-Generator.md)
 - [Bricks and Floor Tiles](Brick-Floor-Generator.md)
+- [Wallpaper Generator](Wallpaper-Generator.md)
 - [Carpet Generator](Carpet-Generator.md)
 
 ## Current direction

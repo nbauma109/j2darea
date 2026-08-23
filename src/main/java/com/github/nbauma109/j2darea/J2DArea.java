@@ -17,6 +17,7 @@ import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
@@ -271,6 +272,8 @@ public class J2DArea extends JFrame {
     private transient BrickFloorSettings brickFloorSettings;
     /** Last tiled floor generated, kept independently from the brick defaults. */
     private transient BrickFloorSettings floorTileSettings;
+    /** Last repeated wallpaper generated, kept independently from carpet settings. */
+    private transient WallpaperSettings wallpaperSettings;
     /** Last carpet the user wove, reused as the defaults for the next parallelogram. */
     private transient CarpetSettings carpetSettings;
     private transient BufferedImage brushTexture;
@@ -2914,6 +2917,10 @@ public class J2DArea extends JFrame {
             fillImage = generateFloorTiles(parallelogram);
             tileType = SearchMapTileType.STONE;
             stacking = PastedObjectStacking.FLOOR;
+        } else if (fill == ParallelogramFill.WALLPAPER) {
+            fillImage = generateWallpaper(parallelogram);
+            tileType = wallpaperSearchMapTileType();
+            stacking = wallpaperStacking();
         } else if (fill == ParallelogramFill.CARPET) {
             fillImage = generateCarpet(parallelogram);
             // A carpet lies on whatever floor is already there, and the search map
@@ -2954,12 +2961,23 @@ public class J2DArea extends JFrame {
             ? PastedObjectStacking.OBJECT : PastedObjectStacking.FLOOR;
     }
 
+    /** Wallpaper is decorative wall art and never contributes terrain. */
+    static SearchMapTileType wallpaperSearchMapTileType() {
+        return null;
+    }
+
+    /** Wallpaper is pasted with wall objects rather than ground surfaces. */
+    static PastedObjectStacking wallpaperStacking() {
+        return PastedObjectStacking.OBJECT;
+    }
+
     /** How the user chose to fill a parallelogram drawn with the textured tool. */
     private enum ParallelogramFill {
         TEXTURE,
         WOOD,
         BRICKS,
         FLOOR_TILES,
+        WALLPAPER,
         CARPET
     }
 
@@ -2979,6 +2997,8 @@ public class J2DArea extends JFrame {
                 J2DArea::paintBrickFloorSymbol),
             new RadialMenuDialog.Option("FLOOR TILES", "Lay large square stone tiles",
                 J2DArea::paintFloorTileSymbol),
+            new RadialMenuDialog.Option("WALL PAPER", "Repeat an ornamental pattern over a wall",
+                J2DArea::paintWallpaperSymbol),
             new RadialMenuDialog.Option("CARPET", "Weave a random geometric carpet",
                 J2DArea::paintCarpetSymbol));
         int choice = RadialMenuDialog.choose(this, "Fill Parallelogram", options, null);
@@ -2992,6 +3012,8 @@ public class J2DArea extends JFrame {
             case 3:
                 return ParallelogramFill.FLOOR_TILES;
             case 4:
+                return ParallelogramFill.WALLPAPER;
+            case 5:
                 return ParallelogramFill.CARPET;
             default:
                 return null;
@@ -3059,6 +3081,23 @@ public class J2DArea extends JFrame {
             graphics.drawLine(-half, offset, half, offset);
             graphics.drawLine(offset, -half, offset, half);
         }
+        graphics.drawRect(-half, -half, size, size);
+    }
+
+    /** A small ornamental repeat, for the wallpaper generator. */
+    private static void paintWallpaperSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int half = size / 2;
+        int pitch = Math.max(7, size / 3);
+        Shape oldClip = graphics.getClip();
+        graphics.clipRect(-half, -half, size, size);
+        for (int offset = -size; offset <= size; offset += pitch) {
+            graphics.drawLine(-half, offset - half, half, offset + half);
+            graphics.drawLine(-half, offset + half, half, offset - half);
+        }
+        graphics.setClip(oldClip);
         graphics.drawRect(-half, -half, size, size);
     }
 
@@ -3163,6 +3202,24 @@ public class J2DArea extends JFrame {
         return runWithProgress("Floor Tiles",
             "Rendering " + bounds.width + " x " + bounds.height + " floor tiles...",
             listener -> BrickFloorGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
+    }
+
+    /** Opens the wallpaper editor and renders its confirmed seamless repeat. */
+    private BufferedImage generateWallpaper(Polygon parallelogram) {
+        WallpaperSettings initialSettings = wallpaperSettings != null
+            ? new WallpaperSettings(wallpaperSettings)
+            : new WallpaperSettings();
+        WallpaperDialog dialog = new WallpaperDialog(this, initialSettings, parallelogram);
+        dialog.setVisible(true);
+        final WallpaperSettings chosenSettings = dialog.getConfirmedSettings();
+        if (chosenSettings == null) {
+            return null;
+        }
+        wallpaperSettings = chosenSettings;
+        Rectangle bounds = parallelogram.getBounds();
+        return runWithProgress("Wallpaper",
+            "Printing " + bounds.width + " x " + bounds.height + " wallpaper...",
+            listener -> WallpaperGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
     }
 
     /**

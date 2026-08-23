@@ -5,7 +5,8 @@ parallelogram: field pattern, border, medallion, fringe and all.
 
 It is one choice on the parallelogram fill selector, beside seamless texture,
 the [Wood Floor Generator](Wood-Floor-Generator.md), and the
-[Bricks and Floor Tiles](Brick-Floor-Generator.md).
+[Bricks and Floor Tiles](Brick-Floor-Generator.md). For a simple all-over wall
+repeat without rug construction, use the [Wallpaper Generator](Wallpaper-Generator.md).
 
 ## A carpet is an object, not a texture
 
