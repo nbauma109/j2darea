@@ -152,6 +152,8 @@ public class J2DArea extends JFrame {
     private boolean night;
     private boolean editingBlackParallelogram;
     private boolean editingTextureParallelogram;
+    private transient boolean editingParallelepiped;
+    private transient Polygon parallelepipedBasis;
     private transient NanoBananaEditorDialog nanoBananaEditorDialog;
     private transient String extractionGameAreaResref;
     private transient boolean extractionGameAreaClosedDoors = true;
@@ -218,6 +220,7 @@ public class J2DArea extends JFrame {
     private transient JButton pasteCompositeToolbarButton;
     private transient JButton parallelogramBlackToolbarButton;
     private transient JButton parallelogramTextureToolbarButton;
+    private transient JButton parallelepipedToolbarButton;
     private transient JButton pasteFromOpenDoorToolbarButton;
     private transient JButton pasteFromClosedDoorToolbarButton;
     private transient JButton pasteFromNightLightToolbarButton;
@@ -315,6 +318,7 @@ public class J2DArea extends JFrame {
                         g2.drawPolygon(parallelogram);
                     }
                 }
+                paintParallelepipedPreview(g2);
                 if (movingRectangle != null) {
                     g2.drawRect(movingRectangle.x, movingRectangle.y, movingRectangle.width, movingRectangle.height);
                 }
@@ -502,6 +506,7 @@ public class J2DArea extends JFrame {
                     return;
                 }
                 if (!painting && searchMapEditMode == SearchMapEditMode.NONE && !editingBlackParallelogram && !editingTextureParallelogram
+                        && !editingParallelepiped
                         && objectToMove == null
                     && selectedWallGroup == null
                     && !hasSelectedSearchMapCells()
@@ -1522,6 +1527,8 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
+                editingParallelepiped = false;
+                parallelepipedBasis = null;
                 editingBlackParallelogram = true;
                 painting = false;
                 repaint();
@@ -1542,6 +1549,8 @@ public class J2DArea extends JFrame {
             
             @Override
             public void actionPerformed(ActionEvent e) {
+                editingParallelepiped = false;
+                parallelepipedBasis = null;
                 editingTextureParallelogram = true;
                 painting = false;
                 repaint();
@@ -1554,6 +1563,29 @@ public class J2DArea extends JFrame {
         JMenuItem parallelogramTextureMenuItem = new JMenuItem(parallelogramTextureButton.getAction());
         parallelogramTextureMenuItem.setText("Filled Parallelogram");
         insertMenu.add(parallelogramTextureMenuItem);
+
+        JButton parallelepipedButton = new JButton(new AbstractAction(null,
+                new ImageIcon(createParallelepipedIcon())) {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                editingBlackParallelogram = false;
+                editingTextureParallelogram = false;
+                editingParallelepiped = true;
+                parallelepipedBasis = null;
+                painting = false;
+                repaint();
+            }
+        });
+        parallelepipedButton.setMaximumSize(BUTTON_SIZE);
+        parallelepipedButton.setToolTipText("Draw a parallelepiped, then choose texture-mapped furniture");
+        configureToolbarButton(parallelepipedButton);
+        parallelepipedToolbarButton = parallelepipedButton;
+        JMenuItem parallelepipedMenuItem = new JMenuItem(parallelepipedButton.getAction());
+        parallelepipedMenuItem.setText("Parallelepiped Furniture");
+        insertMenu.add(parallelepipedMenuItem);
 
         JButton pasteFromOpenDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/opened_door.png"))) {
             
@@ -2039,6 +2071,7 @@ public class J2DArea extends JFrame {
         menubar.add(pasteCompositeToolbarButton);
         menubar.add(parallelogramBlackToolbarButton);
         menubar.add(parallelogramTextureToolbarButton);
+        menubar.add(parallelepipedToolbarButton);
         menubar.add(pasteFromOpenDoorToolbarButton);
         menubar.add(pasteFromClosedDoorToolbarButton);
         menubar.add(pasteFromNightLightToolbarButton);
@@ -2078,6 +2111,7 @@ public class J2DArea extends JFrame {
         buildOnlyToolbarButtons.add(pasteCompositeToolbarButton);
         buildOnlyToolbarButtons.add(parallelogramBlackToolbarButton);
         buildOnlyToolbarButtons.add(parallelogramTextureToolbarButton);
+        buildOnlyToolbarButtons.add(parallelepipedToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromOpenDoorToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromClosedDoorToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromNightLightToolbarButton);
@@ -2809,7 +2843,9 @@ public class J2DArea extends JFrame {
             panel.repaint();
             return;
         }
-        if (editingBlackParallelogram || editingTextureParallelogram) {
+        if (editingParallelepiped) {
+            handleParallelepipedClick(scaledEvent, panel);
+        } else if (editingBlackParallelogram || editingTextureParallelogram) {
             if (parallelograms.isEmpty() || parallelograms.get(parallelograms.size() - 1).npoints == 4) {
                 Polygon parallelogram = new Polygon();
                 parallelogram.addPoint(scaledEvent.getX(), scaledEvent.getY());
@@ -2887,6 +2923,62 @@ public class J2DArea extends JFrame {
         panel.repaint();
     }
 
+    private void handleParallelepipedClick(MouseEvent event, JPanel panel) {
+        if (SwingUtilities.isRightMouseButton(event) || event.isPopupTrigger()) {
+            editingParallelepiped = false;
+            parallelepipedBasis = null;
+            return;
+        }
+        if (parallelepipedBasis == null) {
+            parallelepipedBasis = new Polygon();
+            parallelepipedBasis.addPoint(event.getX(), event.getY());
+            return;
+        }
+        if (parallelepipedBasis.npoints < 3) {
+            parallelepipedBasis.addPoint(event.getX(), event.getY());
+            if (parallelepipedBasis.npoints == 3) {
+                parallelepipedBasis.addPoint(
+                    parallelepipedBasis.xpoints[0] + parallelepipedBasis.xpoints[2] - parallelepipedBasis.xpoints[1],
+                    parallelepipedBasis.ypoints[0] + parallelepipedBasis.ypoints[2] - parallelepipedBasis.ypoints[1]);
+            }
+            return;
+        }
+
+        Polygon completedBasis = new Polygon(parallelepipedBasis.xpoints,
+            parallelepipedBasis.ypoints, parallelepipedBasis.npoints);
+        int dx = event.getX() - completedBasis.xpoints[2];
+        int dy = event.getY() - completedBasis.ypoints[2];
+        editingParallelepiped = false;
+        parallelepipedBasis = null;
+        panel.repaint();
+        fillCompletedParallelepiped(completedBasis, dx, dy);
+    }
+
+    private void paintParallelepipedPreview(Graphics2D graphics) {
+        if (!editingParallelepiped || parallelepipedBasis == null) return;
+        graphics.setStroke(new BasicStroke(1.5f));
+        graphics.setColor(Color.GREEN);
+        if (parallelepipedBasis.npoints < 3) {
+            Polygon draft = new Polygon(parallelepipedBasis.xpoints,
+                parallelepipedBasis.ypoints, parallelepipedBasis.npoints);
+            draft.addPoint(mousePosition.x, mousePosition.y);
+            graphics.drawPolyline(draft.xpoints, draft.ypoints, draft.npoints);
+            return;
+        }
+
+        int dx = mousePosition.x - parallelepipedBasis.xpoints[2];
+        int dy = mousePosition.y - parallelepipedBasis.ypoints[2];
+        Polygon opposite = ParallelepipedGenerator.translatedFace(parallelepipedBasis, dx, dy);
+        graphics.setColor(new Color(112, 70, 35));
+        graphics.fillPolygon(opposite);
+        int faceIndex = 0;
+        for (Polygon face : ParallelepipedGenerator.visibleConnectingFaces(parallelepipedBasis, dx, dy)) {
+            graphics.setColor(faceIndex++ == 0
+                ? new Color(68, 39, 23) : new Color(88, 51, 27));
+            graphics.fillPolygon(face);
+        }
+    }
+
     /**
      * Fills a parallelogram the user has just closed and pastes it into the build
      * area. A black parallelogram is filled straight away; a textured one first
@@ -2959,6 +3051,39 @@ public class J2DArea extends JFrame {
             pastedObjects.add(PastedObjectStacking.insertIndex(pastedObjects, stacking), pastedFill);
         }
         recordHistoryState();
+    }
+
+    /** Finalizes the projected solid as one ordinary, movable furniture object. */
+    private void fillCompletedParallelepiped(Polygon basis, int dx, int dy) {
+        ParallelepipedGenerator.Furniture furniture = chooseParallelepipedFurniture();
+        if (furniture == null) return;
+        Rectangle bounds = ParallelepipedGenerator.bounds(basis, dx, dy);
+        BufferedImage image = ParallelepipedGenerator.generate(furniture, basis, dx, dy);
+        PastedObject pastedFurniture = new PastedObject(new Point(bounds.x, bounds.y), new ExportableImage(image));
+        pastedFurniture.setStacking(PastedObjectStacking.OBJECT);
+        pastedObjects.add(pastedFurniture);
+        recordHistoryState();
+    }
+
+    private ParallelepipedGenerator.Furniture chooseParallelepipedFurniture() {
+        List<RadialMenuDialog.Option> options = Arrays.asList(
+            new RadialMenuDialog.Option("BOOKCASE", "Build shelves into the projected solid",
+                J2DArea::paintBookcaseSymbol),
+            new RadialMenuDialog.Option("CHEST", "Build a wooden storage chest",
+                J2DArea::paintChestSymbol),
+            new RadialMenuDialog.Option("WARDROBE", "Build a tall two-door wardrobe",
+                J2DArea::paintWardrobeSymbol),
+            new RadialMenuDialog.Option("DRESSER", "Build a low bank of drawers",
+                J2DArea::paintDresserSymbol),
+            new RadialMenuDialog.Option("BED", "Build a framed bed with linen and blanket",
+                J2DArea::paintBedSymbol));
+        int choice = RadialMenuDialog.choose(this, "Build Parallelepiped", options, null);
+        if (choice == 0) return ParallelepipedGenerator.Furniture.BOOKCASE;
+        if (choice == 1) return ParallelepipedGenerator.Furniture.CHEST;
+        if (choice == 2) return ParallelepipedGenerator.Furniture.WARDROBE;
+        if (choice == 3) return ParallelepipedGenerator.Furniture.DRESSER;
+        if (choice == 4) return ParallelepipedGenerator.Furniture.BED;
+        return null;
     }
 
     /** Search-map contribution of confirmed brickwork; wall faces are not terrain. */
@@ -3074,6 +3199,81 @@ public class J2DArea extends JFrame {
                 graphics.drawRect(origin + (column * cell), origin + (row * cell), cell, cell);
             }
         }
+    }
+
+    /** A lidded wooden box for the parallelepiped furniture selector. */
+    private static void paintChestSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int x = -size / 2;
+        int y = -size / 3;
+        int width = size;
+        int height = (size * 2) / 3;
+        graphics.drawRoundRect(x, y, width, height, size / 7, size / 7);
+        graphics.drawLine(x, y, x + size / 6, y - size / 6);
+        graphics.drawLine(x + width, y, x + width - size / 6, y - size / 6);
+        graphics.drawLine(x + size / 6, y - size / 6, x + width - size / 6, y - size / 6);
+        graphics.drawRect(-size / 12, -size / 16, size / 6, size / 5);
+    }
+
+    private static void paintWardrobeSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f));
+        int width = (size * 3) / 4;
+        int height = size;
+        graphics.drawRect(-width / 2, -height / 2, width, height);
+        graphics.drawLine(0, -height / 2, 0, height / 2);
+        graphics.fillOval(-3, -1, 2, 2);
+        graphics.fillOval(1, -1, 2, 2);
+    }
+
+    private static void paintDresserSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.3f));
+        int width = size;
+        int height = (size * 3) / 4;
+        int x = -width / 2;
+        int y = -height / 2;
+        graphics.drawRect(x, y, width, height);
+        for (int row = 1; row < 3; row++) graphics.drawLine(x, y + row * height / 3, x + width, y + row * height / 3);
+        for (int row = 0; row < 3; row++) {
+            graphics.fillOval(-1, y + row * height / 3 + height / 6 - 1, 3, 3);
+        }
+    }
+
+    private static void paintBedSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f));
+        int width = (size * 3) / 4;
+        int height = size;
+        int x = -width / 2;
+        int y = -height / 2;
+        graphics.drawRect(x, y, width, height);
+        graphics.drawLine(x, y + height / 3, x + width, y + height / 3);
+        graphics.drawOval(x + 2, y + 2, width / 2 - 3, height / 4);
+        graphics.drawOval(x + width / 2 + 1, y + 2, width / 2 - 3, height / 4);
+    }
+
+    private static BufferedImage createParallelepipedIcon() {
+        BufferedImage icon = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = icon.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(new Color(87, 55, 31));
+        Polygon front = new Polygon(new int[] { 2, 10, 10, 2 }, new int[] { 6, 4, 12, 14 }, 4);
+        Polygon top = new Polygon(new int[] { 2, 6, 14, 10 }, new int[] { 6, 2, 0, 4 }, 4);
+        Polygon side = new Polygon(new int[] { 10, 14, 14, 10 }, new int[] { 4, 0, 8, 12 }, 4);
+        graphics.fillPolygon(front);
+        graphics.setColor(new Color(151, 102, 54));
+        graphics.fillPolygon(top);
+        graphics.setColor(new Color(112, 73, 39));
+        graphics.fillPolygon(side);
+        graphics.setColor(Color.BLACK);
+        graphics.drawPolygon(front);
+        graphics.drawPolygon(top);
+        graphics.drawPolygon(side);
+        graphics.dispose();
+        return icon;
     }
 
     /** Boards running off at the isometric angle, for the generated wood floor. */
