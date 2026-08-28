@@ -36,7 +36,7 @@ Implemented now:
 - Randomized geometric carpets for drawn parallelograms, symmetric about both their axes, with field patterns, border motifs, medallion sizes and dye sets that can each be pinned or left to the seed, woven on a knot grid with fringe, pile and wear
 - Generated fills stack the way a room does: floors under everything, carpets over the floors and under whatever stands on them
 - A reusable radial selector, drawn as a lit compass, used for the parallelogram fill choice in place of a message box
-- A parallelepiped furniture tool: draw a parallelogram basis, shape its extrusion with a live mouse preview, then choose a BG1-inspired texture-mapped bookcase, chest, wardrobe, dresser or bed from a dedicated radial selector
+- A parallelepiped furniture tool: draw a parallelogram basis, shape its extrusion with a live mouse preview, then choose a BG1-inspired texture-mapped bookcase, chest, wardrobe, dresser, single bed or double bed from a dedicated radial selector
 - Extraction-area rectangle selection can now be sent through a single Nano Banana 2 cleanup-and-extract flow: it opens in a persistent editor window where you can run background removal and red-mask cleanup in either order before exporting the current preview as a transparent-background image
 
 Partially implemented:
@@ -111,7 +111,7 @@ Parallelepiped furniture workflow:
 
 1. Choose the cuboid toolbar button or `Insert -> Parallelepiped Furniture`, then click three corners exactly as for a parallelogram.
 2. Move the pointer away from the third corner to preview the four connecting faces and opposite face in real time.
-3. Click to fix the extrusion, then choose `BOOKCASE`, `CHEST`, `WARDROBE`, `DRESSER` or `BED` on the radial selector. The result is pasted as one movable object; right-click cancels while drawing.
+3. Click to fix the extrusion, then choose `BOOKCASE`, `CHEST`, `WARDROBE`, `DRESSER`, `SINGLE BED` or `DOUBLE BED` on the radial selector. The result is pasted as one movable object; right-click cancels while drawing.
 
 Bricks and floor tiles use the same directional, canvas-anchored layout. Bricks
 offer running, quarter or stack bonds and can be placed on a floor or wall;

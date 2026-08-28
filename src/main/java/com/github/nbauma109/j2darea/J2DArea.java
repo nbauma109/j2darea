@@ -3075,14 +3075,17 @@ public class J2DArea extends JFrame {
                 J2DArea::paintWardrobeSymbol),
             new RadialMenuDialog.Option("DRESSER", "Build a low bank of drawers",
                 J2DArea::paintDresserSymbol),
-            new RadialMenuDialog.Option("BED", "Build a framed bed with linen and blanket",
-                J2DArea::paintBedSymbol));
+            new RadialMenuDialog.Option("SINGLE BED", "Build a narrow one-person bed",
+                J2DArea::paintSingleBedSymbol),
+            new RadialMenuDialog.Option("DOUBLE BED", "Build a wide two-person bed",
+                J2DArea::paintDoubleBedSymbol));
         int choice = RadialMenuDialog.choose(this, "Build Parallelepiped", options, null);
         if (choice == 0) return ParallelepipedGenerator.Furniture.BOOKCASE;
         if (choice == 1) return ParallelepipedGenerator.Furniture.CHEST;
         if (choice == 2) return ParallelepipedGenerator.Furniture.WARDROBE;
         if (choice == 3) return ParallelepipedGenerator.Furniture.DRESSER;
-        if (choice == 4) return ParallelepipedGenerator.Furniture.BED;
+        if (choice == 4) return ParallelepipedGenerator.Furniture.SINGLE_BED;
+        if (choice == 5) return ParallelepipedGenerator.Furniture.DOUBLE_BED;
         return null;
     }
 
@@ -3242,11 +3245,23 @@ public class J2DArea extends JFrame {
         }
     }
 
-    private static void paintBedSymbol(Graphics2D graphics, int size, Color color) {
+    private static void paintSingleBedSymbol(Graphics2D graphics, int size, Color color) {
         graphics.setColor(color);
         graphics.setStroke(new BasicStroke(1.4f));
         int width = (size * 3) / 4;
         int height = size;
+        int x = -width / 2;
+        int y = -height / 2;
+        graphics.drawRect(x, y, width, height);
+        graphics.drawLine(x, y + height / 3, x + width, y + height / 3);
+        graphics.drawOval(x + 3, y + 2, width - 6, height / 4);
+    }
+
+    private static void paintDoubleBedSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f));
+        int width = size;
+        int height = (size * 3) / 4;
         int x = -width / 2;
         int y = -height / 2;
         graphics.drawRect(x, y, width, height);

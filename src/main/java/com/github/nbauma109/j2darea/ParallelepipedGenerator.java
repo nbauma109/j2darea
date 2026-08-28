@@ -25,7 +25,8 @@ public final class ParallelepipedGenerator {
         CHEST,
         WARDROBE,
         DRESSER,
-        BED
+        SINGLE_BED,
+        DOUBLE_BED
     }
 
     private static final BufferedImage AGED_OAK = loadTexture("/furniture/aged-oak.png", new Color(70, 42, 25));
@@ -33,7 +34,8 @@ public final class ParallelepipedGenerator {
     private static final BufferedImage CHEST_FRONT = loadTexture("/furniture/chest-front.png", new Color(65, 42, 27));
     private static final BufferedImage WARDROBE_FRONT = loadTexture("/furniture/wardrobe-front.png", new Color(72, 45, 26));
     private static final BufferedImage DRESSER_FRONT = loadTexture("/furniture/dresser-front.png", new Color(70, 43, 25));
-    private static final BufferedImage BED_TOP = loadTexture("/furniture/bed-top.png", new Color(88, 39, 31));
+    private static final BufferedImage SINGLE_BED_TOP = loadTexture("/furniture/single-bed-top.png", new Color(63, 67, 48));
+    private static final BufferedImage DOUBLE_BED_TOP = loadTexture("/furniture/double-bed-top.png", new Color(88, 39, 31));
 
     private ParallelepipedGenerator() { }
 
@@ -157,12 +159,13 @@ public final class ParallelepipedGenerator {
             int shade = polygonArea(side) >= polygonArea(front) - 0.01d ? 24 : 58;
             faces.add(new TexturedFace(side, shade));
         }
-        if (furniture != Furniture.BED) faces.add(new TexturedFace(top, 8));
+        if (!isBed(furniture)) faces.add(new TexturedFace(top, 8));
         faces.sort(Comparator.comparingDouble(face -> polygonCenterY(face.polygon)));
         for (TexturedFace face : faces) mapTexture(graphics, AGED_OAK, face.polygon, face.shade);
 
-        if (furniture == Furniture.BED) {
-            mapTexture(graphics, BED_TOP, top, 10);
+        if (isBed(furniture)) {
+            BufferedImage bedTexture = furniture == Furniture.SINGLE_BED ? SINGLE_BED_TOP : DOUBLE_BED_TOP;
+            mapTexture(graphics, bedTexture, top, 10);
         } else {
             BufferedImage frontTexture = frontTexture(furniture);
             int frontShade = furniture == Furniture.BOOKCASE ? 14 : 22;
@@ -171,6 +174,10 @@ public final class ParallelepipedGenerator {
         graphics.dispose();
         makeVisiblePixelsOpaque(image);
         return image;
+    }
+
+    private static boolean isBed(Furniture furniture) {
+        return furniture == Furniture.SINGLE_BED || furniture == Furniture.DOUBLE_BED;
     }
 
     private static BufferedImage frontTexture(Furniture furniture) {
