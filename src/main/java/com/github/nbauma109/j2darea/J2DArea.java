@@ -279,10 +279,10 @@ public class J2DArea extends JFrame {
     private transient WallpaperSettings wallpaperSettings;
     /** Last fitted window generated, including whether its curtains were enabled. */
     private transient WindowSettings windowSettings;
-    /** Last bookcase generated, reused as the defaults for the next one. */
-    private transient BookcaseSettings bookcaseSettings;
     /** Last carpet the user wove, reused as the defaults for the next parallelogram. */
     private transient CarpetSettings carpetSettings;
+    /** Last framed painting generated, including its subject and frame finish. */
+    private transient PaintingSettings paintingSettings;
     private transient BufferedImage brushTexture;
     private transient BufferedImage brushPreview;
     private transient BufferedImage brushNightPreview;
@@ -3021,6 +3021,10 @@ public class J2DArea extends JFrame {
             fillImage = generateWindow(parallelogram);
             tileType = windowSearchMapTileType();
             stacking = windowStacking();
+        } else if (fill == ParallelogramFill.PAINTING) {
+            fillImage = generatePainting(parallelogram);
+            tileType = paintingSearchMapTileType();
+            stacking = paintingStacking();
         } else if (fill == ParallelogramFill.CARPET) {
             fillImage = generateCarpet(parallelogram);
             // A carpet lies on whatever floor is already there, and the search map
@@ -3120,6 +3124,16 @@ public class J2DArea extends JFrame {
         return PastedObjectStacking.OBJECT;
     }
 
+    /** A hung painting is wall decoration and never contributes terrain. */
+    static SearchMapTileType paintingSearchMapTileType() {
+        return null;
+    }
+
+    /** A generated painting is pasted with other wall art, above generated floors. */
+    static PastedObjectStacking paintingStacking() {
+        return PastedObjectStacking.OBJECT;
+    }
+
     /** A fitted bookcase is wall decoration, not walkable terrain. */
     static SearchMapTileType bookcaseSearchMapTileType() {
         return null;
@@ -3138,6 +3152,7 @@ public class J2DArea extends JFrame {
         FLOOR_TILES,
         WALLPAPER,
         WINDOWS,
+        PAINTING,
         CARPET
     }
 
@@ -3161,6 +3176,8 @@ public class J2DArea extends JFrame {
                 J2DArea::paintWallpaperSymbol),
             new RadialMenuDialog.Option("WINDOWS", "Fit framed glass, with optional curtains",
                 J2DArea::paintWindowSymbol),
+            new RadialMenuDialog.Option("PAINTING", "Hang a framed painting of a chosen subject",
+                J2DArea::paintPaintingSymbol),
             new RadialMenuDialog.Option("CARPET", "Weave a random geometric carpet",
                 J2DArea::paintCarpetSymbol));
         int choice = RadialMenuDialog.choose(this, "Fill Parallelogram", options, null);
@@ -3178,6 +3195,8 @@ public class J2DArea extends JFrame {
             case 5:
                 return ParallelogramFill.WINDOWS;
             case 6:
+                return ParallelogramFill.PAINTING;
+            case 7:
                 return ParallelogramFill.CARPET;
             default:
                 return null;
@@ -3393,6 +3412,27 @@ public class J2DArea extends JFrame {
         graphics.draw(rightCurtain);
     }
 
+    /** A framed landscape: a horizon, a sun and a mountain peak. */
+    private static void paintPaintingSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int half = size / 2;
+        int inset = Math.max(3, size / 9);
+        graphics.drawRect(-half, -half, size, size);
+        int innerHalf = half - inset;
+        graphics.drawRect(-innerHalf, -innerHalf, innerHalf * 2, innerHalf * 2);
+        int sunR = Math.max(2, size / 10);
+        graphics.drawOval(innerHalf / 4 - sunR, -innerHalf + sunR / 2, sunR * 2, sunR * 2);
+        int horizonY = innerHalf / 3;
+        graphics.drawLine(-innerHalf, horizonY, innerHalf, horizonY);
+        Polygon mountain = new Polygon();
+        mountain.addPoint(-innerHalf, horizonY);
+        mountain.addPoint(-innerHalf / 4, -innerHalf / 4);
+        mountain.addPoint(innerHalf / 6, horizonY);
+        graphics.drawPolyline(mountain.xpoints, mountain.ypoints, mountain.npoints);
+    }
+
     /** A flat framed shelf with uneven book spines. */
     private static void paintBookcaseSymbol(Graphics2D graphics, int size, Color color) {
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -3556,20 +3596,22 @@ public class J2DArea extends JFrame {
             listener -> WindowGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
     }
 
-    /** Opens the bookcase editor and renders its confirmed shelves and books. */
-    private BufferedImage generateBookcase(Polygon parallelogram) {
-        BookcaseSettings initialSettings = bookcaseSettings != null
-            ? new BookcaseSettings(bookcaseSettings)
-            : new BookcaseSettings();
-        BookcaseDialog dialog = new BookcaseDialog(this, initialSettings, parallelogram);
+    /** Opens the painting editor and renders its confirmed subject and frame. */
+    private BufferedImage generatePainting(Polygon parallelogram) {
+        PaintingSettings initialSettings = paintingSettings != null
+            ? new PaintingSettings(paintingSettings)
+            : new PaintingSettings();
+        PaintingDialog dialog = new PaintingDialog(this, initialSettings, parallelogram);
         dialog.setVisible(true);
-        final BookcaseSettings chosenSettings = dialog.getConfirmedSettings();
-        if (chosenSettings == null) return null;
-        bookcaseSettings = chosenSettings;
+        final PaintingSettings chosenSettings = dialog.getConfirmedSettings();
+        if (chosenSettings == null) {
+            return null;
+        }
+        paintingSettings = chosenSettings;
         Rectangle bounds = parallelogram.getBounds();
-        return runWithProgress("Bookcase",
-            "Filling " + bounds.width + " x " + bounds.height + " bookcase...",
-            listener -> BookcaseGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
+        return runWithProgress("Painting",
+            "Painting " + bounds.width + " x " + bounds.height + " canvas...",
+            listener -> PaintingGenerator.generate(chosenSettings, parallelogram, listener::onProgress));
     }
 
     /**
