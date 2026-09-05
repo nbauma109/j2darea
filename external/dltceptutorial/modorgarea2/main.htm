@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+<!--- Don't miss this! --->
+
+<title>Advanced Area Making with DLTCEP</title>
+</head>
+
+<body>
+<FONT COLOR="navy"><h3>Contents</h3></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#version">Version History</A></TD></TR>
+	<TR><TD><A HREF = "#intro">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#cheat">Cheating in the Night wed</A></TD></TR>
+	<TR><TD><A HREF = "#addnight">So Now You want To Add a Night Area</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="navy">
+<A NAME = "version"><H3>Version History</H3></A>
+<ul>
+<table>
+	<tr><td width=20></td><td width=30>1.0</td><td>Initial release</td></tr>
+</table></ul>
+</font>
+
+<font color="navy">
+<A NAME = "cheat"><H3>Introduction</H3></A>
+</font>
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#cheat">Cheating in the Night wed</A></TD></TR>
+	<TR><TD><A HREF = "#addnight">So Now You want To Add a Night Area</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p>The following two tricks require that you already have a good grasp of creating an area as outlined in 'Area Basics'. 'So Now You want To Add a Night Area' contains instructions rather than a walkthrough; the detailed information can be found in 'Area Basics' and 'Doors'.</p>
+
+<font color="navy">
+<A NAME = "cheat"><H3>Cheating in the night WED</H3></A>
+</font>
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#info">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#addnight">So Now You want To Add a Night Area</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p>This can only be done if the day and night .weds are identical and this statement includes any doors. You will only be able to do this if, for example, you have already fully-prepared the night .tis file complete with .tis doors or, alternatively, the night .tis does not have any doors at all.  The type of situation I have run into where this scenario has been true is when I already have a fully working day/night area and I have needed to change part of the background. For how to do this, see 'Editing the Finished TIS File' below; specifically the section on replacing the complete main tileset.</p>
+
+<p>If you have a working day area and decide that you want to add a night area sometime later, see 'So Now You Want To Add A Night Area'.</p>
+
+<p>Make a copy of the day .wed file and call it [areaname]n.wed. Open the new n.wed file in NI and locate the tileset entry - this will be the first Overlay line if you have more than one overlay. (Please note that the screenshots here are of the Slums District and are to illustrate the necessary steps). The tileset entry will still have the name of the dat .tis in it.<p>
+
+<font color="blue">
+<ul>
+    <li>Double-click on the tileset entry</li>
+</ul></font>
+
+<p>This will bring up the Overlay dialog.</p>
+
+<font color="blue">
+<ul>
+    <li>Double-click on the tileset entry in the Overlay dialog</li>
+</ul></font>
+
+<p>This will display the tileset selector.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image1.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 1 - The tileset selector</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<font color="blue">
+<ul>
+    <li>Select the night tileset</li>
+    <li>Click on 'Update Value'</li>
+    <li>Click on 'Save'</li>
+    <li>Close down NI</li>
+</ul></font>
+
+<p>You can achieve the same end by copying and renaming the day .wed file and then changing the night .wed overlay inside DLTCEP. I just find it easier this way.</p>
+
+<font color="navy">
+<A NAME = "addnight"><H3>So Now You want To Add a Night Area</H3></A>
+</font>
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#info">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#cheat">Cheating in the night WED
+</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p>This is really aimed at the time when you have created an area that you originally thought would work for both day and night (no Extended Night) but then you find that the area is plainly the wrong colour when the Infinity Engine changes the time of day. Effectively what we are about to do is replace the day tiles with the night tiles, then rename the files to suit. Before you begin, you will need to have created the night area bitmap and, if required, any night door bitmaps.<p>
+
+<font color="blue">
+<ul>
+    <li>Back up both the .tis and the .wed files.</li>
+    <li>Create the area .tis files from the night bitmap - see 'Creating the Area TIS' in 'Area Basics'.</li>
+    <li>Do the same for any door bitmaps - use the same instructions.</li>
+    <li>Replace the entire day tileset with the night tileset - see 'Editing the Finished TIS File' (subsection 'Replacing The Complete Main Tileset') in 'Area Basics'</li>
+    <li>If you have any doors, replace the existing door tilesets - see 'Creating the Door Itself' in 'Doors'. Specifically, see Image 9 which illustrates the Door Tileset Editor. Use the 'Set Door (tis)' button to bring in the night tileset for each door.</li>
+</ul></font>
+
+<p>At this point if you run the area in the game, you should find that you are now seeing the night tilesets but still with the day lightmap.</p>
+
+<font color="blue">
+<ul>
+    <li>Create the new night lightmap - see either 'The Light Map' in 'Area Basics' or the 'Advanced Lightmapping' topic.</li>
+    <li>Rename the .tis and the .wed files to [areaname]n.tis and [areaname]n.wed.</li>
+    <li>Copy back the original area .tis and .wed files.</li>
+    <li>Finally, add 'Extended Night' to the .are file - see 'Starting the WED file' in 'Area Basics'.</li>
+</ul></font>
+
+<p>That's it - you've just added a night area the quick way.</p>
+
+<font color="red">
+<table align=center>
+  <tr><td width=500>
+    <p><b><i>Tutorial written by Yovaneth, apprentic'd at Candlekeep during the Bhaalspawn Troubles. Post it where you will but please don’t take credit for what you have not written.</i></b></p>
+  </td></tr>
+</table>
+</font>
+

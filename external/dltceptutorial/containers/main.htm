@@ -1,0 +1,338 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>Containers with DLTCEP</title>
+</head>
+
+<body>
+<FONT COLOR="navy"><h3>Contents</h3></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#version">Version History</A></TD></TR>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#simple">Adding Simple Containers</A></TD></TR>
+	<TR><TD><A HREF = "#trapped">Adding Trapped Containers</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="navy">
+<h4><A NAME = "version"><H3>Version History</H3></A>
+<ul>
+<table>
+	<tr><td width=20></td><td width=30>1.0</td><td>Initial release</td></tr>
+	<tr><td width=20></td><td width=30>1.1</td><td>"Trap Launch Point" description corrected and "Scripting Name" information added.</td></tr>
+</table></ul></h4>
+</font>
+<br>
+
+<font color="navy">
+<A NAME = "introduction"><H3>Introduction</H3></A>
+</font>
+
+<p>This tutorial will teach you how to place containers into your area. 'Containers' is an umbrella word as it covers almost anything that can contain one or more items (usually a treasure). They can be trapped or untrapped - we will be dealing with both types in this tutorial.</p>
+<p>Like the other tutorials, this one is set in my seatown somewhere on the Sword Coast; this time we are in one of the deserted houses.</p>
+<p>I have no idea where you will be creating your mod, so I am going to assume that all of the relevant files are in your \bg2\override directory.</p>
+<p>Unless you've changed your browser fonts to something weird and wonderful, the conventions in this tutorial are that blue is action and black is descriptive.</p>
+
+
+<font color="navy">
+<A NAME = "simple"><H3>Adding Simple Containers</H3></A>
+</font>
+
+<p>Start DLTCEP if it's not already running.</p>
+
+<ul><font color="blue">
+  <li><b>Select ‘Edit’ and ‘Area (ARE/WED)’</b></li>
+  <li><b>Select ‘Load External Area’ to load the .are file you want to work with.</b></li>
+  <li><b>Click on the 'Containers' tab</b></li>
+  <li><b>Click on 'Add Container'</b></li>
+</ul></font>
+
+<table align=center>
+<tr>
+<td>
+<font color="blue">
+	<img src="image1.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 1 - the blank Containers tab</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>The house has a single chest left behind in it, so we will activate this as a container and place a single gold piece in it for the PC to find.</p>
+
+<ul><font color="blue">
+  <li><b>Click on the Container Name field and enter a name</b></li>
+  <li><b>Click on the 'Type' dropdown and select 'Chest'</b></li>
+</ul></font>
+
+<p>The reason for so many different container types in this list is their toolbar icon and their different in-game sounds.</p>
+
+<table align=center>
+<tr>
+<td>
+<font color="blue">
+	<img src="image2.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 2 - Container types</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><b>Click on the 'Set Position' button</b></li>
+</ul></font>
+
+<p>This will bring up the preview screen.</p>
+
+<table align=center>
+<tr>
+<td>
+<font color="blue">
+	<img src="image3.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 3 - the Set Position preview screen</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><b>Click somewhere on or near the chest</b></li>
+  <li><b>Click on 'Set' to set the position</b></li>
+  <li><b>Click on 'Back'</b></li>
+</ul></font>
+
+<p>Again, I suspect that in reality you only need to do this for a trapped container but as I've said before, there's no need to upset the Infinity Engine if we can avoid it. I'm now going to add that single, miserable gold piece.</p>
+
+<ul><font color="blue">
+  <li><b>Click on 'Add Item' to activate the item area</b></li>
+  <li><b>Click on 'Browse'</b></li>
+  <li><b>Select 'Misc07' from the browser</b></li>
+</ul></font>
+
+<table align=center>
+<tr>
+<td>
+<font color="blue">
+	<img src="image4.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 4 - the Item browser</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><b>Increment the 'Amount' box to 1</b></li>
+  <li><b>Select the 'Identified' checkbox</b></li>
+</ul></font>
+
+<table align=center>
+<tr>
+<td>
+<font color="blue">
+	<img src="image5.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 5 - One gold piece....</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>Continue to add items as you require; for each item that has multiple charges e.g. wands you also need to specify how many charges the item has. We now need to add the in-game outline that identifies a container.<p>
+
+<ul><font color="blue">
+  <li><b>Select 'Edit Polygon' in the Vertices box</b></li>
+</ul></font>
+
+<p>This brings up the polygon editor</p>
+
+<table align=center>
+<tr>
+<td>
+<font color="blue">
+	<img src="image6.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 5 - The Polygon Editor</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>This will load the Preview screen, puts the Polygon Editor into Insert mode and should display your area, but sometimes it sits there as a big blank box. If this happens,</p>
+
+<font color="blue">
+<ul>
+    <li>Check and un-check 'Show all'</li>
+</ul></font>
+
+<p>That usually fixes it. Carefully draw an outline around the area you want to act as a container - each time you click on the screen another vertex will be added to the list.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image7.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 7 - Container outline</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>If you are not happy with the size or shape of the polygon, go back the Edit Polygon screen and</p>
+
+<font color="blue">
+<ul>
+    <li>Unselect 'Insert'</li>
+</ul></font>
+
+<p>The Polygon Editor is now in Modify mode. Click on anyone of the listed vertices and you will see it light up in the Preview screen as a red dot. When you've identified the one that you are not happy with, click on the screen at the place you would like that vertex to be and DLTCEP will move it for you. Alternatively, double-click on it and DLTCEP will delete it. When you are satisfied,</p>
+
+<font color="blue">
+<ul>
+    <li>Click 'Back'</li>
+    <li>Save it!</li>
+</ul></font>
+
+<p>That completes a simple, non-trapped container.</p>
+
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image8.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 8 - The new container in use</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+
+<font color="navy">
+<A NAME = "Trapped"><H3>Adding Trapped Containers</H3></A>
+</font>
+
+<p>Part of the plot with Porthpentyrch involves CHARNAME being asked by Elminster to investigate why the town is being deserted by the inhabitants, hence the abandoned house above. They do return - after CHARNAME has sorted the problem - and so for the trapped chest, I'm going to use the same house and chest as above but with the house now lived-in.
+As the owner has returned, he has put trap spells onto the chest which contains one of his most precious posessions. I'm going to start where we left off with the simple container.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image9.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 9 - The treasured posession</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>Just to be nice, I've also put some more gold into the chest; note that the wand has been given 20 charges. Setting the trap is fairly easy:-<p>
+
+<font color="blue">
+<ul>
+    <li>Select the 'Locked' checkbox - this places a '1' into the 'Locked' field</li>
+    <li>Enter '1' in the 'Trapped' field</li>
+    <li>Enter a lock strength - I've made this one 80%</li>
+    <li>Enter the trap's required Detection percentage</li>
+    <li>Enter the trap's required Removal percentage</li>
+</ul></font>
+
+<p>We need to enter the Trap Launch Point but for some reason there is not ability to bring up the preview screen and select a point by clicking on it. You need to enter the co-ordinates manually.
+We can get DLTCEP to help us though.</p>
+
+<font color="blue">
+<ul>
+    <li>Click 'Select Position'</li>
+</ul></font>
+
+<p>This brings up the Preview screen. Now,</p>
+
+<font color="blue">
+<ul>
+    <li>Click the place that you want the trap action to occur at (fireball centre, flamestrike centre, arrow launch point, etc.).</li>
+    <li>Note the co-ordinates in the top left of the screen</li>
+    <li>Click 'Back' - do NOT select 'Set'</li>
+    <li>Enter the co-ordinates in the Trap Launch Point boxes</li>
+</ul></font>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image10.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 10 - Detection distance</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>If the PC fails to disarm the trap, I've decided to hit them with a flamestrike. Most of the container traps start with CT (no surprises there!), so take your pick.</p>
+
+<font color="blue">
+<ul>
+    <li>Click on 'Browse'</li>
+    <li>Select CTFS from the script selection box</li>
+</ul></font>
+
+<p>Our  trapped container is now basically complete. There is no need to enter a displaystring because the Infinity Engine will automatically show 'Locked' if the PC fails to open the lock.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image11.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 11 - Completed trapped container</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>Of the remaining two fields, the Key field is obvious. The Scripting Name field is the name you will give to the container if you wish to refer to it in a script e.g. MyBox.</p>
+
+<p><font color="navy" size="2" face="Arial, Helvetica, sans-serif">
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("OpenContainer","GLOBAL",1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Open("MyBox")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image12.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 12 - Aha! Naughty!</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image13.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 13 - Oh sh!t!!</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+
+<font color="red">
+<table align=center>
+<tr>
+<td width=500>
+	<p><b><i>Tutorial written by Yovaneth, apprentic’d at Candlekeep during the Bhaalspawn Troubles. Post it where you will but please don’t take credit for what you have not written.</i></b></p>
+</td>
+</tr>
+</table>
+</font>
+
+</body>
+</html>

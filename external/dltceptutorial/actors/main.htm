@@ -1,0 +1,362 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>Actors with DLTCEP</title>
+</head>
+
+<body>
+<FONT COLOR="navy"><h3>Contents</h3></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#version">Version History</A></TD></TR>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#actors">Adding Actors</A></TD></TR>
+	<TR><TD><A HREF = "#move">Scripting Movement</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="navy">
+<h4><A NAME = "version"><H3>Version History</H3></A>
+<ul>
+<table>
+	<tr><td width=20></td><td width=30>1.0</td><td>Initial release</td></tr>
+	<tr><td width=20></td><td width=30>1.1</td><td>Image 7/No actor paragraph added</td></tr>
+	<tr><td width=20></td><td width=30>1.2</td><td>Scripting Movement added</td></tr>
+	<tr><td width=20></td><td width=30>1.3</td><td>'Useful Baddies' listing added</td></tr>
+</table></ul></h4>
+</font>
+<br>
+
+<font color="navy">
+<A NAME = "introduction"><H3>Introduction</H3></A>
+</font>
+
+<p>This tutorial will teach you how to place actors into your area. In general, actors - whether monster or humanoid -
+are placed to make an area "come alive". This may involve hacking your way through a narrow dungeon full of undead or it may be the
+inhabitants of a tavern creating the atmosphere of the place. All actors, of whatever type, are .cre files so there is no reason why you
+cannot create and add your own. Initially this tutorial was also to include spawnpoints, but to quote Avenger from the DLTC boards:</p>
+
+<p><font color="navy">"...it is sparsely used in the original games. The spawnpoint implementation is screwed anyway".</font></p>
+
+<p>If it gets fixed, you'll find it here!</p>
+<p>In my opinion, NPCs and other characters that you interact with are better being placed by script, as this gives you much finer control over when - and when not - they appear.</p>
+<p>Like the other tutorials, this one is set in my seatown somewhere on the Sword Coast.</p>
+<p>I have no idea where you will be creating your mod, so I am going to assume that all of the relevant files are in your \bg2\override directory.</font></p>
+<p>Unless you've changed your browser fonts to something weird and wonderful, the conventions in this tutorial are that blue is action and black is descriptive.</font></p>
+
+
+<font color="navy">
+<A NAME = "actors"><H3>Adding Actors</H3></A>
+</font>
+
+<p>Start DLTCEP if it's not already running.</font></p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Select ‘Edit’ and ‘Area (ARE/WED)’</b></font></li>
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Select ‘Load External Area’ to load the .are file you want to work with.</b></font></li>
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on the 'Actors' tab</b></font></li>
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Add Actor'</b></font></li>
+</ul></font>
+
+<table width="681" align=center>
+<tr>
+<td width=805>
+<font color="blue">
+	<img src="image1.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 1 - the blank Actors tab</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>Yes, I've been quite busy adding actors into this area :)). It is an abandoned dwarven hall below my seatown - abandoned, that is, by the living - but it is still heavily defended by the dead. In a case like this, think about your actors. If you simply add a group that consists solely of one type of actor (say, zombies), it won't take long for the player to figure out tactics to defeat them. I'm going to create an ambush that consists of spectres and skeleton archers; the archers will be a nuisance from a distance while the spectres will close in to fight and level-drain the party. The player will be forced to divide his party to deal with the two threats.</p>
+
+<p>We'll add the archers first.</p>
+
+<p>Give the actor a meaningful name, such as Skeleton Archer (!). You have two choices for actually entering the cre file name.</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Browse'</b></font></li>
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Select the cre from the list</b></font></li>
+</ul></font>
+
+<table width="254" align=center>
+<tr>
+<td width=246>
+	<font color="navy">
+	<img src="image2.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 2 - .cre Listing</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>The alternative is to enter the name of the cre file directly - see the <a href="baddies.htm">"List of Useful Baddies"</a>. (Please note that this listing only includes creatures that are normally classed as enemies). In both cases, once the cre file name is entered</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Refresh Fields'</b></font></li>
+</ul></font>
+
+<p>This will check the cre file for the scripts that it runs and display them in the boxes, as well as listing the correct animation automatically. If a box is blank then there is no script for that slot. If all boxes are blank then you've spelt the cre name wrong :).</p>
+
+<p>The next move is to place the archer within the area and to make him face the correct direction.</p>
+
+<ul><font color="blue"
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Set Position'</b></font></li>
+</ul></font>
+
+<p>This will preview the area you are working with. In my case, I decided to hit the party from two sides at once, setting the archers well back from the entry point to the room. The corridor at the top left is exit-only.</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on the point where you want the cre to appear</b></font></li>
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Set' to fix the .cre</b></font></li>
+</ul></font>
+
+
+<table width="254" align=center>
+<tr>
+<td width=246>
+	<font color="navy">
+	<img src="image3.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 3 - Setting the actor</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>As this is an archer who needs to stay where he is to shoot,</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Stay in Place'</b></font></li>
+</ul></font>
+
+<p>to fix him to the spot. Finally, select the direction he is to face.</p>
+
+<p>If you need an invisible creature,</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>then set 'Visble' to zero</b></font></li>
+</ul></font>
+
+<table width="680" align=center>
+<tr>
+<td width=692>
+	<font color="navy">
+	<img src="image4.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 4 - The finished Skeleton Archer</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>The fast way to add a similar actor is to</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Copy Actor'</b></font></li>
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Add Actor'</b></font></li>
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Paste Actor'</b></font></li>
+</ul></font>
+
+<p>Done. Almost.... You've just pasted the new actor right on top of the old one.</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Set Position'</b></font></li>
+</ul></font>
+
+<p>to adjust the position of the new actor</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Set' to place him</b></font></li>
+</ul></font>
+
+<p><font color="navy">and finally</font></p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Stay in Place'</b></font></li>
+</ul></font>
+
+<p>to stop him moving. Repeat as necessary!</font></p>
+
+<p>Suppose though that your actor is a moving actor. Instead of fixing him in place by using the 'Stay in Place' button,</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Set Destination'</b></font></li>
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on the point where you want the cre to move to and back again</b></font></li>
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Set' to fix the .cre</b></font></li>
+</ul></font>
+
+<p>The last modification to the actor is to set the hours at which he can appear. My ambush can happen at any time, but you may want an actor only to appear during night hours (thief? hmmmm).</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'Schedule'</b></font></li>
+</ul></font>
+
+<table width="355" align=center>
+<tr>
+<td width=347>
+	<font color="navy">
+	<img src="image5.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 5 - The Scheduler</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>You can either select a predefined period or individual hours. Remember that button DOWN is appearance.</p>
+
+<ul><font color="blue">
+  <li><font size="2" face="Arial, Helvetica, sans-serif"><b>Click on 'OK'</b></font></li>
+</ul></font>
+
+<p>when you're happy. The display on the front of the schedule button will change to illustrate when the actor is active - a nice touch.</p>
+
+<p>I repeated the entire process again to add a spectre in the bottom corner of the room, then did a copy'n'paste to give him some support.</p>
+
+<table width="748" align=center>
+<tr>
+<td width=740>
+	<font color="navy">
+	<img src="image6.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 6 - Oops! - Time for a quick exit</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>Finally, to add a little more uncertainty to the whole area, I created some ghouls and ghasts that wander the corridors. Clicking on
+a Destination that has more than one path to it means that the creature will take a random path, based on the vagaries of the Infinity Engine's pathfinding
+algorithm. Or maybe it will just end up hitting its head against the proverbial wall....</p>
+
+<p>So you've done all this and your actor doesn't appear, but you can CLUAConsole() him/her/it in with no problems at all. Take a look at image 7 below.
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image7.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 7 - No actor</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>The entire area is explored and you can see the whole of the pedestal, but there's a Tanar'ri missing from the pedestal. A Tanar'ri is a big animation but despite that, if you look again you can see traces of the Fog Of war across the pedestal. If there are <i><b>any</b></i> traces <i><b>at all</b></i> in the area that an animation covers then the Infinity Engine will not draw that animation. It's a real PITA, so watch out for it. </p>
+
+<font color="navy">
+<A NAME = "move"><H3>Scripting Movement</H3></A>
+</font>
+
+<p>You would script an actor's movements if you wanted them to move along a predefined path for a predefined reason. An example of this is the barmaid in the Copper Coronet who walks around the outside of the bar, stopping at intervals and making a DSH comment. To create waypoints, I'd refer you to
+Tutorial 5 - Info Triggers for the information but to make life a little easier, this is a screenshot of one of the Copper Coronet waypoints.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image8.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 8 - Copper Coronet Waypoint</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>Though why the waypoints are set up as traps, I don't know. In the case of the barmaid, she starts her movement as soon as a party member comes into view and if she has not been turned red.</P>
+
+<p><font color="navy" size="2" face="Arial, Helvetica, sans-serif">
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Detect([PC])</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Allegiance(Myself,NEUTRAL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("quest1","LOCALS",0)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>MoveToObject("Way3")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride("DRUNK2",DisplayStringHead(Myself,4592))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>MoveToObject("Way4")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>DisplayStringHead(Myself,4604)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>MoveToObject("Way3")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>DisplayStringHead(Myself,4611)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait2</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>SetGlobal("quest1","LOCALS",1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p>The first response block shows an interesting little scripting trick in that the barmaid's script is being temporarily halted to force the drunk to display a DSH.
+At the end of this script section she is prevented from repeating it by the flag "quest1" being set to 1 and she goes into a series of random movements:</p>
+
+<p><font color="navy" size="2" face="Arial, Helvetica, sans-serif">
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Detect([PC])</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Allegiance(Myself,NEUTRAL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("quest1","LOCALS",1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #10</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>MoveToObject("Way1")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #10</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>MoveToObject("Way2")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #10</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>MoveToObject("Way3")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #10</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>MoveToObject("Way4")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #10</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>MoveToObject("Way5")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #1</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>MoveToObject("COPCUST3")</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>DisplayStringHead(Myself,4590)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p>As an aside, I suspect this is a 'broken' script in that the 'quest1' flag is not reset and so she never repeats the first block. Secondly, that 'RESPONSE #1' is not a misprint. I believe that there is a block missing:-
+
+<p><font color="navy" size="2" face="Arial, Helvetica, sans-serif">
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>!Detect([PC])</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Allegiance(Myself,NEUTRAL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("quest1","LOCALS",1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>SetGlobal("quest1","LOCALS",0)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p>This would reset the entire script so that next time a PC came into view, she would restart the entire script block and walk right round the Copper Coronet again, complete with all the DSH remarks. That really is all there is to scripting an actor's movements, bar one final trick. If you want to script multiple actors all following the same path - e.g. a guard patrol - you only need to give the squad leader the waypoint script. All of the others would get a simple 'follow me':</p>
+
+<p><font color="navy" size="2" face="Arial, Helvetica, sans-serif">
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>ActionListEmpty()</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>!Range("[cre name]",4)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>FollowObjectFormation("[cre name]", x, y)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p>By judicious use of the x,y co-ordinates you could set up a really smart marching squad or an equally sloppy bunch of bandits.</p>
+
+<br>
+
+<font color="red">
+<table align=center>
+<tr>
+<td width=500>
+	<p><b><i>Tutorial written by Yovaneth, apprentic’d at Candlekeep during the Bhaalspawn Troubles. Post it where you will but please don’t take credit for what you have not written.</i></b></p>
+</td>
+</tr>
+</table>
+</font>
+
+</body>
+</html>
