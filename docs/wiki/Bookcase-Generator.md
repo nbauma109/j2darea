@@ -1,13 +1,13 @@
 # Bookcase Generator
 
-`BOOKCASE` on the parallelogram fill wheel fits a flat bookcase to the drawn wall
-shape.
+The parallelepiped furniture wheel's `BOOKCASE` option fits a texture-mapped
+bookcase to the drawn solid.
 It is pasted as an ordinary wall object and never changes the search-map terrain.
 
 ## Using it
 
-1. Draw a parallelogram with the filled-parallelogram tool.
-2. Choose `BOOKCASE` on the wheel.
+1. Draw a parallelogram basis with the parallelepiped furniture tool.
+2. Shape the extrusion and choose `BOOKCASE` on the furniture wheel.
 3. Set two to seven shelf levels and one to four bays.
 4. Adjust the frame width and book density.
 5. Select a brown-timber scheme from the five-by-three visual grid.

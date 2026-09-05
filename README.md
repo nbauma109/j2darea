@@ -101,7 +101,7 @@ Randomized ground workflow:
 Wood floor workflow:
 
 1. Start the parallelogram tool from the toolbar or `Insert -> Filled Parallelogram` and click the three corners as usual.
-2. Pick `WOOD FLOOR` on the radial selector that opens under the pointer; `SEAMLESS TEXTURE` opens the usual image chooser, `BRICKS` generates small masonry, `FLOOR TILES` generates square stone slabs, `WALLPAPER` repeats a wall pattern, `WINDOWS` fits framed glazing with optional curtains, `BOOKCASE` stocks flat fitted shelves, and `CARPET` weaves a geometric carpet. The selector answers to the mouse, number keys, the arrow keys and `Enter`, and cancels on `Esc`, on its hub, or on a click outside the ring.
+2. Pick `WOOD FLOOR` on the radial selector that opens under the pointer; `SEAMLESS TEXTURE` opens the usual image chooser, `BRICKS` generates small masonry, `FLOOR TILES` generates square stone slabs, `WALLPAPER` repeats a wall pattern, `WINDOWS` fits framed glazing with optional curtains, and `CARPET` weaves a geometric carpet. The selector answers to the mouse, number keys, the arrow keys and `Enter`, and cancels on `Esc`, on its hub, or on a click outside the ring.
 3. Tune the board size, stagger, seams, tone, grain, knots and wear; the preview updates live and can be switched between a 1:1 detail view and the whole shape.
 4. `Generate` renders the floor and pastes it under the objects already placed, marked as laying `WOOD` over the search-map cells it covers.
 

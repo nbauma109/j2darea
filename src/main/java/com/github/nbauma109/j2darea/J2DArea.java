@@ -3021,10 +3021,6 @@ public class J2DArea extends JFrame {
             fillImage = generateWindow(parallelogram);
             tileType = windowSearchMapTileType();
             stacking = windowStacking();
-        } else if (fill == ParallelogramFill.BOOKCASE) {
-            fillImage = generateBookcase(parallelogram);
-            tileType = bookcaseSearchMapTileType();
-            stacking = bookcaseStacking();
         } else if (fill == ParallelogramFill.CARPET) {
             fillImage = generateCarpet(parallelogram);
             // A carpet lies on whatever floor is already there, and the search map
@@ -3142,7 +3138,6 @@ public class J2DArea extends JFrame {
         FLOOR_TILES,
         WALLPAPER,
         WINDOWS,
-        BOOKCASE,
         CARPET
     }
 
@@ -3166,8 +3161,6 @@ public class J2DArea extends JFrame {
                 J2DArea::paintWallpaperSymbol),
             new RadialMenuDialog.Option("WINDOWS", "Fit framed glass, with optional curtains",
                 J2DArea::paintWindowSymbol),
-            new RadialMenuDialog.Option("BOOKCASE", "Fit flat shelves into a wall shape",
-                J2DArea::paintBookcaseSymbol),
             new RadialMenuDialog.Option("CARPET", "Weave a random geometric carpet",
                 J2DArea::paintCarpetSymbol));
         int choice = RadialMenuDialog.choose(this, "Fill Parallelogram", options, null);
@@ -3185,8 +3178,6 @@ public class J2DArea extends JFrame {
             case 5:
                 return ParallelogramFill.WINDOWS;
             case 6:
-                return ParallelogramFill.BOOKCASE;
-            case 7:
                 return ParallelogramFill.CARPET;
             default:
                 return null;
