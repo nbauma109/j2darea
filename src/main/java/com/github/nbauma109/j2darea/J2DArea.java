@@ -3078,7 +3078,9 @@ public class J2DArea extends JFrame {
             new RadialMenuDialog.Option("SINGLE BED", "Build a narrow one-person bed",
                 J2DArea::paintSingleBedSymbol),
             new RadialMenuDialog.Option("DOUBLE BED", "Build a wide two-person bed",
-                J2DArea::paintDoubleBedSymbol));
+                J2DArea::paintDoubleBedSymbol),
+            new RadialMenuDialog.Option("BUNK BED", "Build two stacked wooden bunks",
+                J2DArea::paintBunkBedSymbol));
         int choice = RadialMenuDialog.choose(this, "Build Parallelepiped", options, null);
         if (choice == 0) return ParallelepipedGenerator.Furniture.BOOKCASE;
         if (choice == 1) return ParallelepipedGenerator.Furniture.CHEST;
@@ -3086,6 +3088,7 @@ public class J2DArea extends JFrame {
         if (choice == 3) return ParallelepipedGenerator.Furniture.DRESSER;
         if (choice == 4) return ParallelepipedGenerator.Furniture.SINGLE_BED;
         if (choice == 5) return ParallelepipedGenerator.Furniture.DOUBLE_BED;
+        if (choice == 6) return ParallelepipedGenerator.Furniture.BUNK_BED;
         return null;
     }
 
@@ -3268,6 +3271,20 @@ public class J2DArea extends JFrame {
         graphics.drawLine(x, y + height / 3, x + width, y + height / 3);
         graphics.drawOval(x + 2, y + 2, width / 2 - 3, height / 4);
         graphics.drawOval(x + width / 2 + 1, y + 2, width / 2 - 3, height / 4);
+    }
+
+    private static void paintBunkBedSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f));
+        int width = size;
+        int height = size;
+        int x = -width / 2;
+        int y = -height / 2;
+        graphics.drawRect(x, y, width, height);
+        graphics.drawLine(x, 0, x + width, 0);
+        graphics.drawLine(x + width - width / 4, -height / 8, x + width - width / 4, height / 2);
+        graphics.drawLine(x + width - width / 4, height / 8, x + width, height / 8);
+        graphics.drawLine(x + width - width / 4, height / 3, x + width, height / 3);
     }
 
     private static BufferedImage createParallelepipedIcon() {

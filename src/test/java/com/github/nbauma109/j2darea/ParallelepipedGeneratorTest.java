@@ -83,6 +83,33 @@ public class ParallelepipedGeneratorTest {
         }
     }
 
+    @Test
+    public void bunkBedKeepsTheOpenGapBetweenSleepingPlatformsTransparent() {
+        int dx = 0;
+        int dy = -200;
+        Polygon front = ParallelepipedGenerator.uprightFace(
+            ParallelepipedGenerator.furnitureFront(basis(), dx, dy));
+        Rectangle bounds = ParallelepipedGenerator.bounds(basis(), dx, dy);
+        BufferedImage image = ParallelepipedGenerator.generate(
+            ParallelepipedGenerator.Furniture.BUNK_BED, basis(), dx, dy);
+        int centerX = (front.xpoints[0] + front.xpoints[1] + front.xpoints[2] + front.xpoints[3]) / 4 - bounds.x;
+        int centerY = (front.ypoints[0] + front.ypoints[1] + front.ypoints[2] + front.ypoints[3]) / 4 - bounds.y;
+
+        assertEquals(0, image.getRGB(centerX, centerY) >>> 24);
+    }
+
+    @Test
+    public void bunkSectionsKeepAllFourPrismCornerAnchors() {
+        for (int[] extrusion : new int[][] { {0, -200}, {25, -80}, {-30, 120} }) {
+            Polygon top = ParallelepipedGenerator.bunkSection(basis(), extrusion[0], extrusion[1],
+                0, 0, 1, 1, 1);
+            for (int i = 0; i < 4; i++) {
+                assertEquals(basis().xpoints[i] + extrusion[0], top.xpoints[i]);
+                assertEquals(basis().ypoints[i] + extrusion[1], top.ypoints[i]);
+            }
+        }
+    }
+
     private static int countVisiblePixels(BufferedImage image) {
         int visible = 0;
         for (int y = 0; y < image.getHeight(); y++) {

@@ -111,7 +111,7 @@ Parallelepiped furniture workflow:
 
 1. Choose the cuboid toolbar button or `Insert -> Parallelepiped Furniture`, then click three corners exactly as for a parallelogram.
 2. Move the pointer away from the third corner to preview the four connecting faces and opposite face in real time.
-3. Click to fix the extrusion, then choose `BOOKCASE`, `CHEST`, `WARDROBE`, `DRESSER`, `SINGLE BED` or `DOUBLE BED` on the radial selector. The result is pasted as one movable object; right-click cancels while drawing.
+3. Click to fix the extrusion, then choose `BOOKCASE`, `CHEST`, `WARDROBE`, `DRESSER`, `SINGLE BED`, `DOUBLE BED` or `BUNK BED` on the radial selector. The result is pasted as one movable object; right-click cancels while drawing.
 
 Bricks and floor tiles use the same directional, canvas-anchored layout. Bricks
 offer running, quarter or stack bonds and can be placed on a floor or wall;

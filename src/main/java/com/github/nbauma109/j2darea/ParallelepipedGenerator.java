@@ -26,7 +26,8 @@ public final class ParallelepipedGenerator {
         WARDROBE,
         DRESSER,
         SINGLE_BED,
-        DOUBLE_BED
+        DOUBLE_BED,
+        BUNK_BED
     }
 
     private static final BufferedImage AGED_OAK = loadTexture("/furniture/aged-oak.png", new Color(70, 42, 25));
@@ -152,6 +153,13 @@ public final class ParallelepipedGenerator {
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
+        if (isBed(furniture)) {
+            paintBed(graphics, furniture, basis, dx, dy);
+            graphics.dispose();
+            makeVisiblePixelsOpaque(image);
+            return image;
+        }
+
         Polygon top = translatedFace(basis, dx, dy);
         Polygon front = furnitureFront(basis, dx, dy);
         List<TexturedFace> faces = new ArrayList<TexturedFace>();
@@ -159,25 +167,123 @@ public final class ParallelepipedGenerator {
             int shade = polygonArea(side) >= polygonArea(front) - 0.01d ? 24 : 58;
             faces.add(new TexturedFace(side, shade));
         }
-        if (!isBed(furniture)) faces.add(new TexturedFace(top, 8));
+        faces.add(new TexturedFace(top, 8));
         faces.sort(Comparator.comparingDouble(face -> polygonCenterY(face.polygon)));
         for (TexturedFace face : faces) mapTexture(graphics, AGED_OAK, face.polygon, face.shade);
 
-        if (isBed(furniture)) {
-            BufferedImage bedTexture = furniture == Furniture.SINGLE_BED ? SINGLE_BED_TOP : DOUBLE_BED_TOP;
-            mapTexture(graphics, bedTexture, top, 10);
-        } else {
-            BufferedImage frontTexture = frontTexture(furniture);
-            int frontShade = furniture == Furniture.BOOKCASE ? 14 : 22;
-            mapTexture(graphics, frontTexture, uprightFace(front), frontShade);
-        }
+        BufferedImage frontTexture = frontTexture(furniture);
+        int frontShade = furniture == Furniture.BOOKCASE ? 14 : 22;
+        mapTexture(graphics, frontTexture, uprightFace(front), frontShade);
         graphics.dispose();
         makeVisiblePixelsOpaque(image);
         return image;
     }
 
     private static boolean isBed(Furniture furniture) {
-        return furniture == Furniture.SINGLE_BED || furniture == Furniture.DOUBLE_BED;
+        return furniture == Furniture.SINGLE_BED || furniture == Furniture.DOUBLE_BED
+            || furniture == Furniture.BUNK_BED;
+    }
+
+    /** Posts follow all four extrusion edges; the decks span the actual basis. */
+    private static void paintBed(Graphics2D graphics, Furniture furniture, Polygon basis, int dx, int dy) {
+        boolean bunk = furniture == Furniture.BUNK_BED;
+        BufferedImage source = furniture == Furniture.DOUBLE_BED ? DOUBLE_BED_TOP : SINGLE_BED_TOP;
+        // The source pictures include wooden frames. Only their fabric belongs on the mattress.
+        boolean doubleBed = furniture == Furniture.DOUBLE_BED;
+        int left = source.getWidth() * (doubleBed ? 4 : 7) / 100;
+        int top = source.getHeight() * 5 / 100;
+        BufferedImage bedding = source.getSubimage(left, top,
+            source.getWidth() - 2 * left, source.getHeight() - 2 * top);
+        int rear = 0;
+        for (int i = 1; i < 4; i++) {
+            if (basis.ypoints[i] < basis.ypoints[rear]) rear = i;
+        }
+        paintBedPost(graphics, basis, dx, dy, rear);
+        double mattressDepth = bunk ? 0.075 : 0.18;
+        double frameDepth = bunk ? 0.075 : 0.16;
+        for (double height : bunk ? new double[] { 0.24, 0.82 } : new double[] { 0.72 }) {
+            double mattressBase = height - mattressDepth;
+            double frameBase = mattressBase - frameDepth;
+            // Deep perimeter timbers and a lower supporting ledge sit below the upholstery.
+            paintBedBand(graphics, basis, dx, dy, frameBase, mattressBase, 0, AGED_OAK, 24);
+            paintBedBand(graphics, basis, dx, dy, frameBase,
+                frameBase + frameDepth * 0.23, 0, AGED_OAK, 48);
+            Polygon deck = bunkSection(basis, dx, dy, 0.025, 0.025, 0.975, 0.975, height);
+            Polygon mattressFoot = bunkSection(basis, dx, dy, 0.025, 0.025, 0.975, 0.975, mattressBase);
+            paintWrappedMattress(graphics, bedding, mattressFoot, deck, height < 0.5 ? 65 : 25);
+            mapTexture(graphics, bedding, deck, height < 0.5 ? 55 : 10);
+        }
+        List<Integer> foreground = new ArrayList<Integer>();
+        for (int i = 0; i < 4; i++) if (i != rear) foreground.add(i);
+        foreground.sort(Comparator.comparingInt(i -> basis.ypoints[i]));
+        for (int corner : foreground) paintBedPost(graphics, basis, dx, dy, corner);
+    }
+
+    /** Each fabric edge continues down its corresponding mattress side without reorienting the sheet seam. */
+    private static void paintWrappedMattress(Graphics2D graphics, BufferedImage bedding,
+            Polygon bottom, Polygon top, int shade) {
+        double winding = signedPolygonArea(bottom);
+        int dx = top.xpoints[0] - bottom.xpoints[0];
+        int dy = top.ypoints[0] - bottom.ypoints[0];
+        for (int edge = 0; edge < 4; edge++) {
+            int next = (edge + 1) & 3;
+            double cross = (bottom.xpoints[next] - bottom.xpoints[edge]) * (double) dy
+                - (bottom.ypoints[next] - bottom.ypoints[edge]) * (double) dx;
+            if (cross * winding <= 0) continue;
+            Polygon side = new Polygon(new int[] {top.xpoints[edge], top.xpoints[next],
+                bottom.xpoints[next], bottom.xpoints[edge]}, new int[] {top.ypoints[edge],
+                top.ypoints[next], bottom.ypoints[next], bottom.ypoints[edge]}, 4);
+            int length = edge % 2 == 0 ? bedding.getWidth() : bedding.getHeight();
+            BufferedImage wrap = new BufferedImage(length, 24, BufferedImage.TYPE_INT_RGB);
+            for (int y = 0; y < wrap.getHeight(); y++) {
+                double inset = y / 23.0 * 0.08;
+                for (int x = 0; x < length; x++) {
+                    double along = x / (double) (length - 1);
+                    double u = edge == 0 ? along : edge == 1 ? 1 - inset : edge == 2 ? 1 - along : inset;
+                    double v = edge == 0 ? inset : edge == 1 ? along : edge == 2 ? 1 - inset : 1 - along;
+                    wrap.setRGB(x, y, bedding.getRGB((int) Math.round(u * (bedding.getWidth() - 1)),
+                        (int) Math.round(v * (bedding.getHeight() - 1))));
+                }
+            }
+            mapTexture(graphics, wrap, side, shade);
+        }
+    }
+
+    private static void paintBedBand(Graphics2D graphics, Polygon basis, int dx, int dy,
+            double low, double high, double inset, BufferedImage texture, int shade) {
+        Polygon bottom = bunkSection(basis, dx, dy, inset, inset, 1 - inset, 1 - inset, low);
+        Polygon top = bunkSection(basis, dx, dy, inset, inset, 1 - inset, 1 - inset, high);
+        for (Polygon side : visibleConnectingFaces(bottom,
+                top.xpoints[0] - bottom.xpoints[0], top.ypoints[0] - bottom.ypoints[0])) {
+            mapTexture(graphics, texture, uprightFace(side), shade);
+        }
+        mapTexture(graphics, texture, top, shade);
+    }
+
+    private static void paintBedPost(Graphics2D graphics, Polygon basis, int dx, int dy, int corner) {
+        double u = corner == 1 || corner == 2 ? 0.96 : 0;
+        double v = corner >= 2 ? 0.96 : 0;
+        Polygon foot = bunkSection(basis, dx, dy, u, v, u + 0.04, v + 0.04, 0);
+        for (Polygon side : visibleConnectingFaces(foot, dx, dy)) {
+            mapTexture(graphics, AGED_OAK, uprightFace(side), 24);
+        }
+        mapTexture(graphics, AGED_OAK, translatedFace(foot, dx, dy), 8);
+    }
+
+    static Polygon bunkSection(Polygon basis, int dx, int dy,
+            double u0, double v0, double u1, double v1, double height) {
+        Polygon section = new Polygon();
+        double[] us = { u0, u1, u1, u0 };
+        double[] vs = { v0, v0, v1, v1 };
+        for (int i = 0; i < 4; i++) {
+            section.addPoint((int) Math.round(basis.xpoints[0]
+                    + us[i] * (basis.xpoints[1] - basis.xpoints[0])
+                    + vs[i] * (basis.xpoints[3] - basis.xpoints[0]) + height * dx),
+                (int) Math.round(basis.ypoints[0]
+                    + us[i] * (basis.ypoints[1] - basis.ypoints[0])
+                    + vs[i] * (basis.ypoints[3] - basis.ypoints[0]) + height * dy));
+        }
+        return section;
     }
 
     private static BufferedImage frontTexture(Furniture furniture) {
