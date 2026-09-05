@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
@@ -258,6 +259,29 @@ public class RadialMenuDialog extends JDialog {
         dispose();
     }
 
+    /** Keep the dialog alive until release, so the owner cannot receive half of a menu click. */
+    static MouseAdapter selectionMouseListener(Consumer<MouseEvent> updateHover, Runnable confirm) {
+        return new MouseAdapter() {
+            private int pressedButton = MouseEvent.NOBUTTON;
+
+            @Override
+            public void mousePressed(MouseEvent event) {
+                pressedButton = event.getButton();
+                updateHover.accept(event);
+                event.consume();
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent event) {
+                if (pressedButton == MouseEvent.NOBUTTON || event.getButton() != pressedButton) return;
+                pressedButton = MouseEvent.NOBUTTON;
+                updateHover.accept(event);
+                event.consume();
+                confirm.run();
+            }
+        };
+    }
+
     // ------------------------------------------------------------------
     // Geometry
     // ------------------------------------------------------------------
@@ -371,13 +395,8 @@ public class RadialMenuDialog extends JDialog {
                     updateHover(e.getX(), e.getY());
                 }
             });
-            addMouseListener(new MouseAdapter() {
-                @Override
-                public void mousePressed(MouseEvent e) {
-                    updateHover(e.getX(), e.getY());
-                    finish(hoveredIndex);
-                }
-            });
+            addMouseListener(selectionMouseListener(
+                e -> updateHover(e.getX(), e.getY()), () -> finish(hoveredIndex)));
         }
 
         /**
