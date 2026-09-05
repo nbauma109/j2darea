@@ -54,7 +54,7 @@ public final class ParallelepipedGenerator {
     static Polygon connectingFace(Polygon basis, int edge, int dx, int dy) {
         Polygon face = new Polygon();
         if (basis == null || basis.npoints < 4) return face;
-        int next = (edge + 1) & 3;
+        int next = (edge + 1) % 4;
         face.addPoint(basis.xpoints[edge], basis.ypoints[edge]);
         face.addPoint(basis.xpoints[next], basis.ypoints[next]);
         face.addPoint(basis.xpoints[next] + dx, basis.ypoints[next] + dy);
@@ -86,10 +86,11 @@ public final class ParallelepipedGenerator {
         if (basis == null || basis.npoints < 4) return visible;
         double winding = signedPolygonArea(basis);
         for (int edge = 0; edge < 4; edge++) {
-            int next = (edge + 1) & 3;
+            int next = (edge + 1) % 4;
             int edgeX = basis.xpoints[next] - basis.xpoints[edge];
             int edgeY = basis.ypoints[next] - basis.ypoints[edge];
             double extrusionCross = edgeX * (double) dy - edgeY * (double) dx;
+            // Multiplying by winding makes the visibility test independent of click direction.
             if (extrusionCross * winding > 0d) visible.add(connectingFace(basis, edge, dx, dy));
         }
         return visible;
@@ -186,10 +187,12 @@ public final class ParallelepipedGenerator {
 
     /** Posts follow all four extrusion edges; the decks span the actual basis. */
     private static void paintBed(Graphics2D graphics, Furniture furniture, Polygon basis, int dx, int dy) {
+        basis = orientedBedBasis(basis);
         boolean bunk = furniture == Furniture.BUNK_BED;
         BufferedImage source = furniture == Furniture.DOUBLE_BED ? DOUBLE_BED_TOP : SINGLE_BED_TOP;
         // The source pictures include wooden frames. Only their fabric belongs on the mattress.
         boolean doubleBed = furniture == Furniture.DOUBLE_BED;
+        // Asset-specific crop fractions exclude the wooden borders baked into the source pictures.
         int left = source.getWidth() * (doubleBed ? 4 : 7) / 100;
         int top = source.getHeight() * 5 / 100;
         BufferedImage bedding = source.getSubimage(left, top,
@@ -199,6 +202,8 @@ public final class ParallelepipedGenerator {
             if (basis.ypoints[i] < basis.ypoints[rear]) rear = i;
         }
         paintBedPost(graphics, basis, dx, dy, rear);
+        // Heights and thicknesses are fractions of the full corner-to-corner extrusion.
+        // Bunks need thinner components to leave room for two sleeping levels and the open gap.
         double mattressDepth = bunk ? 0.075 : 0.18;
         double frameDepth = bunk ? 0.075 : 0.16;
         for (double height : bunk ? new double[] { 0.24, 0.82 } : new double[] { 0.72 }) {
@@ -206,17 +211,56 @@ public final class ParallelepipedGenerator {
             double frameBase = mattressBase - frameDepth;
             // Deep perimeter timbers and a lower supporting ledge sit below the upholstery.
             paintBedBand(graphics, basis, dx, dy, frameBase, mattressBase, 0, AGED_OAK, 24);
+            // Darken the bottom 23% of the timber to distinguish its supporting ledge.
             paintBedBand(graphics, basis, dx, dy, frameBase,
                 frameBase + frameDepth * 0.23, 0, AGED_OAK, 48);
+            // Inset fabric 2.5% from each footprint edge so the supporting timber remains visible.
             Polygon deck = bunkSection(basis, dx, dy, 0.025, 0.025, 0.975, 0.975, height);
             Polygon mattressFoot = bunkSection(basis, dx, dy, 0.025, 0.025, 0.975, 0.975, mattressBase);
+            // The lower bunk receives stronger shadow from the platform above it.
             paintWrappedMattress(graphics, bedding, mattressFoot, deck, height < 0.5 ? 65 : 25);
             mapTexture(graphics, bedding, deck, height < 0.5 ? 55 : 10);
         }
         List<Integer> foreground = new ArrayList<Integer>();
         for (int i = 0; i < 4; i++) if (i != rear) foreground.add(i);
-        foreground.sort(Comparator.comparingInt(i -> basis.ypoints[i]));
+        final Polygon orientedBasis = basis;
+        foreground.sort(Comparator.comparingInt(i -> orientedBasis.ypoints[i]));
         for (int corner : foreground) paintBedPost(graphics, basis, dx, dy, corner);
+    }
+
+    /** Put the pillow row on the rear short end, independently of click order or winding. */
+    static Polygon orientedBedBasis(Polygon basis) {
+        int head = 0;
+        double bestLength = Double.POSITIVE_INFINITY;
+        double bestY = Double.POSITIVE_INFINITY;
+        double bestX = Double.POSITIVE_INFINITY;
+        for (int edge = 0; edge < 4; edge++) {
+            int next = (edge + 1) % 4;
+            double x = basis.xpoints[next] - basis.xpoints[edge];
+            double y = basis.ypoints[next] - basis.ypoints[edge];
+            // Compensate for the usual 2:1 isometric foreshortening of ground-plane Y.
+            double length = x * x + 4 * y * y;
+            double centerY = (basis.ypoints[edge] + basis.ypoints[next]) / 2d;
+            double centerX = (basis.xpoints[edge] + basis.xpoints[next]) / 2d;
+            // Compare squared lengths with a small tolerance; ties prefer the rear, then left end.
+            if (length < bestLength - 0.01 || (Math.abs(length - bestLength) < 0.01
+                    && (centerY < bestY || (centerY == bestY && centerX < bestX)))) {
+                head = edge;
+                bestLength = length;
+                bestY = centerY;
+                bestX = centerX;
+            }
+        }
+        int next = (head + 1) % 4;
+        boolean forward = basis.xpoints[head] < basis.xpoints[next]
+            || (basis.xpoints[head] == basis.xpoints[next] && basis.ypoints[head] < basis.ypoints[next]);
+        int start = forward ? head : next;
+        Polygon oriented = new Polygon();
+        for (int i = 0; i < 4; i++) {
+            int index = (start + (forward ? i : -i) + 4) % 4;
+            oriented.addPoint(basis.xpoints[index], basis.ypoints[index]);
+        }
+        return oriented;
     }
 
     /** Each fabric edge continues down its corresponding mattress side without reorienting the sheet seam. */
@@ -226,19 +270,24 @@ public final class ParallelepipedGenerator {
         int dx = top.xpoints[0] - bottom.xpoints[0];
         int dy = top.ypoints[0] - bottom.ypoints[0];
         for (int edge = 0; edge < 4; edge++) {
-            int next = (edge + 1) & 3;
+            int next = (edge + 1) % 4;
             double cross = (bottom.xpoints[next] - bottom.xpoints[edge]) * (double) dy
                 - (bottom.ypoints[next] - bottom.ypoints[edge]) * (double) dx;
             if (cross * winding <= 0) continue;
             Polygon side = new Polygon(new int[] {top.xpoints[edge], top.xpoints[next],
                 bottom.xpoints[next], bottom.xpoints[edge]}, new int[] {top.ypoints[edge],
                 top.ypoints[next], bottom.ypoints[next], bottom.ypoints[edge]}, 4);
+            // Edges 0/2 cross the texture width; edges 1/3 run along its length.
             int length = edge % 2 == 0 ? bedding.getWidth() : bedding.getHeight();
             BufferedImage wrap = new BufferedImage(length, 24, BufferedImage.TYPE_INT_RGB);
             for (int y = 0; y < wrap.getHeight(); y++) {
+                // Normalize rows 0..23 and sample up to 8% inward from the fabric edge.
+                // Row zero matches the top exactly; deeper rows extend nearby fabric down the side.
                 double inset = y / 23.0 * 0.08;
                 for (int x = 0; x < length; x++) {
                     double along = x / (double) (length - 1);
+                    // Follow the perimeter in order: top left-to-right, right downward,
+                    // bottom right-to-left, then left upward. This preserves sheet/blanket seams.
                     double u = edge == 0 ? along : edge == 1 ? 1 - inset : edge == 2 ? 1 - along : inset;
                     double v = edge == 0 ? inset : edge == 1 ? along : edge == 2 ? 1 - inset : 1 - along;
                     wrap.setRGB(x, y, bedding.getRGB((int) Math.round(u * (bedding.getWidth() - 1)),
@@ -261,6 +310,8 @@ public final class ParallelepipedGenerator {
     }
 
     private static void paintBedPost(Graphics2D graphics, Polygon basis, int dx, int dy, int corner) {
+        // In footprint coordinates the corners are (0,0), (1,0), (1,1), (0,1).
+        // A post occupies 4% along each axis, inset toward the interior from its prism corner.
         double u = corner == 1 || corner == 2 ? 0.96 : 0;
         double v = corner >= 2 ? 0.96 : 0;
         Polygon foot = bunkSection(basis, dx, dy, u, v, u + 0.04, v + 0.04, 0);
@@ -270,6 +321,11 @@ public final class ParallelepipedGenerator {
         mapTexture(graphics, AGED_OAK, translatedFace(foot, dx, dy), 8);
     }
 
+    /**
+     * Projects a rectangular footprint section: u follows corner 0 to 1, v follows 0 to 3,
+     * and height follows the extrusion vector. All three coordinates are fractions in 0..1.
+     * Opposite corners are reconstructed from these two basis vectors, assuming a parallelogram.
+     */
     static Polygon bunkSection(Polygon basis, int dx, int dy,
             double u0, double v0, double u1, double v1, double height) {
         Polygon section = new Polygon();

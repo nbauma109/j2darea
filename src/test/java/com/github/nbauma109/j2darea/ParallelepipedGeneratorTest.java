@@ -110,6 +110,33 @@ public class ParallelepipedGeneratorTest {
         }
     }
 
+    @Test
+    public void beddingFacesShortEndRegardlessOfStartingCornerAndWinding() {
+        Polygon rectangle = new Polygon(new int[] {80, 170, 290, 200},
+            new int[] {210, 178, 258, 290}, 4);
+        BufferedImage expected = ParallelepipedGenerator.generate(
+            ParallelepipedGenerator.Furniture.BUNK_BED, rectangle, 0, -155);
+        for (int start = 0; start < 4; start++) {
+            for (int direction : new int[] {-1, 1}) {
+                Polygon reordered = new Polygon();
+                for (int i = 0; i < 4; i++) {
+                    int index = (start + direction * i + 4) % 4;
+                    reordered.addPoint(rectangle.xpoints[index], rectangle.ypoints[index]);
+                }
+                Polygon oriented = ParallelepipedGenerator.orientedBedBasis(reordered);
+                assertEquals(80, oriented.xpoints[0]);
+                assertEquals(170, oriented.xpoints[1]);
+                BufferedImage actual = ParallelepipedGenerator.generate(
+                    ParallelepipedGenerator.Furniture.BUNK_BED, reordered, 0, -155);
+                for (int y = 0; y < expected.getHeight(); y++) {
+                    for (int x = 0; x < expected.getWidth(); x++) {
+                        assertEquals(expected.getRGB(x, y), actual.getRGB(x, y));
+                    }
+                }
+            }
+        }
+    }
+
     private static int countVisiblePixels(BufferedImage image) {
         int visible = 0;
         for (int y = 0; y < image.getHeight(); y++) {
