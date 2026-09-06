@@ -123,7 +123,7 @@ public class ParallelepipedGeneratorTest {
                     int index = (start + direction * i + 4) % 4;
                     reordered.addPoint(rectangle.xpoints[index], rectangle.ypoints[index]);
                 }
-                Polygon oriented = ParallelepipedGenerator.orientedBedBasis(reordered);
+                Polygon oriented = ParallelepipedGenerator.orientedLongRunBasis(reordered);
                 assertEquals(80, oriented.xpoints[0]);
                 assertEquals(170, oriented.xpoints[1]);
                 BufferedImage actual = ParallelepipedGenerator.generate(
@@ -135,6 +135,168 @@ public class ParallelepipedGeneratorTest {
                 }
             }
         }
+    }
+
+    @Test
+    public void stairsUpAndStairsDownBothFillTheSamePrism() {
+        Polygon basis = basis();
+        int dx = 25;
+        int dy = -160;
+        Rectangle prism = ParallelepipedGenerator.bounds(basis, dx, dy);
+        BufferedImage up = ParallelepipedGenerator.generate(
+            ParallelepipedGenerator.Furniture.STAIRS_UP, basis, dx, dy);
+        BufferedImage down = ParallelepipedGenerator.generate(
+            ParallelepipedGenerator.Furniture.STAIRS_DOWN, basis, dx, dy);
+
+        assertEquals(prism.width, up.getWidth());
+        assertEquals(prism.height, up.getHeight());
+        assertEquals(prism.width, down.getWidth());
+        assertEquals(prism.height, down.getHeight());
+        assertTrue("the two flights must not be identical", differ(up, down));
+    }
+
+    @Test
+    public void stairsRunTheLongFootprintAxisRegardlessOfStartingCornerAndWinding() {
+        Polygon rectangle = new Polygon(new int[] {80, 170, 290, 200},
+            new int[] {210, 178, 258, 290}, 4);
+        for (ParallelepipedGenerator.Furniture flight : new ParallelepipedGenerator.Furniture[] {
+                ParallelepipedGenerator.Furniture.STAIRS_UP,
+                ParallelepipedGenerator.Furniture.STAIRS_DOWN }) {
+            BufferedImage expected = ParallelepipedGenerator.generate(flight, rectangle, 0, -155);
+            for (int start = 0; start < 4; start++) {
+                for (int direction : new int[] {-1, 1}) {
+                    Polygon reordered = new Polygon();
+                    for (int i = 0; i < 4; i++) {
+                        int index = (start + direction * i + 4) % 4;
+                        reordered.addPoint(rectangle.xpoints[index], rectangle.ypoints[index]);
+                    }
+                    assertTrue(flight + " turned when the basis was drawn from corner " + start,
+                        !differ(expected, ParallelepipedGenerator.generate(flight, reordered, 0, -155)));
+                }
+            }
+        }
+    }
+
+    @Test
+    public void stairsDownLeaveTheFarShortEndOfTheRunOpenForTheFlight() {
+        Polygon rectangle = wellBasis();
+        int dx = 0;
+        int dy = -70;
+        for (int start = 0; start < 4; start++) {
+            for (int direction : new int[] {-1, 1}) {
+                Polygon reordered = new Polygon();
+                for (int i = 0; i < 4; i++) {
+                    int index = (start + direction * i + 4) % 4;
+                    reordered.addPoint(rectangle.xpoints[index], rectangle.ypoints[index]);
+                }
+                Polygon oriented = ParallelepipedGenerator.orientedLongRunBasis(reordered);
+                int access = ParallelepipedGenerator.stairWellAccessEdge(oriented, dx, dy);
+                int other = access == 0 ? 2 : 0;
+
+                assertTrue("the guard opens on an end of the run, never on a side of it",
+                    access == 0 || access == 2);
+                assertTrue("the run has to follow the long axis",
+                    edgeLength(oriented, access) < edgeLength(oriented, 1));
+                assertTrue("the flight has to be entered from the far end, so its risers face the viewer",
+                    edgeMidY(oriented, access) < edgeMidY(oriented, other));
+            }
+        }
+    }
+
+    @Test
+    public void stairsDownPaintTheFlightOnTheBottomFaceUnderTheGuard() {
+        Polygon rectangle = wellBasis();
+        int dx = 0;
+        int dy = -70;
+        Polygon oriented = ParallelepipedGenerator.orientedLongRunBasis(rectangle);
+        int access = ParallelepipedGenerator.stairWellAccessEdge(oriented, dx, dy);
+        Rectangle bounds = ParallelepipedGenerator.bounds(rectangle, dx, dy);
+        BufferedImage well = ParallelepipedGenerator.generate(
+            ParallelepipedGenerator.Furniture.STAIRS_DOWN, rectangle, dx, dy);
+
+        // The flight is the one a bare parallelogram gets, laid on the bottom face.
+        assertEquals(255, alphaAt(well, bounds, oriented, dx, dy, 0.5, 0.5, 0d));
+        assertEquals(255, alphaAt(well, bounds, oriented, dx, dy, 0.25, 0.75, 0d));
+        // The side the guard leaves open carries nothing at all: the flight never climbs it.
+        assertTrue("the flight must not climb the guard",
+            openFaceFilled(well, bounds, oriented, dy, access, 0.5) < 0.25);
+        // The balusters stand on the basis, so no part of the flight may be painted under it.
+        for (int x = 0; x < well.getWidth(); x++) {
+            int lowest = -1;
+            for (int y = 0; y < well.getHeight(); y++) {
+                if ((well.getRGB(x, y) >>> 24) != 0) lowest = y;
+            }
+            if (lowest < 0) continue;
+            assertTrue("painted below the feet of the guard in column " + x,
+                lowest + bounds.y <= basisFloorY(rectangle, x + bounds.x));
+        }
+    }
+
+    /** How much of one line across the unguarded face of a stairwell is painted. */
+    private static double openFaceFilled(BufferedImage image, Rectangle bounds, Polygon basis,
+            int dy, int edge, double h) {
+        int painted = 0;
+        for (int i = 0; i <= 10; i++) {
+            double t = 0.1 + i * 0.08;
+            double u = edge == 0 ? t : 1d - t;
+            double v = edge == 0 ? 0d : 1d;
+            double x = basis.xpoints[0] + u * (basis.xpoints[1] - basis.xpoints[0])
+                + v * (basis.xpoints[3] - basis.xpoints[0]);
+            double y = basis.ypoints[0] + u * (basis.ypoints[1] - basis.ypoints[0])
+                + v * (basis.ypoints[3] - basis.ypoints[0]) + h * dy;
+            if ((image.getRGB((int) Math.round(x) - bounds.x,
+                (int) Math.round(y) - bounds.y) >>> 24) != 0) painted++;
+        }
+        return painted / 11d;
+    }
+
+    private static Polygon wellBasis() {
+        return new Polygon(new int[] {80, 170, 290, 200}, new int[] {210, 178, 258, 290}, 4);
+    }
+
+    private static double edgeMidY(Polygon basis, int edge) {
+        int next = (edge + 1) % 4;
+        return (basis.ypoints[edge] + basis.ypoints[next]) / 2d;
+    }
+
+    private static double edgeLength(Polygon basis, int edge) {
+        int next = (edge + 1) % 4;
+        return Math.hypot(basis.xpoints[next] - basis.xpoints[edge],
+            basis.ypoints[next] - basis.ypoints[edge]);
+    }
+
+    /** The lowest point of the basis outline in the given column of the canvas. */
+    private static double basisFloorY(Polygon basis, int x) {
+        double floor = Double.NEGATIVE_INFINITY;
+        for (int edge = 0; edge < 4; edge++) {
+            int next = (edge + 1) % 4;
+            double x0 = basis.xpoints[edge];
+            double x1 = basis.xpoints[next];
+            if (x < Math.min(x0, x1) || x > Math.max(x0, x1)) continue;
+            double y0 = basis.ypoints[edge];
+            double y1 = basis.ypoints[next];
+            floor = Math.max(floor, x0 == x1 ? Math.max(y0, y1) : y0 + (x - x0) * (y1 - y0) / (x1 - x0));
+        }
+        return floor;
+    }
+
+    /** Alpha at the normalized (u, v, h) point of the prism: u across, v along, h up. */
+    private static int alphaAt(BufferedImage image, Rectangle bounds, Polygon basis,
+            int dx, int dy, double u, double v, double h) {
+        double x = basis.xpoints[0] + u * (basis.xpoints[1] - basis.xpoints[0])
+            + v * (basis.xpoints[3] - basis.xpoints[0]) + h * dx;
+        double y = basis.ypoints[0] + u * (basis.ypoints[1] - basis.ypoints[0])
+            + v * (basis.ypoints[3] - basis.ypoints[0]) + h * dy;
+        return image.getRGB((int) Math.round(x) - bounds.x, (int) Math.round(y) - bounds.y) >>> 24;
+    }
+
+    private static boolean differ(BufferedImage a, BufferedImage b) {
+        for (int y = 0; y < a.getHeight(); y++) {
+            for (int x = 0; x < a.getWidth(); x++) {
+                if (a.getRGB(x, y) != b.getRGB(x, y)) return true;
+            }
+        }
+        return false;
     }
 
     private static int countVisiblePixels(BufferedImage image) {

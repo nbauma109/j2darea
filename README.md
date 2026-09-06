@@ -36,7 +36,8 @@ Implemented now:
 - Randomized geometric carpets for drawn parallelograms, symmetric about both their axes, with field patterns, border motifs, medallion sizes and dye sets that can each be pinned or left to the seed, woven on a knot grid with fringe, pile and wear
 - Generated fills stack the way a room does: floors under everything, carpets over the floors and under whatever stands on them
 - A reusable radial selector, drawn as a lit compass, used for the parallelogram fill choice in place of a message box
-- A parallelepiped furniture tool: draw a parallelogram basis, shape its extrusion with a live mouse preview, then choose a BG1-inspired texture-mapped bookcase, chest, wardrobe, dresser, single bed or double bed from a dedicated radial selector
+- Stairs sunk into a drawn parallelogram: the flight comes down the long axis toward the viewer, and the wall of the shaft laid bare beside it deepens step by step, which is what carries the descent. The parallelepiped tool paints the same flight on the bottom face of a prism and rails the sides of the prism round it
+- A parallelepiped furniture tool: draw a parallelogram basis, shape its extrusion with a live mouse preview, then choose a BG1-inspired texture-mapped bookcase, chest, wardrobe, dresser, single bed, double bed, bunk bed, or a staircase running up or down from a dedicated radial selector
 - Extraction-area rectangle selection can now be sent through a single Nano Banana 2 cleanup-and-extract flow: it opens in a persistent editor window where you can run background removal and red-mask cleanup in either order before exporting the current preview as a transparent-background image
 
 Partially implemented:
@@ -101,7 +102,7 @@ Randomized ground workflow:
 Wood floor workflow:
 
 1. Start the parallelogram tool from the toolbar or `Insert -> Filled Parallelogram` and click the three corners as usual.
-2. Pick `WOOD FLOOR` on the radial selector that opens under the pointer; `SEAMLESS TEXTURE` opens the usual image chooser, `BRICKS` generates small masonry, `FLOOR TILES` generates square stone slabs, `WALLPAPER` repeats a wall pattern, `WINDOWS` fits framed glazing with optional curtains, and `CARPET` weaves a geometric carpet. The selector answers to the mouse, number keys, the arrow keys and `Enter`, and cancels on `Esc`, on its hub, or on a click outside the ring.
+2. Pick `WOOD FLOOR` on the radial selector that opens under the pointer; `SEAMLESS TEXTURE` opens the usual image chooser, `BRICKS` generates small masonry, `FLOOR TILES` generates square stone slabs, `WALLPAPER` repeats a wall pattern, `WINDOWS` fits framed glazing with optional curtains, `CARPET` weaves a geometric carpet, and `STAIRS DOWN` sinks a flight of stairs into the shape. The selector answers to the mouse, number keys, the arrow keys and `Enter`, and cancels on `Esc`, on its hub, or on a click outside the ring.
 3. Tune the board size, stagger, seams, tone, grain, knots and wear; the preview updates live and can be switched between a 1:1 detail view and the whole shape.
 4. `Generate` renders the floor and pastes it under the objects already placed, marked as laying `WOOD` over the search-map cells it covers.
 
@@ -111,7 +112,7 @@ Parallelepiped furniture workflow:
 
 1. Choose the cuboid toolbar button or `Insert -> Parallelepiped Furniture`, then click three corners exactly as for a parallelogram.
 2. Move the pointer away from the third corner to preview the four connecting faces and opposite face in real time.
-3. Click to fix the extrusion, then choose `BOOKCASE`, `CHEST`, `WARDROBE`, `DRESSER`, `SINGLE BED`, `DOUBLE BED` or `BUNK BED` on the radial selector. The result is pasted as one movable object; right-click cancels while drawing.
+3. Click to fix the extrusion, then choose `BOOKCASE`, `CHEST`, `WARDROBE`, `DRESSER`, `SINGLE BED`, `DOUBLE BED`, `BUNK BED`, `STAIRS UP` or `STAIRS DOWN` on the radial selector. `STAIRS UP` builds an open eight-step flight climbing away from the viewer, with its risers facing you, a closed stringer under the treads and a raking handrail on balusters down each side. `STAIRS DOWN` builds the head of a flight instead, so the prism is the guard rather than the stair: its side faces stand as a balustrade round the opening, save the short face at the far end of the run, which is the one the flight is entered by. The flight itself is the one the parallelogram tool draws, painted on the bottom face of the prism, so a guarded stairwell and a bare one are the same stair and only the guard round it differs. Both run the long axis of the footprint whichever corner the basis was started from. The result is pasted as one movable object; right-click cancels while drawing.
 
 Bricks and floor tiles use the same directional, canvas-anchored layout. Bricks
 offer running, quarter or stack bonds and can be placed on a floor or wall;

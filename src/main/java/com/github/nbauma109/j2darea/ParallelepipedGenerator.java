@@ -27,7 +27,9 @@ public final class ParallelepipedGenerator {
         DRESSER,
         SINGLE_BED,
         DOUBLE_BED,
-        BUNK_BED
+        BUNK_BED,
+        STAIRS_UP,
+        STAIRS_DOWN
     }
 
     private static final BufferedImage AGED_OAK = loadTexture("/furniture/aged-oak.png", new Color(70, 42, 25));
@@ -161,6 +163,13 @@ public final class ParallelepipedGenerator {
             return image;
         }
 
+        if (isStairs(furniture)) {
+            paintStairs(graphics, furniture, basis, dx, dy);
+            graphics.dispose();
+            makeVisiblePixelsOpaque(image);
+            return image;
+        }
+
         Polygon top = translatedFace(basis, dx, dy);
         Polygon front = furnitureFront(basis, dx, dy);
         List<TexturedFace> faces = new ArrayList<TexturedFace>();
@@ -185,9 +194,233 @@ public final class ParallelepipedGenerator {
             || furniture == Furniture.BUNK_BED;
     }
 
+    private static boolean isStairs(Furniture furniture) {
+        return furniture == Furniture.STAIRS_UP || furniture == Furniture.STAIRS_DOWN;
+    }
+
+    private static final int STAIR_STEPS = 8;
+    /** Handrail height above the flight line, as a fraction of the extrusion. */
+    private static final double STAIR_RAIL_RISE = 0.22;
+    private static final double STAIR_RAIL_THICK = 0.05;
+    /** Width of a handrail, a baluster and a newel post, as a fraction of the footprint. */
+    private static final double STAIR_RAIL_WIDTH = 0.07;
+    private static final double STAIR_BALUSTER = 0.035;
+    /** Balustrade proportions on a prism side face: where the top rail starts, and the bay count. */
+    private static final double STAIR_GUARD_TOP = 0.8;
+    private static final int STAIR_GUARD_BAYS = 4;
+
+    /**
+     * Fits a flight of stairs inside the projected prism.
+     *
+     * <p>STAIRS_UP is an open flight climbing away from the viewer. Each step is
+     * one rise deep, so the risers facing the viewer read as individual steps
+     * instead of merging into one wall, and a closed stringer panel fills the near
+     * side down to the floor the way a carpentered flight does. A raking handrail
+     * on balusters runs each side, and the walking line stops one rail height short
+     * of the top so the whole assembly stays inside the prism.
+     *
+     * <p>STAIRS_DOWN is the head of a flight instead, so the prism is the guard
+     * rather than the stair: its side faces stand as a balustrade round the opening,
+     * save the short face the flight is
+     * entered by, the short end farthest from the viewer. The flight itself is the one
+     * {@link StairsDownGenerator} draws for a plain parallelogram, painted here on the
+     * bottom face of the prism, so a guarded stairwell and a bare one are the same
+     * flight and only the guard round it differs.
+     *
+     * <p>The run is measured from the near end, so the flight faces the viewer
+     * whichever way round the basis was drawn.
+     */
+    private static void paintStairs(Graphics2D graphics, Furniture furniture, Polygon basis, int dx, int dy) {
+        boolean up = furniture == Furniture.STAIRS_UP;
+        // A flight is longer than it is wide, so the run always follows the long footprint axis.
+        basis = orientedLongRunBasis(basis);
+        // Run coordinate zero must sit nearest the viewer, whichever way the basis was drawn.
+        boolean nearIsZero = stairNearIsZero(basis, dx, dy);
+        if (!up) {
+            paintStairWell(graphics, basis, dx, dy, nearIsZero);
+            return;
+        }
+        // The left edge is the far one when it projects higher up the screen.
+        boolean leftIsFar = stairPoint(basis, dx, dy, 0d, 0.5, 0d)[1]
+            <= stairPoint(basis, dx, dy, 1d, 0.5, 0d)[1];
+        paintStairRail(graphics, basis, dx, dy, nearIsZero, leftIsFar);
+        paintStairFlight(graphics, basis, dx, dy, nearIsZero, !leftIsFar);
+        paintStairRail(graphics, basis, dx, dy, nearIsZero, !leftIsFar);
+    }
+
+    /** Whether run coordinate zero is the end of the run nearest the viewer. */
+    private static boolean stairNearIsZero(Polygon oriented, int dx, int dy) {
+        return stairPoint(oriented, dx, dy, 0.5, 0d, 0d)[1]
+            >= stairPoint(oriented, dx, dy, 0.5, 1d, 0d)[1];
+    }
+
+    /**
+     * Index, in the oriented basis, of the edge a sunken flight is entered by: the short
+     * end of the run standing farther from the viewer. Its side face is the one the guard
+     * leaves open, and the flight comes down from it toward the viewer.
+     */
+    static int stairWellAccessEdge(Polygon oriented, int dx, int dy) {
+        return stairNearIsZero(oriented, dx, dy) ? 2 : 0;
+    }
+
+    /** Height of the walking line at run distance {@code s} from the near end. */
+    private static double stairLine(double s) {
+        return s * (1d - STAIR_RAIL_RISE);
+    }
+
+    /** Maps a run distance from the near end onto the basis axis running corner 0 to corner 3. */
+    private static double stairRun(double s, boolean nearIsZero) {
+        return nearIsZero ? s : 1d - s;
+    }
+
+    /** An open flight: one-rise steps climbing away, over a stringer that closes the near side. */
+    private static void paintStairFlight(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero, boolean nearIsLeft) {
+        double run = 1d / STAIR_STEPS;
+        // The stringer goes down first: the steps then overdraw all of it but the raking edge.
+        double u = nearIsLeft ? 0d : 1d;
+        mapTexture(graphics, AGED_OAK, stairQuad(basis, dx, dy, new double[][] {
+            { u, stairRun(1d, nearIsZero), stairLine(1d) },
+            { u, stairRun(0d, nearIsZero), 0d },
+            { u, stairRun(0d, nearIsZero), 0d },
+            { u, stairRun(1d, nearIsZero), 0d } }), 58);
+        // Deepest step first, so each nearer riser overdraws the tread behind it.
+        for (int step = STAIR_STEPS - 1; step >= 0; step--) {
+            double s0 = step * run;
+            double tread = stairLine(s0 + run);
+            // A hair of extra depth below each tread closes the seam against the step in front.
+            double under = Math.max(0d, stairLine(s0) - 0.006);
+            stairBox(graphics, basis, dx, dy, 0d, stairRun(s0, nearIsZero), 1d,
+                stairRun(s0 + run, nearIsZero), under, tread, 4, 58);
+        }
+    }
+
+    /**
+     * The head of a descending flight. The prism guards the opening: its side faces
+     * stand as a balustrade, save the short face at the far end of the run, which is
+     * left open because that is the one the flight is entered by. The flight itself
+     * drops out of that entrance into a well dug under the footprint, coming toward
+     * the viewer so that its risers face the viewer and it reads as steps rather than
+     * as a shaded floor. Guards behind the well go down before it and the ones in
+     * front of it after, so the near balusters stand between the viewer and the shaft.
+     */
+    private static void paintStairWell(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero) {
+        double winding = signedPolygonArea(basis);
+        int access = stairWellAccessEdge(basis, dx, dy);
+        for (int stage = 0; stage < 3; stage++) {
+            if (stage == 1) {
+                StairsDownGenerator.paint(graphics, basis);
+                continue;
+            }
+            for (int edge = 0; edge < 4; edge++) {
+                if (edge == access) continue;
+                int next = (edge + 1) % 4;
+                double cross = (basis.xpoints[next] - basis.xpoints[edge]) * (double) dy
+                    - (basis.ypoints[next] - basis.ypoints[edge]) * (double) dx;
+                if ((cross * winding > 0d) == (stage == 2)) {
+                    paintGuardRail(graphics, basis, dx, dy, edge);
+                }
+            }
+        }
+    }
+
+    /** Newel posts, balusters and a top rail, all on one side face of the prism. */
+    private static void paintGuardRail(Graphics2D graphics, Polygon basis, int dx, int dy, int edge) {
+        for (int bay = 0; bay <= STAIR_GUARD_BAYS; bay++) {
+            boolean newel = bay == 0 || bay == STAIR_GUARD_BAYS;
+            double width = newel ? 0.06 : 0.03;
+            double centre = bay / (double) STAIR_GUARD_BAYS;
+            double t0 = Math.max(0d, Math.min(1d - width, centre - width / 2));
+            mapTexture(graphics, AGED_OAK, uprightFace(guardQuad(basis, dx, dy, edge,
+                t0, 0d, t0 + width, newel ? 1d : STAIR_GUARD_TOP)), newel ? 16 : 26);
+        }
+        mapTexture(graphics, AGED_OAK, uprightFace(guardQuad(basis, dx, dy, edge,
+            0d, STAIR_GUARD_TOP, 1d, 1d)), 6);
+    }
+
+    /** A quad on the side face standing on basis edge {@code edge}: t runs along it, h up the extrusion. */
+    private static Polygon guardQuad(Polygon basis, int dx, int dy, int edge,
+            double t0, double h0, double t1, double h1) {
+        int next = (edge + 1) % 4;
+        double ex = basis.xpoints[next] - basis.xpoints[edge];
+        double ey = basis.ypoints[next] - basis.ypoints[edge];
+        double[][] corners = { { t0, h1 }, { t1, h1 }, { t1, h0 }, { t0, h0 } };
+        Polygon quad = new Polygon();
+        for (double[] c : corners) {
+            quad.addPoint((int) Math.round(basis.xpoints[edge] + c[0] * ex + c[1] * dx),
+                (int) Math.round(basis.ypoints[edge] + c[0] * ey + c[1] * dy));
+        }
+        return quad;
+    }
+
+    /** A raking handrail on balusters along one side, running the whole flight. */
+    private static void paintStairRail(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero, boolean left) {
+        double u0 = left ? 0d : 1d - STAIR_RAIL_WIDTH;
+        double u1 = left ? STAIR_RAIL_WIDTH : 1d;
+        double centre = (u0 + u1) / 2;
+        double run = 1d / STAIR_STEPS;
+        // Balusters every other step, with a stouter newel post at each end of the run.
+        for (int step = 0; step <= STAIR_STEPS; step += 2) {
+            boolean newel = step == 0 || step == STAIR_STEPS;
+            double half = (newel ? STAIR_RAIL_WIDTH : STAIR_BALUSTER) / 2;
+            double s = Math.min(1d - 2 * half, step * run);
+            double foot = stairLine(s);
+            double head = foot + STAIR_RAIL_RISE - STAIR_RAIL_THICK;
+            stairBox(graphics, basis, dx, dy, centre - half, stairRun(s, nearIsZero),
+                centre + half, stairRun(s + 2 * half, nearIsZero), foot,
+                newel ? head + STAIR_RAIL_THICK : head, 20, 46);
+        }
+        double nearTop = stairLine(0d) + STAIR_RAIL_RISE;
+        double farTop = stairLine(1d) + STAIR_RAIL_RISE;
+        double near = stairRun(0d, nearIsZero);
+        double far = stairRun(1d, nearIsZero);
+        // The outward face of the rail and its upper surface; the inner face never faces the viewer.
+        double outer = left ? u0 : u1;
+        mapTexture(graphics, AGED_OAK, uprightFace(stairQuad(basis, dx, dy, new double[][] {
+            { outer, near, nearTop }, { outer, far, farTop },
+            { outer, far, farTop - STAIR_RAIL_THICK }, { outer, near, nearTop - STAIR_RAIL_THICK } })), 34);
+        mapTexture(graphics, AGED_OAK, stairQuad(basis, dx, dy, new double[][] {
+            { u0, near, nearTop }, { u1, near, nearTop },
+            { u1, far, farTop }, { u0, far, farTop } }), 12);
+    }
+
+    /** Projects a normalized point: {@code u} across the width, {@code v} along the run, {@code h} up the extrusion. */
+    private static int[] stairPoint(Polygon basis, int dx, int dy, double u, double v, double h) {
+        double x = basis.xpoints[0] + u * (basis.xpoints[1] - basis.xpoints[0])
+            + v * (basis.xpoints[3] - basis.xpoints[0]) + h * dx;
+        double y = basis.ypoints[0] + u * (basis.ypoints[1] - basis.ypoints[0])
+            + v * (basis.ypoints[3] - basis.ypoints[0]) + h * dy;
+        return new int[] { (int) Math.round(x), (int) Math.round(y) };
+    }
+
+    /** A quad from four normalized (u, v, h) corners, kept in the given winding. */
+    private static Polygon stairQuad(Polygon basis, int dx, int dy, double[][] corners) {
+        Polygon quad = new Polygon();
+        for (double[] c : corners) {
+            int[] p = stairPoint(basis, dx, dy, c[0], c[1], c[2]);
+            quad.addPoint(p[0], p[1]);
+        }
+        return quad;
+    }
+
+    /** An axis-aligned box in normalized space; paints its top and the two viewer-facing sides. */
+    private static void stairBox(Graphics2D graphics, Polygon basis, int dx, int dy,
+            double u0, double v0, double u1, double v1, double h0, double h1, int topShade, int sideShade) {
+        Polygon bottom = bunkSection(basis, dx, dy, u0, v0, u1, v1, h0);
+        Polygon top = bunkSection(basis, dx, dy, u0, v0, u1, v1, h1);
+        int riseX = top.xpoints[0] - bottom.xpoints[0];
+        int riseY = top.ypoints[0] - bottom.ypoints[0];
+        for (Polygon side : visibleConnectingFaces(bottom, riseX, riseY)) {
+            mapTexture(graphics, AGED_OAK, uprightFace(side), sideShade);
+        }
+        mapTexture(graphics, AGED_OAK, top, topShade);
+    }
+
     /** Posts follow all four extrusion edges; the decks span the actual basis. */
     private static void paintBed(Graphics2D graphics, Furniture furniture, Polygon basis, int dx, int dy) {
-        basis = orientedBedBasis(basis);
+        basis = orientedLongRunBasis(basis);
         boolean bunk = furniture == Furniture.BUNK_BED;
         BufferedImage source = furniture == Furniture.DOUBLE_BED ? DOUBLE_BED_TOP : SINGLE_BED_TOP;
         // The source pictures include wooden frames. Only their fabric belongs on the mattress.
@@ -228,8 +461,8 @@ public final class ParallelepipedGenerator {
         for (int corner : foreground) paintBedPost(graphics, basis, dx, dy, corner);
     }
 
-    /** Put the pillow row on the rear short end, independently of click order or winding. */
-    static Polygon orientedBedBasis(Polygon basis) {
+    /** Runs the long footprint axis from corner 0 to corner 3 and the short one from 0 to 1, independently of click order or winding. */
+    static Polygon orientedLongRunBasis(Polygon basis) {
         int head = 0;
         double bestLength = Double.POSITIVE_INFINITY;
         double bestY = Double.POSITIVE_INFINITY;

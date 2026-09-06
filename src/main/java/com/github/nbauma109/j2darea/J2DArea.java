@@ -3025,6 +3025,11 @@ public class J2DArea extends JFrame {
             fillImage = generatePainting(parallelogram);
             tileType = paintingSearchMapTileType();
             stacking = paintingStacking();
+        } else if (fill == ParallelogramFill.STAIRS_DOWN) {
+            fillImage = StairsDownGenerator.generate(parallelogram);
+            // A flight is walked on like any other wooden floor, and it lies at floor level.
+            tileType = SearchMapTileType.WOOD;
+            stacking = PastedObjectStacking.FLOOR;
         } else if (fill == ParallelogramFill.CARPET) {
             fillImage = generateCarpet(parallelogram);
             // A carpet lies on whatever floor is already there, and the search map
@@ -3080,7 +3085,11 @@ public class J2DArea extends JFrame {
             new RadialMenuDialog.Option("DOUBLE BED", "Build a wide two-person bed",
                 J2DArea::paintDoubleBedSymbol),
             new RadialMenuDialog.Option("BUNK BED", "Build two stacked wooden bunks",
-                J2DArea::paintBunkBedSymbol));
+                J2DArea::paintBunkBedSymbol),
+            new RadialMenuDialog.Option("STAIRS UP", "Build a flight of stairs climbing away from the viewer",
+                J2DArea::paintStairsUpSymbol),
+            new RadialMenuDialog.Option("STAIRS DOWN", "Sink a stairwell, guarded on every side but its entrance",
+                J2DArea::paintStairsDownSymbol));
         int choice = RadialMenuDialog.choose(this, "Build Parallelepiped", options, null);
         if (choice == 0) return ParallelepipedGenerator.Furniture.BOOKCASE;
         if (choice == 1) return ParallelepipedGenerator.Furniture.CHEST;
@@ -3089,6 +3098,8 @@ public class J2DArea extends JFrame {
         if (choice == 4) return ParallelepipedGenerator.Furniture.SINGLE_BED;
         if (choice == 5) return ParallelepipedGenerator.Furniture.DOUBLE_BED;
         if (choice == 6) return ParallelepipedGenerator.Furniture.BUNK_BED;
+        if (choice == 7) return ParallelepipedGenerator.Furniture.STAIRS_UP;
+        if (choice == 8) return ParallelepipedGenerator.Furniture.STAIRS_DOWN;
         return null;
     }
 
@@ -3153,7 +3164,8 @@ public class J2DArea extends JFrame {
         WALLPAPER,
         WINDOWS,
         PAINTING,
-        CARPET
+        CARPET,
+        STAIRS_DOWN
     }
 
     /**
@@ -3179,7 +3191,9 @@ public class J2DArea extends JFrame {
             new RadialMenuDialog.Option("PAINTING", "Hang a framed painting of a chosen subject",
                 J2DArea::paintPaintingSymbol),
             new RadialMenuDialog.Option("CARPET", "Weave a random geometric carpet",
-                J2DArea::paintCarpetSymbol));
+                J2DArea::paintCarpetSymbol),
+            new RadialMenuDialog.Option("STAIRS DOWN", "Sink a flight of stairs into the shape",
+                J2DArea::paintStairsDownSymbol));
         int choice = RadialMenuDialog.choose(this, "Fill Parallelogram", options, null);
         switch (choice) {
             case 0:
@@ -3198,6 +3212,8 @@ public class J2DArea extends JFrame {
                 return ParallelogramFill.PAINTING;
             case 7:
                 return ParallelogramFill.CARPET;
+            case 8:
+                return ParallelogramFill.STAIRS_DOWN;
             default:
                 return null;
         }
@@ -3295,6 +3311,38 @@ public class J2DArea extends JFrame {
         graphics.drawLine(x + width - width / 4, -height / 8, x + width - width / 4, height / 2);
         graphics.drawLine(x + width - width / 4, height / 8, x + width, height / 8);
         graphics.drawLine(x + width - width / 4, height / 3, x + width, height / 3);
+    }
+
+    private static void paintStairsUpSymbol(Graphics2D graphics, int size, Color color) {
+        paintStairsSymbol(graphics, size, color, true);
+    }
+
+    private static void paintStairsDownSymbol(Graphics2D graphics, int size, Color color) {
+        paintStairsSymbol(graphics, size, color, false);
+    }
+
+    /** A stepped profile: rising left-to-right for "up", falling left-to-right for "down". */
+    private static void paintStairsSymbol(Graphics2D graphics, int size, Color color, boolean up) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int steps = 4;
+        int run = size / steps;
+        int rise = size / steps;
+        int cx = -size / 2;
+        int cy = up ? size / 2 : -size / 2;
+        Polygon profile = new Polygon();
+        profile.addPoint(cx, cy);
+        for (int i = 0; i < steps; i++) {
+            cy += up ? -rise : rise;
+            profile.addPoint(cx, cy);
+            cx += run;
+            profile.addPoint(cx, cy);
+        }
+        graphics.drawPolyline(profile.xpoints, profile.ypoints, profile.npoints);
+        int baseY = size / 2;
+        graphics.drawLine(-size / 2, baseY, cx, baseY);
+        graphics.drawLine(cx, baseY, cx, cy);
     }
 
     private static BufferedImage createParallelepipedIcon() {
