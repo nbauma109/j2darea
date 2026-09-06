@@ -11,6 +11,15 @@ import org.junit.Test;
 
 public class StairsDownGeneratorTest {
 
+    @Test
+    public void pillarFeetUseFlatTreadsInsteadOfAContinuousSlope() {
+        assertEquals(StairsDownGenerator.treadDrop(shape(), 0.61),
+            StairsDownGenerator.treadDrop(shape(), 0.69), 0.0001);
+        assertTrue(StairsDownGenerator.treadDrop(shape(), 0.55)
+            > StairsDownGenerator.treadDrop(shape(), 0.65));
+        assertEquals(0d, StairsDownGenerator.treadDrop(shape(), 0.95), 0.0001);
+    }
+
     private static Polygon shape() {
         return new Polygon(new int[] {20, 150, 230, 100}, new int[] {140, 100, 140, 180}, 4);
     }

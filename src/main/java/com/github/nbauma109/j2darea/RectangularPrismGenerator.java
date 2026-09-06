@@ -9,9 +9,12 @@ import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
+import java.awt.TexturePaint;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
 import java.awt.geom.Point2D;
+import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -151,8 +154,29 @@ public final class RectangularPrismGenerator {
         return bounds;
     }
 
+    /** Include the small floor margin occupied by the stairwell's outside guard. */
+    public static Rectangle bounds(Furniture furniture, Polygon basis, int dx, int dy) {
+        if (furniture == Furniture.STAIRS_DOWN && basis != null && basis.npoints >= 4) {
+            return bounds(stairGuardBasis(basis), dx, dy);
+        }
+        return bounds(basis, dx, dy);
+    }
+
+    static Polygon stairGuardBasis(Polygon basis) {
+        return bunkSection(orientedLongRunBasis(basis), 0, 0, -0.045, -0.045, 1.045, 1.045, 0d);
+    }
+
+    private static Area prismSilhouette(Polygon basis, int dx, int dy) {
+        Area silhouette = new Area(basis);
+        silhouette.add(new Area(translatedFace(basis, dx, dy)));
+        for (int edge = 0; edge < 4; edge++) {
+            silhouette.add(new Area(connectingFace(basis, edge, dx, dy)));
+        }
+        return silhouette;
+    }
+
     public static BufferedImage generate(Furniture furniture, Polygon basis, int dx, int dy) {
-        Rectangle bounds = bounds(basis, dx, dy);
+        Rectangle bounds = bounds(furniture, basis, dx, dy);
         BufferedImage image = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
         if (basis == null || basis.npoints < 4) return image;
 
@@ -169,12 +193,8 @@ public final class RectangularPrismGenerator {
         }
 
         if (isStairs(furniture)) {
-            // Rounded timber corners must stay inside the exact drawn prism silhouette.
-            Area silhouette = new Area(basis);
-            silhouette.add(new Area(translatedFace(basis, dx, dy)));
-            for (int edge = 0; edge < 4; edge++) {
-                silhouette.add(new Area(connectingFace(basis, edge, dx, dy)));
-            }
+            Area silhouette = prismSilhouette(
+                furniture == Furniture.STAIRS_DOWN ? stairGuardBasis(basis) : basis, dx, dy);
             graphics.clip(silhouette);
             paintStairs(graphics, furniture, basis, dx, dy);
             graphics.dispose();
@@ -297,14 +317,6 @@ public final class RectangularPrismGenerator {
     private static final int STAIR_STEPS = 10;
     /** Handrail height above the flight line, as a fraction of the extrusion. */
     private static final double STAIR_RAIL_RISE = 0.26;
-    private static final double STAIR_RAIL_THICK = 0.026;
-    /** Width of a handrail, a baluster and a newel post, as a fraction of the footprint. */
-    private static final double STAIR_RAIL_WIDTH = 0.05;
-    private static final double STAIR_BALUSTER = 0.025;
-    /** Balustrade proportions on a prism side face: where the top rail starts, and the bay count. */
-    private static final double STAIR_GUARD_TOP = 0.88;
-    private static final int STAIR_GUARD_BAYS = 4;
-
     /**
      * Fits a flight of stairs inside the projected prism.
      *
@@ -339,8 +351,10 @@ public final class RectangularPrismGenerator {
         // The left edge is the far one when it projects higher up the screen.
         boolean leftIsFar = stairPoint(basis, dx, dy, 0d, 0.5, 0d)[1]
             <= stairPoint(basis, dx, dy, 1d, 0.5, 0d)[1];
-        paintStairRail(graphics, basis, dx, dy, nearIsZero, leftIsFar);
         paintStairFlight(graphics, basis, dx, dy, nearIsZero, !leftIsFar);
+        // Both rails stand above the treads. Painting the far rail before the flight
+        // hides it behind risers when the long axis projects nearly vertically.
+        paintStairRail(graphics, basis, dx, dy, nearIsZero, leftIsFar);
         paintStairRail(graphics, basis, dx, dy, nearIsZero, !leftIsFar);
     }
 
@@ -395,102 +409,235 @@ public final class RectangularPrismGenerator {
         }
     }
 
+    /** Thin BG1-style rail with an outward-facing curl at the bottom step. */
+    private static void paintStairRail(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero, boolean left) {
+        float diameter = railDiameter(basis);
+        double u = left ? 0.10 : 0.90;
+        double curl = left ? 0.005 : 0.995;
+        double middle = left ? 0.015 : 0.985;
+        for (int step = 0; step < STAIR_STEPS; step += 2) {
+            double s = (step + 0.5) / STAIR_STEPS;
+            double foot = stairLine((step + 1d) / STAIR_STEPS);
+            double head = step == 0 ? 0.305 : stairLine(s) + STAIR_RAIL_RISE;
+            paintEdgePillar(graphics, basis, dx, dy, nearIsZero, u, s, foot, head);
+        }
+        Path2D rail = railPath(basis, dx, dy, nearIsZero, new double[][] {
+            {curl, 0.105, 0.305},
+            {middle, 0.015, 0.305, u, 0.005, 0.305, u, 0.05, 0.305},
+            {u, 0.08, 0.31, u, 0.12, stairLine(0.12) + STAIR_RAIL_RISE,
+                u, 0.18, stairLine(0.18) + STAIR_RAIL_RISE},
+            {u, 0.965, stairLine(0.965) + STAIR_RAIL_RISE} });
+        paintRoundRail(graphics, rail, diameter, 0);
+    }
+
     /**
      * The head of a descending flight. The prism guards the opening: its side faces
      * stand as a balustrade, save the short face at the far end of the run, which is
      * left open because that is the one the flight is entered by. The flight itself
      * drops out of that entrance into a well dug under the footprint, coming toward
      * the viewer so that its risers face the viewer and it reads as steps rather than
-     * as a shaded floor. Guards behind the well go down before it and the ones in
-     * front of it after, so the near balusters stand between the viewer and the shaft.
+     * as a shaded floor. Paint the flight first so it cannot erase the inner pillars
+     * that stand on its treads, then paint the far guard before the near guard.
      */
     private static void paintStairWell(Graphics2D graphics, Polygon basis, int dx, int dy,
             boolean nearIsZero) {
-        double winding = signedPolygonArea(basis);
-        int access = stairWellAccessEdge(basis, dx, dy);
-        for (int stage = 0; stage < 3; stage++) {
-            if (stage == 1) {
-                StairsDownGenerator.paint(graphics, basis);
-                continue;
-            }
-            for (int edge = 0; edge < 4; edge++) {
-                if (edge == access) continue;
-                int next = (edge + 1) % 4;
-                double cross = (basis.xpoints[next] - basis.xpoints[edge]) * (double) dy
-                    - (basis.ypoints[next] - basis.ypoints[edge]) * (double) dx;
-                if ((cross * winding > 0d) == (stage == 2)) {
-                    paintGuardRail(graphics, basis, dx, dy, edge);
-                }
-            }
+        boolean leftIsFar = stairPoint(basis, dx, dy, 0d, 0.5, 0d)[1]
+            <= stairPoint(basis, dx, dy, 1d, 0.5, 0d)[1];
+        StairsDownGenerator.paint(graphics, basis);
+        paintOutsideStairPillars(graphics, basis, dx, dy, nearIsZero, leftIsFar);
+        paintInnerDescendingRail(graphics, basis, dx, dy, nearIsZero, leftIsFar);
+        paintInnerDescendingRail(graphics, basis, dx, dy, nearIsZero, !leftIsFar);
+        paintOutsideStairPillars(graphics, basis, dx, dy, nearIsZero, !leftIsFar);
+        paintDescendingRail(graphics, basis, dx, dy, nearIsZero, leftIsFar);
+        paintDescendingRail(graphics, basis, dx, dy, nearIsZero, !leftIsFar);
+        paintGuardJunction(graphics, basis, dx, dy, nearIsZero);
+    }
+
+    /** Close the near end with a rounded cross-rail and three pillars on its floor edge. */
+    private static void paintGuardJunction(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero) {
+        for (double u : new double[] {0.22, 0.50, 0.78}) {
+            paintEdgePillar(graphics, basis, dx, dy, nearIsZero, u, -0.025, 0d, 0.93, true);
         }
+        Path2D junction = railPath(basis, dx, dy, nearIsZero, new double[][] {
+            {-0.025, 0.12, 0.93},
+            {-0.025, 0.040, 0.93, 0.040, -0.025, 0.93, 0.12, -0.025, 0.93},
+            {0.88, -0.025, 0.93},
+            {0.960, -0.025, 0.93, 1.025, 0.040, 0.93, 1.025, 0.12, 0.93} });
+        paintRoundRail(graphics, junction, railDiameter(basis), 0);
     }
 
-    /** Newel posts, balusters and a top rail, all on one side face of the prism. */
-    private static void paintGuardRail(Graphics2D graphics, Polygon basis, int dx, int dy, int edge) {
-        for (int bay = 0; bay <= STAIR_GUARD_BAYS; bay++) {
-            boolean newel = bay == 0 || bay == STAIR_GUARD_BAYS;
-            double width = newel ? 0.045 : 0.022;
-            double centre = bay / (double) STAIR_GUARD_BAYS;
-            double t0 = Math.max(0d, Math.min(1d - width, centre - width / 2));
-            guardTimber(graphics, basis, dx, dy, edge, t0, t0 + width,
-                newel ? 0.045 : 0.025, 0d, newel ? 1d : STAIR_GUARD_TOP, 42);
-            if (newel) {
-                // Squared end caps and collars interrupt the otherwise plain, slender posts.
-                guardTimber(graphics, basis, dx, dy, edge, t0, t0 + width, 0.05, 0.95, 1d, 20);
-                guardTimber(graphics, basis, dx, dy, edge, t0, t0 + width, 0.05, 0.78, 0.82, 32);
-            }
-        }
-        guardTimber(graphics, basis, dx, dy, edge, 0d, 1d, 0.025, 0.08, 0.115, 66);
-        guardTimber(graphics, basis, dx, dy, edge, 0d, 1d, 0.04, STAIR_GUARD_TOP, 0.96, 32);
-    }
-
-    /** Give the guard a top and two visible sides, with all thickness inside the footprint. */
-    private static void guardTimber(Graphics2D graphics, Polygon basis, int dx, int dy, int edge,
-            double t0, double t1, double depth, double h0, double h1, int shade) {
-        double u0 = edge == 0 ? t0 : edge == 1 ? 1d - depth : edge == 2 ? 1d - t1 : 0d;
-        double u1 = edge == 0 ? t1 : edge == 1 ? 1d : edge == 2 ? 1d - t0 : depth;
-        double v0 = edge == 0 ? 0d : edge == 1 ? t0 : edge == 2 ? 1d - depth : 1d - t1;
-        double v1 = edge == 0 ? depth : edge == 1 ? t1 : edge == 2 ? 1d : 1d - t0;
-        stairBox(graphics, basis, dx, dy, u0, v0, u1, v1, h0, h1, Math.max(0, shade - 24), shade);
-    }
-
-    /** A raking handrail on balusters along one side, running the whole flight. */
-    private static void paintStairRail(Graphics2D graphics, Polygon basis, int dx, int dy,
+    /** Rear pillars sit behind the descending rails; foreground pillars sit in front. */
+    private static void paintOutsideStairPillars(Graphics2D graphics, Polygon basis, int dx, int dy,
             boolean nearIsZero, boolean left) {
-        double u0 = left ? 0d : 1d - STAIR_RAIL_WIDTH;
-        double u1 = left ? STAIR_RAIL_WIDTH : 1d;
-        double centre = (u0 + u1) / 2;
-        double run = 1d / STAIR_STEPS;
-        // Balusters every other step, with a stouter newel post at each end of the run.
-        for (int step = 0; step <= STAIR_STEPS; step += 2) {
-            boolean newel = step == 0 || step == STAIR_STEPS;
-            double half = (newel ? STAIR_RAIL_WIDTH : STAIR_BALUSTER) / 2;
-            double s = Math.min(1d - 2 * half, step * run);
-            double foot = stairLine(s);
-            double head = foot + STAIR_RAIL_RISE - STAIR_RAIL_THICK;
-            stairBox(graphics, basis, dx, dy, centre - half, stairRun(s, nearIsZero),
-                centre + half, stairRun(s + 2 * half, nearIsZero), foot,
-                newel ? head + STAIR_RAIL_THICK : head, 20, 46);
-            if (newel) {
-                stairBox(graphics, basis, dx, dy, centre - half, stairRun(s, nearIsZero),
-                    centre + half, stairRun(s + 2 * half, nearIsZero),
-                    head, head + STAIR_RAIL_THICK, 8, 24);
+        double outside = left ? -0.025 : 1.025;
+        for (double s : new double[] {0.14, 0.42, 0.70}) {
+            paintEdgePillar(graphics, basis, dx, dy, nearIsZero, outside, s, 0d, 0.93);
+        }
+    }
+
+    /** The outer guard doubles back in a smooth hairpin to follow the descending flight. */
+    private static void paintDescendingRail(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero, boolean left) {
+        float diameter = railDiameter(basis);
+        double outside = left ? -0.025 : 1.025;
+        double inside = left ? 0.17 : 0.83;
+        // The guard follows the opening edge, turns smoothly across the entrance, then drops
+        // down the inner edge of the flight. This is the characteristic BG1 hairpin silhouette.
+        Path2D rail = railPath(basis, dx, dy, nearIsZero, new double[][] {
+            {outside, 0.12, 0.93}, {outside, 0.84, 0.93},
+            // The cubic enters parallel to the level guard and leaves parallel to the
+            // sloping rail. Sharing that slope with the pillars eliminates gaps at their heads.
+            {outside, 1.015, 0.93, inside, 1.015, descendingRailHeight(basis, dy, 1.015),
+                inside, 0.84, descendingRailHeight(basis, dy, 0.84)} });
+        paintRoundRail(graphics, rail, diameter, 0);
+    }
+
+    /** The rails within the shaft sit behind the outer guard and its returning bends. */
+    private static void paintInnerDescendingRail(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero, boolean left) {
+        double inside = left ? 0.17 : 0.83;
+        Graphics2D innerPosts = (Graphics2D) graphics.create();
+        innerPosts.clip(prismSilhouette(basis, dx, dy));
+        for (double s : new double[] {0.12, 0.42, 0.62, 0.82}) {
+            double foot = -StairsDownGenerator.treadDrop(basis, s) / Math.max(1d, Math.abs(dy));
+            double head = descendingRailHeight(basis, dy, s);
+            paintEdgePillar(innerPosts, basis, dx, dy, nearIsZero, inside, s, foot, head);
+        }
+        innerPosts.dispose();
+        paintRailIntoShaft(graphics, basis, dx, dy, nearIsZero, inside, railDiameter(basis));
+    }
+
+    /** Extend well past the visible opening, so no capped end is exposed inside the shaft. */
+    private static void paintRailIntoShaft(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero, double inside, float diameter) {
+        Graphics2D shaft = (Graphics2D) graphics.create();
+        shaft.clip(prismSilhouette(basis, dx, dy));
+        Path2D continuation = railPath(basis, dx, dy, nearIsZero, new double[][] {
+            {inside, 0.84, descendingRailHeight(basis, dy, 0.84)},
+            {inside, -1d, descendingRailHeight(basis, dy, -1d)} });
+        paintRoundRail(shaft, continuation, diameter, 0);
+        double slope = StairsDownGenerator.totalDrop(basis) / Math.max(1d, Math.abs(dy));
+        double floor = Math.max(-0.8, Math.min(0.84, 0.84 - 0.78 / Math.max(0.001, slope)));
+        Point2D light = railPath(basis, dx, dy, nearIsZero, new double[][] {
+            {inside, floor, descendingRailHeight(basis, dy, floor)} }).getCurrentPoint();
+        Point2D dark = railPath(basis, dx, dy, nearIsZero, new double[][] {
+            {inside, floor - 0.3, descendingRailHeight(basis, dy, floor - 0.3)} }).getCurrentPoint();
+        if (light.distanceSq(dark) > 1d) {
+            shaft.setComposite(AlphaComposite.SrcAtop);
+            shaft.setPaint(new LinearGradientPaint(light, dark, new float[] {0f, 1f},
+                new Color[] {new Color(12, 10, 7, 0), new Color(12, 10, 7, 240)}));
+            shaft.setStroke(new BasicStroke(diameter, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            shaft.draw(continuation);
+        }
+        shaft.dispose();
+    }
+
+    static double descendingRailHeight(Polygon basis, int dy, double s) {
+        double slope = StairsDownGenerator.totalDrop(basis) / Math.max(1d, Math.abs(dy));
+        return 0.78 + (s - 0.84) * slope;
+    }
+
+    /** A narrow pillar whose bottom is clipped to the exact projected edge, before rounding. */
+    private static void paintEdgePillar(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero, double u, double s, double foot, double head) {
+        paintEdgePillar(graphics, basis, dx, dy, nearIsZero, u, s, foot, head, false);
+    }
+
+    private static void paintEdgePillar(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero, double u, double s, double foot, double head, boolean acrossWidth) {
+        double v = stairRun(s, nearIsZero);
+        double x = basis.xpoints[0] + u * (basis.xpoints[1] - basis.xpoints[0])
+            + v * (basis.xpoints[3] - basis.xpoints[0]);
+        double y = basis.ypoints[0] + u * (basis.ypoints[1] - basis.ypoints[0])
+            + v * (basis.ypoints[3] - basis.ypoints[0]);
+        // The shaft sinks vertically, even if a caller supplies a skewed guard extrusion.
+        double bottomY = y + foot * dy;
+        double topX = x + head * dx;
+        double topY = y + head * dy;
+        int edgeEnd = acrossWidth ? 1 : 3;
+        double ex = basis.xpoints[edgeEnd] - basis.xpoints[0];
+        double ey = basis.ypoints[edgeEnd] - basis.ypoints[0];
+        double slope = Math.abs(ex) < 1d ? 0d : ey / ex;
+        double half = Math.max(1.6, railDiameter(basis) * 0.48);
+        double[][] corners = {{x - half, bottomY - half * slope}, {x + half, bottomY + half * slope},
+            {topX + half, topY + half * slope}, {topX - half, topY - half * slope}};
+        Path2D exact = new Path2D.Double();
+        Polygon face = new Polygon();
+        for (int i = 0; i < 4; i++) {
+            if (i == 0) exact.moveTo(corners[i][0], corners[i][1]);
+            else exact.lineTo(corners[i][0], corners[i][1]);
+            face.addPoint((int) Math.round(corners[i][0]), (int) Math.round(corners[i][1]));
+        }
+        exact.closePath();
+        Rectangle bounds = exact.getBounds();
+        BufferedImage pillar = new BufferedImage(Math.max(1, bounds.width + 1),
+            Math.max(1, bounds.height + 1), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D wood = pillar.createGraphics();
+        wood.translate(-bounds.x, -bounds.y);
+        paintStairWood(wood, uprightFace(face), 44);
+        wood.dispose();
+        for (int py = 0; py < pillar.getHeight(); py++) {
+            for (int px = 0; px < pillar.getWidth(); px++) {
+                if (!exact.contains(px + bounds.x, py + bounds.y)) pillar.setRGB(px, py, 0);
             }
         }
-        double nearTop = stairLine(0d) + STAIR_RAIL_RISE;
-        double farTop = stairLine(1d) + STAIR_RAIL_RISE;
-        double near = stairRun(0d, nearIsZero);
-        double far = stairRun(1d, nearIsZero);
-        // The outward face of the rail and its upper surface; the inner face never faces the viewer.
-        double outer = left ? u0 : u1;
-        paintStairWood(graphics, uprightFace(stairQuad(basis, dx, dy, new double[][] {
-            { outer, near, nearTop }, { outer, far, farTop },
-            { outer, far, farTop - STAIR_RAIL_THICK }, { outer, near, nearTop - STAIR_RAIL_THICK } })), 34);
-        Polygon railTop = stairQuad(basis, dx, dy, new double[][] {
-            { u0, near, nearTop }, { u1, near, nearTop },
-            { u1, far, farTop }, { u0, far, farTop } });
-        paintStairWood(graphics, railTop, 4);
-        bevelStairFace(graphics, railTop, 66);
+        graphics.drawImage(pillar, bounds.x, bounds.y, null);
+    }
+    private static float railDiameter(Polygon basis) {
+        double width = Math.hypot(basis.xpoints[1] - basis.xpoints[0],
+            basis.ypoints[1] - basis.ypoints[0]);
+        return (float) Math.max(1.8, Math.min(7d, width * 0.052));
+    }
+
+    /** Project cubic control points before rasterization, preserving smooth subpixel bends. */
+    private static Path2D railPath(Polygon basis, int dx, int dy, boolean nearIsZero, double[][] segments) {
+        Path2D path = new Path2D.Double();
+        for (int segment = 0; segment < segments.length; segment++) {
+            double[] points = segments[segment];
+            double[] projected = new double[points.length / 3 * 2];
+            for (int i = 0; i < points.length / 3; i++) {
+                double u = points[i * 3];
+                double v = stairRun(points[i * 3 + 1], nearIsZero);
+                double h = points[i * 3 + 2];
+                projected[i * 2] = basis.xpoints[0] + u * (basis.xpoints[1] - basis.xpoints[0])
+                    + v * (basis.xpoints[3] - basis.xpoints[0]) + h * dx;
+                projected[i * 2 + 1] = basis.ypoints[0] + u * (basis.ypoints[1] - basis.ypoints[0])
+                    + v * (basis.ypoints[3] - basis.ypoints[0]) + h * dy;
+            }
+            if (segment == 0) path.moveTo(projected[0], projected[1]);
+            else if (projected.length == 2) path.lineTo(projected[0], projected[1]);
+            else path.curveTo(projected[0], projected[1], projected[2], projected[3], projected[4], projected[5]);
+        }
+        return path;
+    }
+
+    /** Opaque dark silhouette with soft cylindrical lighting; highlights never create edge pixels. */
+    static void paintRoundRail(Graphics2D graphics, Shape path, float diameter, int shade) {
+        Graphics2D rail = (Graphics2D) graphics.create();
+        rail.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        rail.setColor(new Color(Math.max(0, 45 - shade), Math.max(0, 33 - shade), Math.max(0, 22 - shade)));
+        rail.setStroke(new BasicStroke(diameter, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        rail.draw(path);
+        rail.setComposite(AlphaComposite.SrcAtop);
+        rail.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        rail.setColor(new Color(Math.max(0, 76 - shade), Math.max(0, 62 - shade), Math.max(0, 44 - shade)));
+        rail.setStroke(new BasicStroke(diameter * 0.72f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        rail.draw(path);
+        rail.translate(-diameter * 0.10, -diameter * 0.12);
+        rail.setColor(new Color(Math.max(0, 97 - shade), Math.max(0, 82 - shade), Math.max(0, 63 - shade)));
+        rail.setStroke(new BasicStroke(diameter * 0.42f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        rail.draw(path);
+        // Subtle oak grain breaks up the uniform sheen of a perfectly smooth tube.
+        rail.translate(diameter * 0.10, diameter * 0.12);
+        Rectangle2D bounds = path.getBounds2D();
+        rail.setPaint(new TexturePaint(STAIR_WOOD[0],
+            new Rectangle2D.Double(bounds.getX(), bounds.getY(), 120d, 16d)));
+        rail.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP, 0.22f));
+        rail.setStroke(new BasicStroke(diameter, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        rail.draw(path);
+        rail.dispose();
     }
 
     /** Projects a normalized point: {@code u} across the width, {@code v} along the run, {@code h} up the extrusion. */
@@ -510,12 +657,6 @@ public final class RectangularPrismGenerator {
             quad.addPoint(p[0], p[1]);
         }
         return quad;
-    }
-
-    /** An axis-aligned box in normalized space; paints its top and the two viewer-facing sides. */
-    private static void stairBox(Graphics2D graphics, Polygon basis, int dx, int dy,
-            double u0, double v0, double u1, double v1, double h0, double h1, int topShade, int sideShade) {
-        stairBox(graphics, basis, dx, dy, u0, v0, u1, v1, h0, h1, topShade, sideShade, 0);
     }
 
     private static void stairBox(Graphics2D graphics, Polygon basis, int dx, int dy,

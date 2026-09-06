@@ -75,8 +75,9 @@ public class RectangularPrismGeneratorTest {
     public void bothFurnitureChoicesProduceVisibleTransparentImages() {
         for (RectangularPrismGenerator.Furniture furniture : RectangularPrismGenerator.Furniture.values()) {
             BufferedImage image = RectangularPrismGenerator.generate(furniture, basis(), 25, -35);
-            assertEquals(135, image.getWidth());
-            assertEquals(105, image.getHeight());
+            Rectangle expectedBounds = RectangularPrismGenerator.bounds(furniture, basis(), 25, -35);
+            assertEquals(expectedBounds.width, image.getWidth());
+            assertEquals(expectedBounds.height, image.getHeight());
             assertTrue(countVisiblePixels(image) > 1000);
             assertTrue(countVisiblePixels(image) < image.getWidth() * image.getHeight());
             assertAllVisiblePixelsAreOpaque(image);
@@ -171,7 +172,7 @@ public class RectangularPrismGeneratorTest {
     }
 
     @Test
-    public void stairsUpAndStairsDownBothFillTheSamePrism() {
+    public void stairwellBoundsIncludeTheOutsideGuardMargin() {
         Polygon basis = basis();
         int dx = 25;
         int dy = -160;
@@ -183,8 +184,12 @@ public class RectangularPrismGeneratorTest {
 
         assertEquals(prism.width, up.getWidth());
         assertEquals(prism.height, up.getHeight());
-        assertEquals(prism.width, down.getWidth());
-        assertEquals(prism.height, down.getHeight());
+        Rectangle guardBounds = RectangularPrismGenerator.bounds(
+            RectangularPrismGenerator.Furniture.STAIRS_DOWN, basis, dx, dy);
+        assertEquals(guardBounds.width, down.getWidth());
+        assertEquals(guardBounds.height, down.getHeight());
+        assertTrue(guardBounds.contains(prism));
+        assertTrue(guardBounds.width > prism.width);
         assertTrue("the two flights must not be identical", differ(up, down));
     }
 
@@ -243,7 +248,8 @@ public class RectangularPrismGeneratorTest {
         int dy = -70;
         Polygon oriented = RectangularPrismGenerator.orientedLongRunBasis(rectangle);
         int access = RectangularPrismGenerator.stairWellAccessEdge(oriented, dx, dy);
-        Rectangle bounds = RectangularPrismGenerator.bounds(rectangle, dx, dy);
+        Rectangle bounds = RectangularPrismGenerator.bounds(
+            RectangularPrismGenerator.Furniture.STAIRS_DOWN, rectangle, dx, dy);
         BufferedImage well = RectangularPrismGenerator.generate(
             RectangularPrismGenerator.Furniture.STAIRS_DOWN, rectangle, dx, dy);
 
@@ -261,7 +267,8 @@ public class RectangularPrismGeneratorTest {
             }
             if (lowest < 0) continue;
             assertTrue("painted below the feet of the guard in column " + x,
-                lowest + bounds.y <= basisFloorY(rectangle, x + bounds.x));
+                lowest + bounds.y <= basisFloorY(RectangularPrismGenerator.stairGuardBasis(rectangle),
+                    x + bounds.x));
         }
     }
 

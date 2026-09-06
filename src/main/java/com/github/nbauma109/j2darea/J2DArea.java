@@ -3066,7 +3066,7 @@ public class J2DArea extends JFrame {
     private void fillCompletedRectangularPrism(Polygon basis, int dx, int dy) {
         RectangularPrismGenerator.Furniture furniture = chooseRectangularPrismFurniture();
         if (furniture == null) return;
-        Rectangle bounds = RectangularPrismGenerator.bounds(basis, dx, dy);
+        Rectangle bounds = RectangularPrismGenerator.bounds(furniture, basis, dx, dy);
         BufferedImage image = RectangularPrismGenerator.generate(furniture, basis, dx, dy);
         PastedObject pastedFurniture = new PastedObject(new Point(bounds.x, bounds.y), new ExportableImage(image));
         pastedFurniture.setStacking(PastedObjectStacking.OBJECT);

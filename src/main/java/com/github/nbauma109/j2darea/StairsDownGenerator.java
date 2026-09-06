@@ -29,7 +29,7 @@ public final class StairsDownGenerator {
 
     private static final int STEPS = 10;
     /** Rise over going: how much a step sinks for every tread it walks back up the run. */
-    private static final double DROP = 0.9;
+    private static final double DROP = 1.45;
 
     private StairsDownGenerator() { }
 
@@ -115,6 +115,17 @@ public final class StairsDownGenerator {
         return flipped;
     }
 
+    static double totalDrop(Polygon footprint) {
+        Polygon run = headOfRun(footprint);
+        return Math.abs(run.ypoints[3] - run.ypoints[0]) * DROP;
+    }
+
+    /** Exact vertical drop of the tread under a point, measured from the near end of the run. */
+    static double treadDrop(Polygon footprint, double distance) {
+        Polygon run = headOfRun(footprint);
+        int step = Math.max(0, Math.min(STEPS - 1, (int) Math.floor((1d - distance) * STEPS)));
+        return Math.abs(run.ypoints[3] - run.ypoints[0]) * DROP * step / STEPS;
+    }
     private static double midY(Polygon quad, int a, int b) {
         return (quad.ypoints[a] + quad.ypoints[b]) / 2d;
     }
