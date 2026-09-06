@@ -48,7 +48,9 @@ public class Tile {
     }
 
     public void draw(Graphics g) {
-        if (!isEmpty()) {
+        if (isEmpty()) {
+            g.drawRect(getX(), getY(), 1, 1);
+        } else {
             g.drawRect(getX(), getY(), getWidth(), getHeight());
         }
     }

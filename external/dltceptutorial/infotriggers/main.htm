@@ -1,0 +1,600 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>Info Points and Triggers with DLTCEP</title>
+</head>
+
+<body>
+<FONT COLOR="navy"><h3>Contents</h3></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#version">Version History</A></TD></TR>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#proximity">Proximity Triggers</A></TD></TR>
+	<TR><TD><A HREF = "#info">Info Points</A></TD></TR>
+	<TR><TD><A HREF = "#fudge">InfoTrappery</A></TD></TR>
+	<TR><TD><A HREF = "#trap">Traps of the Common Type</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="navy">
+<A NAME = "version"><H3>Version History</H3></A>
+<table>
+	<tr><td width=20></td><td width=30>1.0</td><td>Initial release</td></tr>
+	<tr><td width=20></td><td width=30>1.1</td><td>'Traps of the Common Type' added</td></tr>
+	<tr><td width=20></td><td width=30>1.2</td><td>Variables note added to 'Traps of the Common Type'</td></tr>
+	<tr><td width=20></td><td width=30>2.0</td><td>'Info Points' updated with Weidu offset information for the info point description</td></tr>
+	<tr><td width=20></td><td width=30>2.1</td><td>'Info Points' updated with the 'Walk to' information</td></tr>
+</table>
+</font>
+<br>
+
+<font color="navy">
+<A NAME = "introduction"><H3>Introduction</H3></A>
+</font>
+
+<p><font color="black">This tutorial will teach you how to create info points, proximity triggers and traps. Although DLTCEP refers to info points and 'traps' only, I believe that a far better general description is 'proximity trigger', simply because this type of trigger is used for all sorts of other things as well as setting off traps. This is why I have mentioned both 'traps' and 'proximity triggers' in the initial sentence.</font></p>
+<p><font color="black">We are in an un-named seatown somewhere on the Sword Coast.</font></p>
+<p><font color="black">I have no idea where you will be creating your mod, so I am going to assume that all of the relevant files are in your \bg2\override directory.</font></p>
+<p><font color="black">Unless you've changed your browser fonts to something weird and wonderful, the conventions in this tutorial are that Times New Roman is ‘descriptive’ text and Arial Bold is ‘action’ text. Alternatively, black is descriptive and blue is action.</font></p>
+
+<font color="navy">
+<A NAME = "proximity"><H3>Proximity Triggers</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#info">Info Points</A></TD></TR>
+	<TR><TD><A HREF = "#fudge">InfoTrappery</A></TD></TR>
+	<TR><TD><A HREF = "#trap">Traps of the Common Type</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="black">This is without doubt the easiest form of 'trap' to create. A good example of the proximity trigger is in the Graveyard District of Athkatla where as you approach the open grave in the top left corner, the game starts giving you information messages about noises issuing from the ground. This is done simply by checking if a player is within a bounded area and if they are, it triggers a script.</font></p>
+
+<p><font color="black">Start DLTCEP if it's not already running.</font></p>
+
+<ul><font color="blue" font size=2 font face = "Arial">
+  <li><b>Select ‘Edit’ and ‘Area (ARE/WED)’</b></li>
+  <li><b>Select ‘Load External Area’ to load the .tis file you want to work with.</b></li>
+  <li><b>Click on the 'Regions' tab</b></li>
+  <li><b>Click on 'Add Region'</b></li>
+</ul></font>
+
+<table width="681" align=center>
+<tr>
+<td width=805>
+	<font color="navy">
+	<img src="image1.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 1 - Add Region</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p><font color="black">The default for Region Type is Trap, so no change here.</font></p>
+
+<ul><font color="blue">
+  <li><font  face="Arial" font size=2><b>Click on ‘Edit Polygon’</b></font></li>
+</ul></font>
+
+<p><font color="black">This launches the Polygon Editor</font></p>
+
+<table width="357" align=center>
+<tr>
+<td width=349>
+	<font color="navy">
+	<img src="image2.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 2 - The Polygon Editor</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><font  face="Arial" font size=2><b>Click on ‘Insert’</b></font></li>
+  <li><font  face="Arial" font size=2><b>Click on ‘Preview’</b></font></li>
+</ul></font>
+
+<p><font color="black">Your map area should now be visible. Scroll to where you wish to place the proximity trigger and draw the trigger area outline.</font></p>
+
+<table width="479" align=center>
+<tr>
+<td width=471>
+	<font color="navy">
+	<img src="image3.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 3 - The Proximity Box</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p><font color="black">Think about what you are going to be using the proximity trigger for; in this case I had to be sure that a party of six characters would be able to occupy the proximity box all at the same time.</font></p>
+
+<p><font color="black">If you are not happy with the size or shape of the polygon, go back the Edit Polygon screen and</font></p>
+
+<font  face="Arial" font size=2>
+<b>
+<ul><font color="blue">
+  <li>Unselect 'Insert'</li>
+</ul>
+</b></font></font>
+
+<p><font color="black">The Polygon Editor is now in Modify mode. Click on anyone of the listed vertices and you will see it light up in the Preview screen as a red dot. When you've identified the one that you are not happy with, click on the screen at the place you would like that vertex to be and DLTCEP will move it for you. When you are satisfied,</font></p>
+
+<font  face="Arial" font size=2>
+<b>
+<ul><font color="blue">
+  <li>Click 'Back'</li>
+</ul>
+</b></font></font>
+
+<p><font color="black">to return to the Regions tab. Although this is a proximity trigger, we now need to set the trap launch point simply because it is required.</font></p>
+
+<font  face="Arial" font size=2>
+<b>
+<ul><font color="blue">
+  <li>Click 'Set Launch Point'</li>
+</ul>
+</b></font></font>
+
+<p><font color="black">Select a point somewhere in the centre of the box and </font></p>
+
+<font  face="Arial" font size=2>
+<b>
+<ul><font color="blue">
+  <li>Left-click to mark the required point</li>
+  <li>Click 'Set' to actually fix the launch point</li>
+</ul>
+</b></font></font>
+
+<p><font color="black">The editor will automatically return to the Regions tab. Save it! To finish the proximity trigger off, we need to set the Trapped box to 1 and assign a script - what the script does is entirely up to you. Remember that the script will be permanently running from the time you enter the area to the time you leave.</font></p>
+
+<table width="479" align=center>
+<tr>
+<td width=471>
+	<font color="navy">
+	<img src="image4.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 4 - The completed Proximity Trigger</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p><font color="black">Note that the screen title has suddenly changed from '4. Info Point 4' to '3. LighthouseTravel'...oops. I should have warned you abaout that - highlight the Region Name and enter a script reference name without a preceeding number; DLTCEP will automatically add that.</font></p>
+
+<font color="navy">
+<A NAME = "info"><H3>Info Points</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#proximity">Proximity Triggers</A></TD></TR>
+	<TR><TD><A HREF = "#fudge">InfoTrappery</A></TD></TR>
+	<TR><TD><A HREF = "#trap">Traps of the Common Type</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="black">Info points are created in a similar fashion to Proximity Triggers, with the exception that they require a string reference to display and a cursor to mark the display area. If you use Image 5 as a guide, you should be able to work your way towards an info point by using the proximity trigger instructions above.</font></p>
+
+<table width="479" align=center>
+<tr>
+<td width=471>
+	<font color="navy">
+	<img src="image5.jpg" align="middle"></font>
+	<p><font color="navy"><i><b>Image 5 - A completed Info Point</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p><font color="black">If you enter a new dialog string for info point information, DLTCEP will ask you if you wish to update dialog.tlk? I don't advise entering a new string because I'm assuming that you will be using Weidu to distribute your mod and the relevant string can be tied in during installation. If the mod is just for you then go ahead and add the string to dialog.tlk. Alternatively, you can use an existing strref; use DLTCEP's Search feature to locate a usable one. As I'm using Weidu, both of these boxes were left to default. However, to create the description string in your Weidu .tp2 file, you need to know the offset of the info point. To find this you need a copy of Near Infinity.</p></font>
+
+<font  face="Arial" font size=2>
+<b>
+<ul><font color="blue">
+  <li>Save your area and close DLTCEP</li>
+  <li>Start Near Infinity</li>
+  <li>Select 'Options' on the menu bar and ensure that 'Show Hex Offsets' is checked</li>
+  <li>Open the .are file you have been working on</li>
+  <li>Select the 'Edit' tab</li>
+  <li>Scroll down the edit screen until you find the area starting 'Info, trigger or exit point'</li>
+  <li>Find your info point</li>
+</ul>
+</b></font></font>
+
+<p>I have highlighted the same info point as is shown in Image 5 above.</p>
+
+<table width="479" align=center>
+<tr>
+<td width=471>
+	<font color="navy">
+	<img src="image9.jpg" align="middle"></font>
+	<p><font color="navy"><i><b>Image 6 - The Info Point in NI</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<font  face="Arial" font size=2>
+<b>
+<ul><font color="blue">
+  <li>Double-click the info point</li>
+</ul>
+</b></font></font>
+
+<p>The trigger editor will open.</p>
+
+<font  face="Arial" font size=2>
+<b>
+<ul><font color="blue">
+  <li>Scroll down until you find your info point</li>
+  <li>Note the hex offset in the right hand column</li>
+  <li>Close Near Infinity</li>
+</ul>
+</b></font></font>
+
+<table width="479" align=center>
+<tr>
+<td width=471>
+	<font color="navy">
+	<img src="image10.jpg" align="middle"></font>
+	<p><font color="navy"><i><b>Image 7 - The Hex Offset</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>You now have sufficient information to create the info point description in your .tp2 file. Again, though, we have another gotcha but this time it is to do with Weidu. Weidu patches the last file copied, so if your mod is copying in a large number of areas you need to differentiate those that are patched. I kept mine in another folder, which is probably the easiest way to do it. Finally then, the entry in the .tp2 file - I know; this is supposed to be about DLTCEP and not Weidu. This is where you make use of that hex offset.</p>
+
+<font color="navy" size="2" face="Arial">
+<table cellspacing=0 cellpadding=0><tr><td>COPY ~dq/areas/porthpentyrch/ys1000/.~ ~override/.~</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>SAY 0x4054 ~A Coast Way marker post. It says 'West to Porthpentyrch; North to Athkatla; East to Trademeet'~</td></tr></table>
+</font>
+
+<p>Job done.</p>
+
+<br>
+
+<font color="navy">
+<A NAME = "fudge"><H3>Info Trappery</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#proximity">Proximity Triggers</A></TD></TR>
+	<TR><TD><A HREF = "#info">Info Points</A></TD></TR>
+	<TR><TD><A HREF = "#trap">Traps of the Common Type</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="black">Travel Regions only allow you to travel to a single area. Door Scripts do not allow a second click to register when they are open. I needed to select multiple travel areas based on a global flag and the Infinity Engine was not going to co-operate. Seven hours (!!!) of testing later, I discovered how to sneak up on it from behind and make it do things it didn't want to do....</font></p>
+
+<p><font color="black">It needed a door with no script (see 'Adding Doors' tutorial), a proximity trigger and an info point. If you've ever created an area in IETME and then opened it in DLTCEP, the first thing you get is a message saying 'Re-ordered to official standard'. I made use of a combination of the way the Infinity Engine works and the 'official' ordering of the .are file.</font></p>
+
+<p><font color="black">The Infinity Engine reads the area file in the following order:</font></p>
+
+<font color="black">
+<ul>
+  <li>Actor</li>
+  <li>Info, trigger or exit point</li>
+  <li>Entrance</li>
+  <li>Ambient</li>
+  <li>Door</li>
+  <li>Animation</li>
+  <li>Song</li>
+  <li>Rest-spawned creatures</li>
+</ul>
+</font>
+
+<p><font color="black">The highest items in the list are of the least precedence and the lowest items are the highest precedence; in our case, a closed door is of higher precedence than an info trigger and so it covers it in the game. The info point is only exposed and usable when the door is opened and no longer occupies the same area as the info point. Once the info point is exposed, it can be clicked on and any associated qualified script will run.</font></p>
+
+<p><font color="black">That in itself was not enough to get the party to change areas. Had I have simply used the info point script to run the</font></p>
+
+<p><font color="navy" font  face="Arial" size=2>ActionOverride(Player1,LeaveAreaLUA("ysar02","",[220.300],10))</font></p>
+
+<p><font color="black">commands to move the party, then the characters would have been yanked from wherever they were on the map. Not very nice... so I needed to gather them together in one area before triggering the LUA command. You're about to find out why that proximity trigger above is just quite so big.</font></p>
+
+<p><font color="black">I used the info point to run a script (yslhse.bcs) that moved all of the party towards the door. Bear in mind here that this script assumes a party of six - it is only a test script and needs expanding for parties with fewer members.</font></p>
+
+<p><font color="navy" font  face="Arial" size=2>
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Clicked([ANYONE])</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player1,MoveToObject("Lighthouse"))		//Lighthouse is the name of the door</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player2,MoveToObject("Lighthouse"))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player3,MoveToObject("Lighthouse"))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player4,MoveToObject("Lighthouse"))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player5,MoveToObject("Lighthouse"))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player6,MoveToObject("Lighthouse"))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>SetGlobal("dai_LightHouseTravelTrap","GLOBAL",1)		//Prime the proximity trigger</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p><font color="black">This starts everyone moving towards the door but allows the script to be interrupted in case of attack or new movement command etc. At some point the entire party will occupy that enormous proximity trigger and the proximity script (yslhset.bcs) will then fire the movement command. If the proximity trigger has not been primed by the door info point then the party can walk across it till the cows come home and nothing will happen.</font>
+
+<p><font color="navy" font  face="Arial" size=2>
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>IsOverMe(Player1)	//All characters are in my proximity box</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>IsOverMe(Player2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>IsOverMe(Player3)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>IsOverMe(Player4)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>IsOverMe(Player5)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>IsOverMe(Player6)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("dai_LightHouseTravelTrap","GLOBAL",1)	//I've been primed</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("dai_PorthpentyrchRestored","GLOBAL",0)	//Flag to control the area to move to</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>SetGlobal("dai_LightHouseTravelTrap","GLOBAL",0)	//Reset the primer</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player1,LeaveAreaLUA("ysar02","",[220.300],10))	//and move the party to the required area</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player2,LeaveAreaLUA("ysar02","",[240.300],10))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player3,LeaveAreaLUA("ysar02","",[220.320],10))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player4,LeaveAreaLUA("ysar02","",[240.320],10))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player5,LeaveAreaLUA("ysar02","",[220.340],10))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ActionOverride(Player6,LeaveAreaLUA("ysar02","",[240.340],10))</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font></p>
+
+<p><font color="black">And that's it - how to make the Infinity Engine send a six-member party to a flag-selected area. Both of these scripts are going to need working on to allow for parties of less than six characters and they also need a timeout-reset in case the player changes their mind about using the door, but they proved that what I wanted could be done.</font>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image6.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 8 - Composite image showing the info point (yellow), door (cyan) and proximity trigger (green/blue)</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p><font color="black">Since I wrote the above, IESDP and DLTCEP have moved on and more information has been uncovered.
+There is now an easier way to make your party walk to an information point or trap but I'm leaving the above description in place because the actions there may be of greater use in some situations than the 'quick' method I'm about to detail.</font><p>
+
+<p><font color="black">When your info point has been laid out,
+
+<font face="Arial" font size=2>
+<ul><font color="blue">
+  <li><b>check the 'Walk to it'</b></li>
+</ul>
+</b></font></font>
+
+box on the lower part of the screen. This in itself won't make the party move (apart from a quick shake on the spot); you also need to define where they walk to.</font><p>
+
+<b>
+<ul><font color="blue" face="Arial" size=2>
+  <li>Select the 'Set launch point' button</li>
+  <li>Scroll to where you want the party to walk to and note the screen co-ordinates</li>
+  <li>Select 'Back' - do <b>not</b> select 'Set'</li>
+  <li>Enter the co-ordinates in the 'Operating point' boxes</li>
+</ul>
+</b></font>
+
+<p><font color="black">Done. Clicking in this area will now make the party walk to it automatically.</font><p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image11.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 11 - Setting the 'Walk to' information</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<br>
+
+<font color="navy">
+<A NAME = "trap"><H3>Traps of the Common Type</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#proximity">Proximity Triggers</A></TD></TR>
+	<TR><TD><A HREF = "#info">Info Points</A></TD></TR>
+	<TR><TD><A HREF = "#fudge">InfoTrappery</A></TD></TR>
+	<TR><TD><A HREF = "#trap">Traps of the Common Type</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p>There isn't much difference between this and a Proximity Trigger, but I'll go through it from scratch anyway.</p>
+
+<font face="Arial" size=2>
+<b>
+<ul><font color="blue">
+  <li>Select ‘Edit’ and ‘Area (ARE/WED)’</li>
+  <li>Select ‘Load External Area’ to load the .tis file you want to work with.</li>
+  <li>Click on the 'Regions' tab</li>
+  <li>Click on 'Add Region'</li>
+</ul>
+</b></font></font>
+
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image1.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 10 - Add Region</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>The default for Region Type is Trap, so no change here.</p>
+
+<font face="Arial" size=2>
+<b>
+<ul><font color="blue">
+  <li>Click on ‘Edit Polygon’</li>
+</ul>
+</b></font></font>
+
+<p>This launches the Polygon Editor.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image2.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 11 - The Polygon Editor</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<font face="Arial" size=2>
+<b>
+<ul><font color="blue">
+  <li>Click on ‘Insert’</li>
+  <li>Click on ‘Preview’</li>
+</ul>
+</b></font></font>
+
+<p>Your map area should now be visible. Scroll to where you wish to place the trap and draw the trigger area outline.</p>
+
+<p>If you are not happy with the size or shape of the polygon, go back the Edit Polygon screen and</p>
+
+<font face="Arial" size=2>
+<b>
+<ul><font color="blue">
+  <li>Unselect ‘Insert’</li>
+</ul>
+</b></font></font>
+
+<p>The Polygon Editor is now in Modify mode. Click on anyone of the listed vertices and you will see it light up in the Preview screen as a red dot. When you've identified the one that you are not happy with, click on the screen at the place you would like that vertex to be and DLTCEP will move it for you. When you are satisfied,</p>
+
+<font face="Arial" size=2>
+<b>
+<ul><font color="blue">
+  <li>Click 'Back'</li>
+</ul>
+</b></font></font>
+
+<p>to return to the Regions tab. We now need to set the trap launch point - this is the radius within which the trap can be detected; this explains why you sometimes get the odd time in the game where the thief detects a hidden door on the other side of a thick wall. The D'Arnise Hold is particularly good (bad?) for this.</p>
+
+<font face="Arial" size=2>
+<b>
+<ul><font color="blue">
+  <li>Click 'Set Launch Point'</li>
+</ul>
+</b></font></font>
+
+<p>Click to set the radius distance from the trap.</p>
+
+<font face="Arial" size=2>
+<b>
+<ul><font color="blue">
+  <li>Left-click to mark the required point</li>
+  <li>Click 'Set' to actually fix the launch point</li>
+</ul>
+</b></font></font>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image8.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 12 - Composite image showing the Polygon Editor, the Trap outline and the range of the Launch Point</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>The editor will automatically return to the Regions tab. Save it! Of the other options, you must set the Trapped box to 1 and assign a script. It is the script that does the damage: using DLTCEP check all of the .bcs scripts starting with the letters GT - these are the trap scripts in the game. Set the other options as you require but to complete a simple, fire-once-only trap, check the Detectable box and leave it at that.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image7.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 13 - The completed Trap screen</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>There is a real 'gotcha' with scripting traps and it took me a few too many hours to figure it out. Local variables do not work with traps - they all have to be global e.g.
+
+<p><font color="navy" size="2" face="Arial">
+<table cellspacing=0 cellpadding=0><tr><td>//This doesn't work</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Entered([ANYONE])</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("ys_SetTrap","LOCALS",0)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>DisplayString(LastTrigger,14381) // Trap Sprung</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>SetGlobal("ys_SetTrap","LOCALS",1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p><font color="navy" size="2" face="Arial">
+<table cellspacing=0 cellpadding=0><tr><td>//But this does</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Entered([ANYONE])</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("ys_SetTrap","GLOBAL",0)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>DisplayString(LastTrigger,14381) // Trap Sprung</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>SetGlobal("ys_SetTrap","GLOBAL",1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p>Don't ask - another Infinity Engine funny.</p>
+
+<p>The current selected script - GTFB.bcs - sets off a fireball if the trap is triggered. Trap scripts are amongst the simplest in the game: this one checks to see if anyone has walked into the proximity region and if they have, it fires off a fireball.</p>
+
+<p><font color="navy" size="2" face="Arial, Helvetica, sans-serif">
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Entered([ANYONE])</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>DisplayString(LastTrigger,14381) // Trap Sprung</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ForceSpell(LastTrigger,TRAP_FIREBALL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p>Simple really..... check the Reset Trap box if you want to catch anyone else following along behind. If you want to get really nasty and set off multiple fireballs, try this:</p>
+
+<p><font color="navy" size="2" face="Arial, Helvetica, sans-serif">
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Entered([ANYONE])</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>DisplayString(LastTrigger,14381) // Trap Sprung</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ForceSpell(LastTrigger,TRAP_FIREBALL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ForceSpell(LastTrigger,TRAP_FIREBALL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ForceSpell(LastTrigger,TRAP_FIREBALL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ForceSpell(LastTrigger,TRAP_FIREBALL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ForceSpell(LastTrigger,TRAP_FIREBALL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>ForceSpell(LastTrigger,TRAP_FIREBALL)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>Wait(2)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p>That should really make somebody hate you.</p>
+
+<font color="red">
+<table align=center>
+<tr>
+<td width=500>
+	<p><b><i>Tutorial written by Yovaneth, apprentic’d at Candlekeep during the Bhaalspawn Troubles. Post it where you will but please don’t take credit for what you have not written.</i></b></p>
+</td>
+</tr>
+</table>
+</font>
+
+</body>
+</html>

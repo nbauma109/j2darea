@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+<!--- Don't miss this! --->
+
+<title>Advanced Light Mapping with DLTCEP</title>
+</head>
+
+<body>
+<FONT COLOR="navy"><h3>Contents</h3></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#version">Version History</A></TD></TR>
+	<TR><TD><A HREF = "#intro">Light Mapping</A></TD></TR>
+	<TR><TD><A HREF = "#bmp">Using the Area Bitmap</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="navy">
+<A NAME = "version"><H3>Version History</H3></A>
+<ul>
+<table>
+	<tr><td width=20></td><td width=30>1.0</td><td>Initial release</td></tr>
+	<tr><td width=20></td><td width=30>1.1</td><td>'Using the Area Bitmap' added</td></tr>
+	<tr><td width=20></td><td width=30>1.2</td><td>'Using the Area Bitmap' updated.</td></tr>
+</table></ul>
+</font>
+
+<font color="navy">
+  <A NAME = "intro"><H3>Light Mapping</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#bmp">Using the Area Bitmap</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p>This tutorial will illustrate how to create advanced light maps. It's short and sharp because I do not know what is your favourite paint package and so I cannot give you steps on how to do it - I can only tell you what to do. Before you begin, back up your original DLTCEP-created lightmap; DLTCEP will <b>not</b> be able to recognise the advanced light map. It will do its best but you will end up with an unusable mosaic in the program.</p>
+
+<p>Although DLTCEP gives you the ability to make light maps, it's very limited in that it only gives you 256 colours, of which around 128 are actually useable. The step between adjacent colours is very noticable and I'm sure that by now you will
+have realised that your light maps look nothing like those produced by Bioware. To create those, you need to resort to drawing your own light maps; or to be more accurate, you need to resort to upgrading the light map you produced in DLTCEP.
+Once you have the xxxxxxLM.BMP open in your paint program, zoom in and you'll find that the pixelation produced by DLTCEP is very obvious (image 1). Both image 1 and image 2 were captured at 500% zoom factor.</p>
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image2.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 1 - Pixelation</b></i></font></p>
+</td></tr>
+</table>
+
+<p>You will need to convert the 256-colour DLTCEP-produced light map to RGB (24 bit). Once you have down this, you can get to work. To upgrade the torch lighting in a small cavern, I flood-filled the DLTCEP areas with what I considered to be a better
+reflection of torchlight. Having done that, I then made extensive use of the Blur tool, in both Normal and Darken mode. I used the Darken mode to blend the torchlighlight into the 'unlit' cave passages and the 'Normal' mode to blend the overlapping
+light areas. While I was at it, I also blended in the deep shadows to the lighter shadow areas.</p>
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image1.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 2 - The modified light map</b></i></font></p>
+</td></tr>
+</table>
+
+<p>Save the map as RGB; the Infinity Engine will be quite happy with it. The effect in-game compared to the original DLTCEP light map is quite subtle but - if you'll pardon the expression - it's infinately better. Image 3 is my modified map in-game; depending on your monitor you may or may not be able to see the difference in shading on each character, but you should be able to line up the new light map with the shadows on the floor.</p>
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image3.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 3 - In-game test</b></i></font></p>
+</td></tr>
+</table>
+
+
+<font color="navy">
+  <A NAME = "bmp"><H3>Using the Area Bitmap</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#intro">Light Mapping</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p>If you are creating a large area then you can also use the area bitmap as a light-mapping guide. In DLTCEP simply select a single light colour for the entire lightmap and then quit. Go for your favourite image editing program (you really cannot use Microsoft Paint for this) and open up both the area bitmap and the light map. Make a copy of the area bitmap and close the original. Note the image size of the light map (X and Y pixels) and shrink the area map copy to the same size. Add a new layer and paint your light map on that; when you've finished, save the light map as RGB. This method is most useful in an area where there is very little change of lighting and accuracy is not an absolute requirement.</p>
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image4.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 4 - Night light-mapping Cerendor Hold (300% zoom factor).</b></i></font></p>
+</td></tr>
+</table>
+
+<p>You can also do this 'the other way around' by working on a full-size copy of the area bitmap. This method takes the longest but gives the most accurate results. I use a new layer for each change of lighting colour and then when I'm happy with the results, save the file as a bitmap which automatically flattens the entire image. By keeping a copy of the fullsize light map with all of the layers intact, it makes it easy to go back and tweak just one colour if that area is not quite right when tested in the game. Finally, reducing the image size to the size of the original light map introduces shading between colours as a by-product of the resizing.</p>
+
+<p>It's one of those small upgrades that makes an area so much better. Try it and see.</p>
+
+<font color="red">
+<table align=center>
+  <tr><td width=500>
+    <p><b><i>Tutorial written by Yovaneth, apprentic'd at Candlekeep during the Bhaalspawn Troubles. Post it where you will but please don’t take credit for what you have not written.</i></b></p>
+  </td></tr>
+</table>
+</font>
+

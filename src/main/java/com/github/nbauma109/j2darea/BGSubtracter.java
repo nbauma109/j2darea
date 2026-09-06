@@ -20,19 +20,14 @@ public class BGSubtracter {
         this(image, null);
     }
 
-    public void subtractBackground(double hueLimit, double satLimit, boolean hueMin, boolean satMax) {
+    public void subtractBackground() {
         for (int x = 0; x < previewImage.getWidth(); x++) {
             for (int y = 0; y < previewImage.getHeight(); y++) {
                 if (polygon != null && !polygon.contains(x, y)) {
                     previewImage.setRGB(x, y, 0);
                 } else {
                     Color color = new Color(originalImage.getRGB(x, y));
-                    float[] hsb = Color.RGBtoHSB(color.getRed(), color.getGreen(), color.getBlue(), null);
-                    if ((!hueMin && hsb[0] > hueLimit || hueMin && hsb[0] < hueLimit) || (!satMax && hsb[1] < satLimit || satMax && hsb[1] > satLimit)) {
-                        previewImage.setRGB(x, y, 0);
-                    } else {
-                        previewImage.setRGB(x, y, color.getRGB());
-                    }
+                    previewImage.setRGB(x, y, color.getRGB());
                 }
             }
         }

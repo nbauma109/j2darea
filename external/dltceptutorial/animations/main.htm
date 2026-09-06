@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+<!--- Don't miss this! --->
+
+<title>Adding Animations with DLTCEP</title>
+</head>
+
+<!--- Template for DLTCEP tutorials
+      All tutorials must have a version history and an intro 
+      Cut'n'paste each section as needed --->
+
+<body>
+<FONT COLOR="navy"><h3>Contents</h3></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#version">Version History</A></TD></TR>
+	<TR><TD><A HREF = "#intro">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#anim">Adding the Animations</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="navy">
+<A NAME = "version"><H3>Version History</H3></A>
+<ul>
+<table>
+	<tr><td width=20></td><td width=30>1.0</td><td>Initial release</td></tr>
+	<tr><td width=20></td><td width=30>1.0.1</td><td>'Not covered by walls' flag information added.</td></tr>
+	<tr><td width=20></td><td width=30>1.0.2</td><td>'Draw all cycles' flag warning added. Image 4 updated.</td></tr>
+</table></ul>
+</font>
+
+<font color="navy">
+  <A NAME = "introduction"><H3>Introduction</H3></A>
+</font>
+
+<p>This tutorial will teach you how to add animations to your area i.e. ambient lighting, fires, special effects etc.. Again, this is a short tutorial because I haven't yet figured out all of the available options; when I do, it will be updated.</p>
+
+<p>Unless you've changed your browser fonts to something weird and wonderful, the conventions in this tutorial are that black is descriptive text and blue bold is action text.</p>
+
+<font color="navy">
+  <A NAME = "anim"><H3>Adding the Animations</H3></A>
+</font>
+
+<p>If you haven't already done so, start DLTCEP and load the area you wish to add the animation to. Image 1 shows the area I wanted to work on.</p>
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image6.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 1 - This area needs lighting</b></i></font></p>
+</td></tr>
+</table>
+
+<ul><b><font color="blue">
+  <li>Click on the 'Animations' tab</li>
+</ul></b></font>
+
+<p>This will get you a blank animations screen (image 2).
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image1.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 2 - The blank animations screen</b></i></font></p>
+</td></tr>
+</table>
+
+<p>You will have some idea of what it is you need to add; in my case I wanted six torches to fill the torch holders (only four are visible because of the play angle). I had some idea of what I required but I didn't know what the bam file was called.
+
+<ul><b><font color="blue">
+  <li>Click on 'Add Animation'</li>
+  <li>Give the animation a meaningful name</li>
+  <li>Select 'Browse'
+</ul></b></font>
+
+<p>This will popup the list of available bam files (image 3). As I knew I needed some form of small torch, I checked through all the bams labelled with 'fire', 'flame' or some derivative. Eventually, I settled on 'flame2m'
+
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image2.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 3 - The Bam file</b></i></font></p>
+</td></tr>
+</table>
+
+<p>You can experiment with the display flags - in other words, I don't know what they all do despite some heavy checking - but to get the animation to show correctly in a clear area you need at least the flags that are shown. Don't be tempted to check 'Draw all cycles' - some bams have empty frames and others have multiple animation types within the same frame. In the case of empty frames, this is a known game crasher when used in combination with some .cre effects.</p>
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image3.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 4 - Flags and Bam</b></i></font></p>
+</td></tr>
+</table>
+
+<p>You will have seen the Scheduler before now (see Adding actors if you are not certain of it); use it to set the time of day for your animation. As an indoor illumination, mine was to be active all the time. If you want to run through one cycle of your animation:-
+
+<ul><b><font color="blue">
+  <li>Click 'Play'</li>
+</ul></b></font>
+
+<p>Now, a quick word about that 'Not covered by wall' flag. This works in conjunction with the 'Cover Animations' flag (see 'Area Making - Wallgroups') to prevent animations from displaying over the top of wallgroups e.g. the many kitchen fires scattered about the game. In this example, the fire animation is cut off by the hood over the fire pit. If your animation is going to display over a wallgroup and you don't want it cut off by the wallgroup, then select this flag. I've outlined the wallgroup to make it easier to follow.</p>
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image7.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 5 - Covered by wallgroups</b></i></font></p>
+</td></tr>
+</table>
+
+<p>The final part of this tutorial is to actually place the animation within the scene.</p>
+
+<ul><b><font color="blue">
+  <li>Select 'Find Place'</li>
+</ul></b></font>
+
+<p>This will bring up a preview of the area.<p>
+
+
+<ul><b><font color="blue">
+  <li>Click to set the animation preview in place</li>
+  <li>Click 'Set' to fix it
+</ul></b></font>
+
+<P>I will guarantee you will chase some of the  bigger animations all over the shop before finally setting them down! Image 6 shows the first torch in place.<p>
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image4.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 6 - First Torch</b></i></font></p>
+</td></tr>
+</table>
+
+<p>Once you have your animation in place, save it. If, like me, you are repeating the same animation multiple times, you can save time and effort by:-</p>
+
+<ul><b><font color="blue">
+  <li>Select 'Copy Animation'</li>
+  <li>Select 'Add Animation'</li>
+  <li>Select 'Paste Animation'</li>
+</ul></b></font>
+
+<p> - and the only thing that will need changing is:-
+
+<ul><b><font color="blue">
+  <li>Select 'Find Place'</li>
+</ul></b></font>
+
+<p>Just about this point I realised that my finished scene was still not lit correctly and I needed to change the background to add reflected light from the torches - see also 'Advanced Lightmapping' for how to improve the standard DLTCEP light maps.</p>
+
+<table align=center>
+<tr><td>
+	<font color="navy">
+    <img src="image5.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 7 - The lit area</b></i></font></p>
+</td></tr>
+</table>
+
+<font color="red">
+<table align=center>
+  <tr><td width=500>
+	<p><b><i>Tutorial written by Yovaneth, apprentic’d at Candlekeep during the Bhaalspawn Troubles. Post it where you will but please don’t take credit for what you have not written.</i></b></p>
+  </td></tr>
+</table>
+</font>
+

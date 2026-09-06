@@ -1,0 +1,1048 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>Adding Doors with DLTCEP</title>
+</head>
+
+<body>
+<FONT COLOR="navy"><h3>Contents</h3></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#version">Version History</A></TD></TR>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#extract">Extracting Door Tiles</A></TD></TR>
+	<TR><TD><A HREF = "#import">Importing the Closed Door Bitmap</A></TD></TR>
+	<TR><TD><A HREF = "#creating">Creating the Door Itself</A></TD></TR>
+	<TR><TD><A HREF = "#secret">Secret Doors</A></TD></TR>
+	<TR><TD><A HREF = "#nonrect">Non-rectangular Doors</A></TD></TR>
+	<TR><TD><A HREF = "#missing">Missing Doors</A></TD></TR>
+	<TR><TD><A HREF = "#scripts">Door Scripts</A></TD></TR>
+	<TR><TD><A HREF = "#odd">Odd Bits of Trickery</A></TD></TR>
+	<TR><TD><A HREF = "#doors">Scripting Doors</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="navy">
+<A NAME = "version"><H3>Version History</H3></A></font>
+<table>
+	<tr><td width=20></td><td width=30>1.0</td><td>Initial release</td></tr>
+	<tr><td width=20></td><td width=30>1.1</td><td>'Door Scripts' added</td></tr>
+	<tr><td width=20></td><td width=30></td><td>'Missing Doors' added</td></tr>
+	<tr><td width=20></td><td width=30>1.2</td><td>All references to Near Infinity deleted as it is no longer required.</td></tr>
+	<tr><td width=20></td><td width=30></td><td>'Locked, secret and needing a key' added to the end of 'Creating the Door Itself'.</td></tr>
+	<tr><td width=20></td><td width=30>1.3</td><td>DLTCEP restart instructions changed in line with Avenger's comments in 'Adding Overlays' tutorial
+	<tr><td width=20></td><td width=30>1.4</td><td>New section split off specifically for secret doors.</td></tr>
+	<tr><td width=20></td><td width=30></td><td>More information on editing secret doors added. </td></tr>
+	<tr><td width=20></td><td width=30></td><td>'Door Scripts' section expanded.</td></tr>
+	<tr><td width=20></td><td width=30>1.5</td><td>More information on doors keys added. Again, thanks to Avenger.</td></tr>
+	<tr><td width=20></td><td width=30>1.6</td><td>'Odd Bits of Trickery' added</td></tr>
+	<tr><td width=20></td><td width=30>1.7</td><td>'Scripting Doors' added</td></tr>
+	<tr><td width=20></td><td width=30></td><td>Night wed notes added</td></tr>
+	<tr><td width=20></td><td width=30>1.8</td><td>Re-using polygons note added to 'Creating the Door Itself'</td></tr>
+	<tr><td width=20></td><td width=30>2.0</td><td>'Placing the Closed Door into the TIS file' section deleted as improvements in DLTCEP mean it is no longer needed.</td></tr>
+	<tr><td width=20></td><td width=30>2.1</td><td>'Missing Doors' section expanded greatly</td></tr>
+	<tr><td width=20></td><td width=30>2.1.1</td><td>Night wed notes amended.</td></tr>
+	<tr><td width=20></td><td width=30>2.2</td><td>'Non-rectangular Doors' added.</td></tr>
+</td></tr>
+</table>
+
+<br>
+
+<font color="navy">
+<A NAME = "introduction"><H3>Introduction</H3></A>
+</font>
+
+<p><font color="black">This tutorial will teach you how to create doors and how to associate them with travel regions. We will cover the following:</font></p>
+
+<font color="black">
+<ul>
+  <li>extracting open-door tiles</li>
+  <li>creating new .tis sets from a closed-door bitmap</li>
+  <li>importing the closed-door tileset into the main area tileset</li>
+  <li>one-way doors with links to travel regions</li>
+  <li>standard two-way doors connecting two rooms.</li>
+</ul>
+</font>
+
+<p><font color="black">As with 'Creating Travel Regions', this tutorial is set in my as-yet un-named seatown and uses the same building.</font></p>
+
+<p><font color="black">I have no idea where you will be creating your mod, so I am going to assume that all of the relevant files are in your \bg2\override directory.</font></p>
+<p><font color="black">Unless you've changed your browser fonts to something weird and wonderful, the conventions in this tutorial are that Times New Roman is ‘descriptive’ text and Arial Bold is ‘action’ text. Alternatively, black is descriptive and blue is action.</font></p>
+<p><font color="black">Restrictions: </font></p>
+
+<font color="black">
+<ol>
+  <li>the bitmaps that you will use to represent closed doors must be a multiple of 64 pixels on a side i.e. 64 x 64, 128 x 64, 192 x 128 etc. If they are not to an exact division of 64, DLTCEP will 'pad' the closed door .tis set with grey pixels until it is the next correct size e.g. 129 x 63 will be padded to 192 x 64. </li>
+  <li>the top-left pixel of the closed door will also be on a point that is a multiplier of 64. This is a restriction of the Infinity Engine and one that you need to be aware of when preparing your area and door bitmaps.</li>
+</ol>
+</font>
+
+<br>
+
+<font color="navy">
+<A NAME = "extract"><H3>Extracting Door Tiles</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#import">Importing the Closed Door Bitmap</A></TD></TR>
+	<TR><TD><A HREF = "#creating">Creating the Door Itself</A></TD></TR>
+	<TR><TD><A HREF = "#secret">Secret Doors</A></TD></TR>
+	<TR><TD><A HREF = "#nonrect">Non-rectangular Doors</A></TD></TR>
+	<TR><TD><A HREF = "#missing">Missing Doors</A></TD></TR>
+	<TR><TD><A HREF = "#scripts">Door Scripts</A></TD></TR>
+	<TR><TD><A HREF = "#odd">Odd Bits of Trickery</A></TD></TR>
+	<TR><TD><A HREF = "#doors">Scripting Doors</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="black">Having got you worried about sizes and positions, you can actually get DLTCEP to do the work for you and export the open door tiles from the main .tis file, so that you can save them as a guide to create your closed door bitmap. As always, I assume that the main area bitmap is complete and that you have created the .wed file for it. </font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select ‘Edit’ and ‘Area (ARE/WED)’</b></font></li>
+  <li><font face="Times New Roman"><b>Select ‘Load External Area’ to load the .tis file you want to work with.</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Edit WED' </b></font></li>
+</ul></font>
+
+<p><font color="black">If you have added any overlays then ensure that Overlay 1 - the main area picture - is the one selected.</font></p>
+
+<table align=center>
+<tr>
+<td width=651>
+	<font color="navy">
+	<img src="image1.jpg" align="middle">
+	<p><i><b>Image 1 – Edit WED screen</b></i></p>
+	</font>
+</td>
+</tr>
+</table>
+
+<ul><p><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Extract'</b></font></li>
+</ul></font>
+
+<p><font color="black">DLTCEP will load the Tileset Extractor. By default, 'Open Doors' is selected but for us at this point, it is irrelevant.</font></p>
+
+<table align=center>
+<tr>
+<td width=398>
+	<font color="navy">
+	<img src="image2.jpg" align="middle">
+	<p><i><b>Image 2 – Tileset Extractor</b></i></p>
+	</font>
+</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Preview'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Show Grid' on the Preview screen</b></font></li>
+</ul></font>
+
+<p><font color="black">Your area will be loaded onscreen. Now, DLTCEP (v6.2f) can be a bit of a prima-donna here, refusing to let you select any tiles that are not immediately visible. Scroll the picture until you have identified the top-left tile that you wish to export. Click the left mousebutton and make a note of the tile number that appears in the title bar. If DLTCEP promptly shoots back to the top-left corner of the area preview, you at least know where you want to start. Now, if necessary, enter those figures manually in the first pair of textboxes - as you can see, my first tile was at 36,6. DLTCEP will now quite happily display this tile as the top left in the Preview pane. The figures in the greyed-out textboxes are the total number of tiles in the .tis set - this area is 80 x 60 tiles or 5120 x 3840 pixels.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Select Top Left'</b></font></li>
+</ul></font>
+
+<p><font color="black">You have now defined the first tile to be extracted. Select the bottom right tile and</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Select Bottom Right'</b></font></li>
+</ul></font>
+
+<p><font color="black">The area preview will disappear and you will be left with just the open door tiles.</font></p>
+<table width="568" align=center>
+<tr>
+<td width=596 height="249">
+	<font color="navy">
+	<img src="image3.jpg" align="middle">
+	<p><i><b>Image 3 – Selected Tiles. (The Preview screen has been cropped in this screenshot).</b></i></p>
+	</font>
+</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Save as Bitmap'</b></font></li>
+</ul></font>
+
+<p><font color="black">That's it - done. You can now create your closed-door bitmap, knowing that it will be pixel-perfect when you put it back into the area.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Back' to return to the 'Edit Wed' screen</b></font></li>
+</ul></font>
+
+<br>
+
+<font color="navy">
+<A NAME = "import"><H3>Importing the Closed Door bitmap</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#extract">Extracting Door Tiles</A></TD></TR>
+	<TR><TD><A HREF = "#creating">Creating the Door Itself</A></TD></TR>
+	<TR><TD><A HREF = "#secret">Secret Doors</A></TD></TR>
+	<TR><TD><A HREF = "#nonrect">Non-rectangular Doors</A></TD></TR>
+	<TR><TD><A HREF = "#missing">Missing Doors</A></TD></TR>
+	<TR><TD><A HREF = "#scripts">Door Scripts</A></TD></TR>
+	<TR><TD><A HREF = "#odd">Odd Bits of Trickery</A></TD></TR>
+	<TR><TD><A HREF = "#doors">Scripting Doors</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="black">There are two ways of getting a closed door into the main .tis file, but the easiest way is to import your closed-door bitmap as a .tis file in its own right. This is also the way you convert any bitmap to a tileset.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select ‘Edit’ and ‘Tileset (TIS)’</b></font></li>
+</ul></font>
+
+<p><font color="black">This will launch the Tileset editor.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select 'Load External Tis’ and change 'Files of Type' so that it reads 'Bitmap'.</b></font></li>
+  <li><font face="Times New Roman"><b>Select your closed-door bitmap</b></font></li>
+</ul></font>
+
+<p><font color="black">DLTCEP will give you some information about the import process and pop up the closed-door on a small preview screen.</font></p>
+
+<table width="431" align=center>
+<tr>
+<td width=423 height="270">
+	<font color="navy">
+	<img src="image6.jpg" align="middle">
+	<p><i><b>Image 4 – The Tileset Editor after the bitmap is loaded</b></i></p>
+	</font>
+</td>
+</tr>
+</table>
+
+<table width="431" align=center>
+<tr>
+<td width=423 height="270">
+	<font color="navy">
+	<img src="image5.jpg" align="middle">
+	<p><i><b>Image 5 – The imported closed door</b></i></p>
+	</font>
+</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select 'Save Tis As'</b></font></li>
+  <li><font face="Times New Roman"><b>Select 'Exit'</b></font></li>
+</ul>
+
+<p><font color="black">The new closed door is now a .tis tileset. To get DLTCEP to recognise it,</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select 'Reload chitin'</b></font></li>
+</ul></font>
+</font>
+<br>
+
+<font color="navy">
+<A NAME = "creating"><H3>Creating the Door itself</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#extract">Extracting Door Tiles</A></TD></TR>
+	<TR><TD><A HREF = "#import">Importing the Closed Door Bitmap</A></TD></TR>
+	<TR><TD><A HREF = "#secret">Secret Doors</A></TD></TR>
+	<TR><TD><A HREF = "#nonrect">Non-rectangular Doors</A></TD></TR>
+	<TR><TD><A HREF = "#missing">Missing Doors</A></TD></TR>
+	<TR><TD><A HREF = "#scripts">Door Scripts</A></TD></TR>
+	<TR><TD><A HREF = "#odd">Odd Bits of Trickery</A></TD></TR>
+	<TR><TD><A HREF = "#doors">Scripting Doors</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><b><font color="red">Before we continue, there are a few things that you must be aware of if you are creating an area that has a night area and for whatever reason, the night area is different from the day area. This tutorial deals with the day .wed only because otherwise it would have the same information repeated twice each time we edit the .wed. So, whenever I say 'Edit .wed', there are additional steps that you must take to ensure that the night area will work also. Whenever I tell you to exit the .wed screen, you MUST MUST MUST save the area. You must then select the 'Night wed' button and repeat the .wed editing we have just done. What you are doing is building two weds - day and night - in parallel. Again, when you exit the night wed screen, you MUST MUST MUST save the area before continuing onto the next section. Failure to do so will mean the loss of ALL the .wed editing you have just done.</font></b></p>
+
+<p>If the day and night .weds are the same (as will be the case in 99.9% of cases) then there is a quick way of creating the entire night .wed complete with doors in one go. See 'Cheating in the Night wed' in the 'Area Basics' tutorial. </p>
+
+<p>Please note that the last selected .wed editing button will influence the Preview screen for all aspects of editing. If your last selection was 'Night wed' and you want to see the day .tis in the Preview screens,
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Edit wed'</b></font></li>
+</ul></font>
+
+<p>and when the Edit Wed screen comes up,</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Back'</b></font></li>
+</ul></font>
+
+<p>This will reset the Preview .tis.</font></p>
+
+<p><font color="black">My assumption here is that you have completed the other tutorial on Adding Travel Regions with DLTCEP; if not, then some of this section won't be of much use to you yet. You can't do a Travel door without a region to link to.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select ‘Edit’ and ‘Area (ARE/WED)’</b></font></li>
+  <li><font face="Times New Roman"><b>Select ‘Load External Area’ to load the .tis file you want to work with.</b></font></li>
+  <li><font face="Times New Roman"><b>Click on the 'Doors' tab</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Add Door'</b></font></li>
+</ul>
+
+<table width="176" align=center>
+<tr>
+<td width=168>
+	<font color="navy">
+	<img src="image9.jpg" align="middle">
+	<p><i><b>Image 7 – Add Door</b></i></p>
+	</font>
+</td>
+</tr>
+</table>
+
+<p><font color="black">Yes, this area already had one door!</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Think of a good door name and enter it into the Door Name box.</b></font></li>
+</ul></font>
+
+<p><font color="black">DLTCEP will automatically allocate a door number to your name. Find the title 'Open Location Front' and</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on‘Set’</b></font></li>
+</ul></font>
+
+<p><font color="black">The Preview screen will open; scroll around until you find the door you are creating.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click the area you want the Door icon to appear</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Set' to fix it.</b></font></li>
+</ul></font>
+
+<p><font color="black">Repeat the actions for 'Open Location Rear', selecting an area somewhere "inside" the picture of the house. We don't really need it for this travel region door but there is no point in upsetting either DLTCEP or the Infinity Engine; you MUST have it for a door that allows passage from both sides e.g. an internal house door. </font></p>
+
+<table width="182" align=center>
+<tr>
+<td width=174>
+	<font color="navy">
+	<img src="image8.jpg" align="middle">
+	</font><p><font color="navy"><i><b>Image 8 – Setting the Front Open Location</b></i></font></p>
+
+</td>
+</tr>
+</table>
+
+<p><font color="black">Save your work; we need to edit the .wed file before we can finish here. When we get to the .wed screen, we are working purely with the middle box titled 'Doors'.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'General' tab</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Edit WED'</b></font></li>
+  <li><font face="Times New Roman"><b>Select the door you are working on</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Edit Tiles'</b></font></li>
+</ul></font>
+
+<p><font color="black">This will bring up the 'Edit Door Tiles' screen and will default to Draw Closed.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Preview' </b></font></li>
+</ul></font>
+
+<p><font color="black">This will bring up the 'Preview' screen. Scroll the preview until you have found the open door you exported in Extracting Door Tiles above. Using either the new closed door bitmap or the original exported one, identify the top left tile and </font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select it in the Preview screen.</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Add Tile'.</b></font></li>
+</ul></font>
+
+<p><font color="black">The tile number will be listed in the Select Tile box. Do this until you have added all of the tiles that will comprise the closed door - in my case this was the same four tiles that we used in the adding alternate tiles section above and the alternate tile numbers hould appear beside the primary numbers.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Add Tile'.</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Select Door (.tis)'</b></font></li>
+</ul></font>
+
+<p><font color="black">- and import the door tileset you created earlier.</font></p>
+
+<table width="446" align=center>
+<tr>
+<td width=653>
+	<font color="navy">
+	<img src="image14.jpg" width="439" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 9 – Door Tileset Editor</b></i></font></p>
+</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Draw Open/Draw Closed' a few times to watch it working again....!</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Back'.</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Open'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Add Polygon'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Edit Polygon'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Preview'</b></font></li>
+</ul></font>
+
+<p><font color="black">Find the door and draw the outline of the closed door as you wish to see it in the game. Make good use of the Insert/Modify modes to get a good, sharp shape. When you've finished:</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Back'.</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Add Polygon'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Edit Polygon'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Preview'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Draw Open'</b></font></li>
+</ul></font>
+
+<p><font color="black">- and repeat for the shape of the open door. When that is finished,</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Back'.</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Back'</b></font></li>
+</ul></font>
+
+<p><font color="black">- and save! You can actually save each polygon as you draw it and then re-use it later when you draw the outline that displays blue (or magenta!) in the game. For more detail on this, see the Overlays tutorial where re-using polygons is dealt with in detail.</font></p>
+
+<table width="257" align=center>
+<tr>
+<td width=439>
+	<font color="navy">
+	<img src="image15.jpg" width="251" height="169" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 10 – Closed & Open outlines</b></i></font></p>
+</td>
+</tr>
+</table>
+
+<p><font color="black">If you are creating an area with a night display, you are now going to hit one of those odd 'gotchas' with DLTCEP. After you have saved the area and clicked on 'Night .wed' to repeat what we have just done for the night area and this is the first door, you will be greeted with a disabled door section.</font></p>
+
+<table width="257" align=center>
+<tr>
+<td width=439>
+	<font color="navy">
+	<img src="image21.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 11 – Disabled night doors</b></i></font></p>
+</td>
+</tr>
+</table>
+
+<p><font color="black">Use the Door menu to Add a door and continue to edit the Night .wed as described above for the day .wed. You will need to use the menu for all subsequent night doors.</font></p>
+
+<p><font color="black">Our next move is to create the area that the characters cannot pass until the door opens. This overrides any area settings (Impassable/Passable/etc) on the Search map and is more important for an opening/closing door than for a travel door.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on the 'Door' tab</b></font></li>
+  <li><font face="Times New Roman"><b>Select the correct door</b></font></li>
+</ul></font>
+
+<p><font color="black">Locate the 'Vertices and Impeded Blocks' box and </font>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Edit Blocks'</b></font></li>
+</ul></font>
+
+<p><font color="black">When the Edit Impeded Blocks screen appears, ensure that the listbox is set to '1 - Blocked'. This is where you get your eyes fried by bright green lines.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Check 'Show Grid'</b></font></li>
+</ul></font>
+
+<p><font color="black">Once you have completed this,</font>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click 'Back'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Edit Polygon'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Preview'</b></font></li>
+</ul></font>
+
+<p><font color="black">Try and draw the same open-door polygon you drew in Closed and Open Outlines above, but the difference is this is the one that turns bright cyan in the game to let you know that there is a passable door here. When that is complete,</font>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click 'Back'</b></font></li>
+  <li><font face="Times New Roman"><b>Click 'Open' so that it now says 'Closed'</b></font></li>
+</ul></font>
+
+<p><font color="black">- then repeat blocks and polygon for the closed door.</font>
+
+<table width="300" align=center>
+<tr>
+<td width=292>
+	<font color="navy">
+	<img src="image10.jpg" align="middle">
+	<p><i><b>Image 12 – Open & Closed Impede Blocks</b></i></p>
+	</font>
+</td>
+</tr>
+</table>
+
+<p><font color="black">The last thing with this door is to link the travel region and set the cursor. If this was a door linking two rooms in one area (e.g. inside a house) then the door would now be complete.</font></p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Set the cursor number to 30 (Open Door)</b></font></li>
+  <li><font face="Times New Roman"><b>Check 'Linked' </b></font></li>
+  <li><font face="Times New Roman"><b>Add the Region Name</b></font></li>
+</ul></font>
+
+<p><font color="black">In my case the region name was 'TRAVhse1' - Travel to House One.</font></p>
+
+
+<table width="682" align=center>
+<tr>
+<td width=674>
+	<font color="navy">
+	<img src="image12.jpg" align="middle">
+	</font>
+	<p><font color="black"><i><b>Image 13 - Completed Door</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p><font color="black">The final two options for this simple (!!!) door are to have an open and close sound - most doors don't have them, but the choice is there for you. I haven't yet created Trapped Doors for my mod but when I do, this tutorial will be updated to include the details on how to do them.</font></p>
+
+
+<table width="352" align=center>
+<tr>
+<td width=344>
+	<font color="navy">
+	<img src="image13.jpg" width="388" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 14 - 'I wonder where this leads....?'</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<font color="navy">
+<A NAME = "secret"><H3>Secret Doors</H3></A>
+</font>
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#extract">Extracting Door Tiles</A></TD></TR>
+	<TR><TD><A HREF = "#import">Importing the Closed Door Bitmap</A></TD></TR>
+	<TR><TD><A HREF = "#creating">Creating the Door Itself</A></TD></TR>
+	<TR><TD><A HREF = "#nonrect">Non-rectangular Doors</A></TD></TR>
+	<TR><TD><A HREF = "#missing">Missing Doors</A></TD></TR>
+	<TR><TD><A HREF = "#scripts">Door Scripts</A></TD></TR>
+	<TR><TD><A HREF = "#odd">Odd Bits of Trickery</A></TD></TR>
+	<TR><TD><A HREF = "#doors">Scripting Doors</A></TD></TR>
+</table>
+</font>
+
+<font color="black"><p>Image 15 below illustrates the additional parts required for a door - in this case, a cave rockfall! - where the door is secret, locked and cannot be opened without a key.</p></font>
+
+<table width="682" align=center>
+<tr>
+<td width=674>
+	<font color="navy">
+  <img src="image17.jpg" align="middle">	</font>
+	<p><font color="navy"><i><b>Image 15 - Locked, secret and needing a key.</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<font color="black"><p>This is a rundown of the option boxes that I know:-</p>
+
+<font color="black"><p>The lock difficulty must be set to 100%, otherwise a good thief will be able to open your door without a key. If there is no key required, then pick a skill percentage as you see fit.</p>
+
+<font color="black"><p>The 'Locked' check produces the LOCKED message in game.</p>
+
+<font color="black"><p>The 'Open fail' text is displayed when a thief fails to pick the lock. In this case I'm being told that there ain't no way past that rockfall.... This is an existing game string.</p>
+
+<font color="black"><p>'Key' tells us that a key is required - here we need to be carrying a pickhammer to chip our way through the door.</p>
+
+<font color="black"><p>Although I have chosen to use a large tool to take out my frustration on an innocent pile of rock, if you are using an ordinary key then clicking on the 'Found It' box will cause the key to disappear from your party's inventory when it is used i.e. it doesn't matter who is holding the key when the door is unlocked, it just needs to be in-party.</p>
+
+<font color="black"><p>Surprisingly enough, as part of ensuring that the door does not show up before it is discovered by a thief, we need to check the 'Internal' box.</p>
+
+<font color="black"><p>The 'Hidden' box makes the door outline the familiar magenta colour.</p>
+
+<font color="black"><p>'Discovery' is the percentage of thief skills required to actually find the door. Not much in this case, it seems.</p>
+
+<font color="black"><p>There are a few things left to do to complete the secret door:</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select the Region tab</b></font></li>
+  <li><font face="Times New Roman"><b>Select the relevant region</b></font></li>
+</ul></font>
+
+<p>In the Trap box:</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Check the 'Used by door' box</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Set Launch Point'</b></font></li>
+</ul></font>
+
+<p>This will bring up the area preview. No, I don't know why we need a launch point either :D. (Launch points get explained better in the 'Info Points and Proximity Bombs' tutorial). Now,</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click somewhere close to the door</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Set' to fix it</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Back'</b></font></li>
+  <li><font face="Times New Roman"><b>Save the area.</b></font></li>
+</ul></font>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image18.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 16 - The Travel Region needs a Door.</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<br>
+
+<font color="navy">
+<A NAME = "nonrect"><H3>Non-rectangular Doors</H3></A>
+</font>
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#extract">Extracting Door Tiles</A></TD></TR>
+	<TR><TD><A HREF = "#import">Importing the Closed Door Bitmap</A></TD></TR>
+	<TR><TD><A HREF = "#creating">Creating the Door Itself</A></TD></TR>
+	<TR><TD><A HREF = "#secret">Secret Doors</A></TD></TR>
+	<TR><TD><A HREF = "#missing">Missing Doors</A></TD></TR>
+	<TR><TD><A HREF = "#scripts">Door Scripts</A></TD></TR>
+	<TR><TD><A HREF = "#odd">Odd Bits of Trickery</A></TD></TR>
+	<TR><TD><A HREF = "#doors">Scripting Doors</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="black">There are two particular problems that I am aware of that make it necessary to add non-rectangular doors. These are when two doors want to use a common tile and (occasionally) when a door refuses to correctly display an overlay. I hit this problem when adding a night area to Wyrm's Crossing for BGTuTu, so I'm going to use this as an example of how to add non-rectangular doors.</font></p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image25.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 17 - Overlay drawn incorrectly - closed drawbridge on Wyrm's Crossing at night</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<br>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image26.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 18 - The open door</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p><font color="black">First move is to remove all of the tiles that would require a water overlay. These <b>must</b> be removed as 64x64 pixel squares. When that is done the door has to be sub-divided into rectangular blocks that have multiples of 64x64 pixel tiles. Image 19 shows the door with the water tiles removed. The remaining tiles are marked to show the individual blocks - effectively each block of tiles is an individual door.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image27.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 19 - Overlay tiles removed and individual blocks marked</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p><font color="black">DLTCEP will always add tiles from first to last. This means that if block 1 is added as an 8x6 tile door, then you add a further forty-eight tiles to expand the door to take the 12x4 tile block 2, DLTCEP will start adding the second block of tiles at position zero thus overwriting the tiles in block 1 with the tiles in block 2. We can take advantage of this behaviour by building the door backwards and upwards by starting with block 4.</p>
+
+<p>I've already loaded the area (FW0900) into DLTCEP and removed all of the old door tiles. From here on I'm going to treat this like a new area.</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select 'Night Wed'</b></font></li>
+  <li><font face="Times New Roman"><b>Select 'DoorDraw' from the 'Doors' section</b></font></li>
+  <li><font face="Times New Roman"><b>Select 'Edit Tiles'</b></font></li>
+  <li><font face="Times New Roman"><b>Select 'Preview' from the 'Edit Tiles & Overlays' dialog</b></font></li>
+  <li><font face="Times New Roman"><b>Scroll down to the drawbridge</b></font></li>
+</ul></font>
+
+<p><font color="black">Remember: bottom up, so we start with the lowest of the four blocks.</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>'Add tile' starting from the top left of the block until just that block is complete</b></font></li>
+</ul></font>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image28.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 20 - First blocks selected</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p><font color="black">I've outlined the tiles to make them more visible. The damaged tile areas are also much more visible in the screenshot.</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select 'Set Door (bmp)'</b></font></li>
+  <li><font face="Times New Roman"><b>Select the block section - here I called it 'FW0900N6'</b></font></li>
+</ul></font>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image29.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 21 - The bottom part of the door</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select 'OK'</b></font></li>
+</ul></font>
+
+<p><font color="black">That section should now appear on the door preview.</p>
+
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image30.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 22 - First section of the drawbridge</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+
+<font color="navy">
+<A NAME = "missing"><H3>Missing Doors</H3></A>
+</font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#extract">Extracting Door Tiles</A></TD></TR>
+	<TR><TD><A HREF = "#import">Importing the Closed Door Bitmap</A></TD></TR>
+	<TR><TD><A HREF = "#creating">Creating the Door Itself</A></TD></TR>
+	<TR><TD><A HREF = "#secret">Secret Doors</A></TD></TR>
+	<TR><TD><A HREF = "#nonrect">Non-rectangular Doors</A></TD></TR>
+	<TR><TD><A HREF = "#scripts">Door Scripts</A></TD></TR>
+	<TR><TD><A HREF = "#odd">Odd Bits of Trickery</A></TD></TR>
+	<TR><TD><A HREF = "#doors">Scripting Doors</A></TD></TR>
+</table>
+</font>
+
+<p><font color="black">Sometime during testing you are almost certain to get the following problem:-</font></p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image16.jpg" width="388" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 17 - Missing door in-game example</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<font color="black">There is a second visual too: the wrong door in the wrong place. This one usually shows up as "mixed" tiles where you can see it is a door but it doesn't assemble correctly. For some unknown reason, DLTCEP has foobar'd the alternative tiles that hold the door graphic. Fortunately, the recovery is both quick and easy.</font>
+
+<font color="black">Refer back to 'Placing the Closed Door bitmap into the TIS file', but before you try and add any alternate tiles, select the foobar'd one and </font>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Remove Alternate Tiles</b></font></li>
+</ul></font>
+
+<font color="black">followed immediately by</font>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Add Alternate Tiles</b></font></li>
+</ul></font>
+
+<font color="black">to replace the tile you've just dropped (see image 9). Easy to fix but still a ballsache when you'd got fifteen foobar'd doors...... Unfortunately, while Removing Alternate Tiles and depending on just when during the area creation process you've discovered the foobar'd doors, DLTCEP may greet you with a vicious 'Assertion Failure' CTD. If this happens, instead of clicking on Remove Alternate Tiles,
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>enter '-1' over the tile number in the Alternate Tile number box</b></font></li>
+  <li><font face="Times New Roman"><b>click in the Tile Index box to remove the tile.</b></font></li>
+</ul></font>
+
+
+<font color="black"><p>While we're talking about foobars, another one to watch out for is the naffed 'close door' region. This one usually shows up as a door that will open but does not show the cyan-coloured 'close door' selection region.</p></font>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Go to the Doors tab</b></font></li>
+</ul></font>
+
+<font color="black"></p>Find the 'Vertices and Impeded Blocks' section.</p></font>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select 'Open'</b></font></li>
+  <li><font face="Times New Roman"><b>Select 'Preview'</b></font></li>
+</ul></font>
+
+<font color="black"></p>Edit and save the polygon points as needed.</p></font>
+
+<p>There is also one other very serious problem that occurs during the creating of the night .wed file; Avenger says it shouldn't happen but it does and it results in the complete trashing of both the night and day .wed files. It could just be me but I'd rather you know about it and how to fix it than wonder just what the hell has gone wrong. You will need a copy of NearInfinity but the fix is fairly easy, provided that you follow the instructions very closely.</P>
+
+<p>The most obvious symptom is when you have just spent hours creating a set of night .wed doors, you save the file and reload the night .wed only to find that not a single one of the doors has been saved. You switch to the day .wed and find that it has now mysteriously gained the night .wed overlay. You cannot simply change the overlay back by using the Set Overlay button because DLTCEP will object to the fact that you have doors in the .tis file. A complete <i>impasse</i>. </p>
+
+<p><b>Note: </b>If you followed my advice and created the doors as the first objective when starting a new area file then this fix should not create any further problems. If you have already added ambients, actors, containers etc. then it has the potential to be absolutely disasterous because you will overwrite everything in the night .wed file with the contents of the day .wed file. If this is the case, I quite seriously suggest that you start the entire area again from scratch and ensure that the doors are the first things you add.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image22.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 18 - Incorrect .wed overlay</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>The first move is to correct the day overlay name.</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Save your work and exit from DLTCEP</b></font></li>
+  <li><font face="Times New Roman"><b>Start NearInfinity</b></font></li>
+  <li><font face="Times New Roman"><b>Open the .Wed treeview and select your day .wed file</b></font></li>
+</ul></font>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image23.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 19 - The incorrect .wed overlay in NearInfinity</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Doubleclick on the overlay name line to launch the Overlay window</b></font></li>
+  <li><font face="Times New Roman"><b>Highlight the overlay name and select the correct one from the list at the bottom</b></font></li>
+  <li><font face="Times New Roman"><b>Click 'Update value'</b></font></li>
+</ul></font>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image24.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 20 - Correcting the Overlay name</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Close the Overlay window</b></font></li>
+  <li><font face="Times New Roman"><b>Select 'Save' in the main window and allow NI to overwrite your existing .wed file.</b></font></li>
+  <li><font face="Times New Roman"><b>Close NearInfinity</b></font></li>
+</ul></font>
+
+<p>That fixes the day overlay problem. The next move seems counter-intuitive but it does work.</P>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Delete the night .wed file</b></font></li>
+  <li><font face="Times New Roman"><b>Delete the night .tis file</b></font></li>
+  <li><font face="Times New Roman"><b>Recreate the night .tis file from your original bitmap</b></font></li>
+  <li><font face="Times New Roman"><b>Complete the doors in the .day wed file only</b></font></li>
+  <li><font face="Times New Roman"><b>Save a copy of the .day wed file somewhere safe</b></font></li>
+  <li><font face="Times New Roman"><b>Create a new night .wed file</b></font></li>
+  <li><font face="Times New Roman"><b>Start from 'Creating the Door itself' above but stop when you reach the intructions below Image 9.</b></font></li>
+</ul></font>
+
+<p>What we are doing is importing only the door tiles into the tisfile; we are not creating any outline polygons, impeded blocks or any of the other stuff that makes up a complete door.</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Delete the night .wed file you've just created (yes! honestly)</b></font></li>
+  <li><font face="Times New Roman"><b>Save the new night .tis file in the same safe place as the saved day .wed file</b></font></li>
+  <li><font face="Times New Roman"><b>Make a copy of your saved day .wed file and name it &lt;areaname&gt;n.wed</b></font></li>
+</ul></font>
+
+<p>By now you've probably caught up with what I'm doing. We're going to force the saved day .wed file into being the night .wed file.</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Start NearInfinity and change the .wed file overlay as detailed above, but this time from day to night using the renamed day .wed file</b></font></li>
+</ul></font>
+
+<p>That should fix the problem.</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Save a copy of the fixed night .wed file somewhere just in case!</b></font></li>
+</ul></font>
+
+
+<br>
+
+<font color="navy"><A NAME = "scripts"><H3>Door Scripts</H3></A></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#extract">Extracting Door Tiles</A></TD></TR>
+	<TR><TD><A HREF = "#import">Importing the Closed Door Bitmap</A></TD></TR>
+	<TR><TD><A HREF = "#creating">Creating the Door Itself</A></TD></TR>
+	<TR><TD><A HREF = "#secret">Secret Doors</A></TD></TR>
+	<TR><TD><A HREF = "#nonrect">Non-rectangular Doors</A></TD></TR>
+	<TR><TD><A HREF = "#missing">Missing Doors</A></TD></TR>
+	<TR><TD><A HREF = "#odd">Odd Bits of Trickery</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p><font color="black">I had some trouble figuring out just when (and when not) door scripts actually ran. My conclusion was that unless they are qualified, they run continuously while the player is in the area. Secondly, it seems impossible to open the door and then click on it a second time to run a qualified script..... which was extremely frustrating because I wanted to move the party between different areas depending on the state of a flag. Eventually I found a way round this one using an Info Point as the trigger (See tutorial 'Info Points and Proximity Bombs' for how to do this).</font></p>
+<p><font color="black">For an action to be performed by an opened door, I found the most reliable trigger to be OpenState but as it is always True while the door is opened, for a single-shot action it needs to be constrained by a variable.</font></p>
+
+<p><font color="navy" size="2" face="Arial, Helvetica, sans-serif">
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>OpenState("House 1",TRUE)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("ysAR01House1Opened","GLOBAL",0)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>[do something]</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>SetGlobal("ysAr01House1Opened","GLOBAL",1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p><font color="black">Now, if [do something] was to fire off a nasty spell, for example, you've just created the ultimate undetectable trap.....</font>
+
+<p><font color="black">If you need to run a script from a door, then the name of the .bcs script is entered in the Script box on the Doors tab - see Image 13 for its position. This is the simple script to display a message when the party uses the pickhammer on the rockfall:</font></p>
+
+<p><font color="navy" size="2" face="Arial, Helvetica, sans-serif">
+<table cellspacing=0 cellpadding=0><tr><td>IF</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>OpenState("Myself",TRUE)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>Global("dai_PickHole","GLOBALS",0)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>THEN</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=20></td><td>RESPONSE #100</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>DisplayStringHead(Myself,@2001)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td width=40></td><td>SetGlobal("dai_PickHole","GLOBALS",1)</td></tr></table>
+<table cellspacing=0 cellpadding=0><tr><td>END</td></tr></table>
+</font>
+
+<p><font color="black">Note that this is a WeiDU script, hence the @2001 rather than a direct string reference. However! - serious irritation time. It appears you cannot run a DisplayString(Head) off a locked door, because clicking on the door causes the 'Locked' message to show. The rest of the script will run just fine.</p>
+
+<font color="navy">
+<A NAME = "odd"><H3>Odd Bits of Trickery</H3></A>
+</font>
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#extract">Extracting Door Tiles</A></TD></TR>
+	<TR><TD><A HREF = "#import">Importing the Closed Door Bitmap</A></TD></TR>
+	<TR><TD><A HREF = "#creating">Creating the Door Itself</A></TD></TR>
+	<TR><TD><A HREF = "#secret">Secret Doors</A></TD></TR>
+	<TR><TD><A HREF = "#missing">Missing Doors</A></TD></TR>
+	<TR><TD><A HREF = "#scripts">Door Scripts</A></TD></TR>
+	<TR><TD><A HREF = "#doors">Scripting Doors</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p>Suppose you want a door that is not hidden but does not show up when the cursor passes over it? This is a trick that applies to a one-way door only, really.</p>
+
+<p>When your door is tested complete and working,</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Go to the Doors tab</b></font></li>
+  <li><font face="Times New Roman"><b>Go to 'Vertices and Impeded Blocks'</b></font></li>
+  <li><font face="Times New Roman"><b>If necessary, click on the button so that it says 'Close'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Edit Polygon'</b></font></li>
+</ul></font>
+
+<p>When the Polygon Editor pops up,</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Double-click on each of the vertices so that they are all deleted. Do NOT click on 'Recalc Box'</b></font></li>
+  <li><font face="Times New Roman"><b>Click on 'Back'</b></font></li>
+  <li><font face="Times New Roman"><b>Save it</b></font></li>
+</ul></font>
+
+<p>What you have done is removed the blue shading in the game. The bounding box (the co-ordinates that describe the area the door exists in) still remains, so that passing the cursor over the bounding box will cause the cursor to change to the door shape and the door will operate as normal. I suppose you could call it a semi-hidden door....there's one down in Athkatla's sewers.</p>
+
+<font color="navy"><A NAME = "doors"><H3>Scripting Doors</H3></A></font>
+
+<FONT COLOR="navy">
+<TABLE CELLSPACING = 0 CELLPADDING = 0>
+	<TR><TD><A HREF = "#introduction">Introduction</A></TD></TR>
+	<TR><TD><A HREF = "#extract">Extracting Door Tiles</A></TD></TR>
+	<TR><TD><A HREF = "#import">Importing the Closed Door Bitmap</A></TD></TR>
+	<TR><TD><A HREF = "#creating">Creating the Door Itself</A></TD></TR>
+	<TR><TD><A HREF = "#secret">Secret Doors</A></TD></TR>
+	<TR><TD><A HREF = "#nonrect">Non-rectangular Doors</A></TD></TR>
+	<TR><TD><A HREF = "#missing">Missing Doors</A></TD></TR>
+	<TR><TD><A HREF = "#scripts">Door Scripts</A></TD></TR>
+	<TR><TD><A HREF = "#odd">Odd Bits of Trickery</A></TD></TR>
+<TR>
+</table>
+</font>
+
+<p>What we're discussing here is making doors lock, unlock, open and close from a script. After some serious frustration and far too long checking Bioware area scripts, I discovered that there are some immutable naming rules that must be followed to operate a door from (say) an area script. Firstly, there can be no spaces in the door name. Secondly, the door name and the door identifier must be the same. Thirdly, the 'Found It' flag must be checked. So, let's take a step back and illustrate those points.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image19.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 21 - The Door tab for scripting doors</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<p>This is just a basic scripted door; you may need other flags as well. You also need to use the same names in the .wed files.</p>
+
+<table align=center>
+<tr>
+<td>
+	<font color="navy">
+	<img src="image20.jpg" align="middle">
+	</font>
+	<p><font color="navy"><i><b>Image 22 - Naming the scripted door in the .wed</b></i></font></p>
+	</td>
+</tr>
+</table>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Select the 'General' tab</b></font></li>
+  <li><font face="Times New Roman"><b>Select 'Edit wed'</b></font></li>
+</ul></font>
+
+<p>There is a minor trick here; the default is to name a door with a space between the word 'Door' and the index number. To ensure both fields in the Door box have the same name, change the name in the textfield titled 'Door Name'. The 'Choose Door' description will automatically change to match.</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Back'</b></font></li>
+  <li><font face="Times New Roman"><b>Save the area</b></font></li>
+</ul></font>
+
+<p>Now, if you have a night .wed file as well,</p>
+
+<ul><font color="blue">
+  <li><font face="Times New Roman"><b>Click on 'Night wed'</b></font></li>
+</ul></font>
+
+<p>- and repeat the procedure. The action.ids commands OpenDoor(), CloseDoor(), Lock() and Unlock() will now work. I have to add a note here to the effect that if you check some of the Bioware doors, you will find that the 'Found It' checkbox on the 'Doors' tab isn't necessarily checked. For some reason however, I found that a script wouldn't work if it wasn't checked.</p>
+
+<font color="red">
+<table align=center>
+<tr>
+<td width=500>
+	<p><b><i>Tutorial written by Yovaneth, apprentic’d at Candlekeep during the Bhaalspawn Troubles. Post it where you will but please don’t take credit for what you have not written.</i></b></p>
+</td>
+</tr>
+</table>
+</font>
+
+</body>
+</html>
