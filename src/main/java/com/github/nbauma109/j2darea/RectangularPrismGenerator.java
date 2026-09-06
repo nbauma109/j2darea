@@ -163,7 +163,7 @@ public final class RectangularPrismGenerator {
     }
 
     static Polygon stairGuardBasis(Polygon basis) {
-        return bunkSection(orientedLongRunBasis(basis), 0, 0, -0.045, -0.045, 1.045, 1.045, 0d);
+        return bunkSection(orientedLongRunBasis(basis), 0, 0, -0.065, -0.065, 1.065, 1.065, 0d);
     }
 
     private static Area prismSilhouette(Polygon basis, int dx, int dy) {
@@ -458,20 +458,20 @@ public final class RectangularPrismGenerator {
     private static void paintGuardJunction(Graphics2D graphics, Polygon basis, int dx, int dy,
             boolean nearIsZero) {
         for (double u : new double[] {0.22, 0.50, 0.78}) {
-            paintEdgePillar(graphics, basis, dx, dy, nearIsZero, u, -0.025, 0d, 0.93, true);
+            paintEdgePillar(graphics, basis, dx, dy, nearIsZero, u, -0.045, 0d, 0.93, true);
         }
         Path2D junction = railPath(basis, dx, dy, nearIsZero, new double[][] {
-            {-0.025, 0.12, 0.93},
-            {-0.025, 0.040, 0.93, 0.040, -0.025, 0.93, 0.12, -0.025, 0.93},
-            {0.88, -0.025, 0.93},
-            {0.960, -0.025, 0.93, 1.025, 0.040, 0.93, 1.025, 0.12, 0.93} });
+            {-0.045, 0.12, 0.93},
+            {-0.045, 0.040, 0.93, 0.040, -0.045, 0.93, 0.12, -0.045, 0.93},
+            {0.88, -0.045, 0.93},
+            {0.960, -0.045, 0.93, 1.045, 0.040, 0.93, 1.045, 0.12, 0.93} });
         paintRoundRail(graphics, junction, railDiameter(basis), 0);
     }
 
     /** Rear pillars sit behind the descending rails; foreground pillars sit in front. */
     private static void paintOutsideStairPillars(Graphics2D graphics, Polygon basis, int dx, int dy,
             boolean nearIsZero, boolean left) {
-        double outside = left ? -0.025 : 1.025;
+        double outside = left ? -0.045 : 1.045;
         for (double s : new double[] {0.14, 0.42, 0.70}) {
             paintEdgePillar(graphics, basis, dx, dy, nearIsZero, outside, s, 0d, 0.93);
         }
@@ -481,7 +481,7 @@ public final class RectangularPrismGenerator {
     private static void paintDescendingRail(Graphics2D graphics, Polygon basis, int dx, int dy,
             boolean nearIsZero, boolean left) {
         float diameter = railDiameter(basis);
-        double outside = left ? -0.025 : 1.025;
+        double outside = left ? -0.045 : 1.045;
         double inside = left ? 0.17 : 0.83;
         // The guard follows the opening edge, turns smoothly across the entrance, then drops
         // down the inner edge of the flight. This is the characteristic BG1 hairpin silhouette.
@@ -503,7 +503,8 @@ public final class RectangularPrismGenerator {
         for (double s : new double[] {0.12, 0.42, 0.62, 0.82}) {
             double foot = -StairsDownGenerator.treadDrop(basis, s) / Math.max(1d, Math.abs(dy));
             double head = descendingRailHeight(basis, dy, s);
-            paintEdgePillar(innerPosts, basis, dx, dy, nearIsZero, inside, s, foot, head);
+            paintEdgePillar(innerPosts, basis, dx, dy, nearIsZero, inside, s, foot, head,
+                false, Math.max(0d, (0.84 - s) / 0.84));
         }
         innerPosts.dispose();
         paintRailIntoShaft(graphics, basis, dx, dy, nearIsZero, inside, railDiameter(basis));
@@ -518,12 +519,10 @@ public final class RectangularPrismGenerator {
             {inside, 0.84, descendingRailHeight(basis, dy, 0.84)},
             {inside, -1d, descendingRailHeight(basis, dy, -1d)} });
         paintRoundRail(shaft, continuation, diameter, 0);
-        double slope = StairsDownGenerator.totalDrop(basis) / Math.max(1d, Math.abs(dy));
-        double floor = Math.max(-0.8, Math.min(0.84, 0.84 - 0.78 / Math.max(0.001, slope)));
         Point2D light = railPath(basis, dx, dy, nearIsZero, new double[][] {
-            {inside, floor, descendingRailHeight(basis, dy, floor)} }).getCurrentPoint();
+            {inside, 0.84, descendingRailHeight(basis, dy, 0.84)} }).getCurrentPoint();
         Point2D dark = railPath(basis, dx, dy, nearIsZero, new double[][] {
-            {inside, floor - 0.3, descendingRailHeight(basis, dy, floor - 0.3)} }).getCurrentPoint();
+            {inside, 0d, descendingRailHeight(basis, dy, 0d)} }).getCurrentPoint();
         if (light.distanceSq(dark) > 1d) {
             shaft.setComposite(AlphaComposite.SrcAtop);
             shaft.setPaint(new LinearGradientPaint(light, dark, new float[] {0f, 1f},
@@ -547,6 +546,12 @@ public final class RectangularPrismGenerator {
 
     private static void paintEdgePillar(Graphics2D graphics, Polygon basis, int dx, int dy,
             boolean nearIsZero, double u, double s, double foot, double head, boolean acrossWidth) {
+        paintEdgePillar(graphics, basis, dx, dy, nearIsZero, u, s, foot, head, acrossWidth, -1d);
+    }
+
+    private static void paintEdgePillar(Graphics2D graphics, Polygon basis, int dx, int dy,
+            boolean nearIsZero, double u, double s, double foot, double head, boolean acrossWidth,
+            double shaftDepth) {
         double v = stairRun(s, nearIsZero);
         double x = basis.xpoints[0] + u * (basis.xpoints[1] - basis.xpoints[0])
             + v * (basis.xpoints[3] - basis.xpoints[0]);
@@ -560,15 +565,14 @@ public final class RectangularPrismGenerator {
         double ex = basis.xpoints[edgeEnd] - basis.xpoints[0];
         double ey = basis.ypoints[edgeEnd] - basis.ypoints[0];
         double slope = Math.abs(ex) < 1d ? 0d : ey / ex;
-        double half = Math.max(1.6, railDiameter(basis) * 0.48);
+        float diameter = Math.max(2.2f, railDiameter(basis) * 0.72f);
+        double half = diameter / 2d;
         double[][] corners = {{x - half, bottomY - half * slope}, {x + half, bottomY + half * slope},
             {topX + half, topY + half * slope}, {topX - half, topY - half * slope}};
         Path2D exact = new Path2D.Double();
-        Polygon face = new Polygon();
         for (int i = 0; i < 4; i++) {
             if (i == 0) exact.moveTo(corners[i][0], corners[i][1]);
             else exact.lineTo(corners[i][0], corners[i][1]);
-            face.addPoint((int) Math.round(corners[i][0]), (int) Math.round(corners[i][1]));
         }
         exact.closePath();
         Rectangle bounds = exact.getBounds();
@@ -576,7 +580,21 @@ public final class RectangularPrismGenerator {
             Math.max(1, bounds.height + 1), BufferedImage.TYPE_INT_ARGB);
         Graphics2D wood = pillar.createGraphics();
         wood.translate(-bounds.x, -bounds.y);
-        paintStairWood(wood, uprightFace(face), 44);
+        // Use the same rounded oak profile as the handrail, retaining the precise foot plane.
+        Path2D axis = new Path2D.Double();
+        axis.moveTo(x, bottomY);
+        axis.lineTo(topX, topY);
+        paintRoundRail(wood, axis, diameter, 5);
+        if (shaftDepth >= 0d && Point2D.distanceSq(topX, topY, x, bottomY) > 1d) {
+            int headDarkness = (int) Math.round(240d * Math.min(1d, shaftDepth));
+            int footDarkness = (int) Math.round(240d * Math.min(1d, shaftDepth + 0.20));
+            wood.setComposite(AlphaComposite.SrcAtop);
+            wood.setPaint(new LinearGradientPaint(new Point2D.Double(topX, topY),
+                new Point2D.Double(x, bottomY), new float[] {0f, 1f},
+                new Color[] {new Color(12, 10, 7, headDarkness),
+                    new Color(12, 10, 7, footDarkness)}));
+            wood.fillRect(bounds.x, bounds.y, pillar.getWidth(), pillar.getHeight());
+        }
         wood.dispose();
         for (int py = 0; py < pillar.getHeight(); py++) {
             for (int px = 0; px < pillar.getWidth(); px++) {
