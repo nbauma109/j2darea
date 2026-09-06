@@ -152,8 +152,8 @@ public class J2DArea extends JFrame {
     private boolean night;
     private boolean editingBlackParallelogram;
     private boolean editingTextureParallelogram;
-    private transient boolean editingParallelepiped;
-    private transient Polygon parallelepipedBasis;
+    private transient boolean editingRectangularPrism;
+    private transient Polygon rectangularPrismBasis;
     private transient NanoBananaEditorDialog nanoBananaEditorDialog;
     private transient String extractionGameAreaResref;
     private transient boolean extractionGameAreaClosedDoors = true;
@@ -220,7 +220,7 @@ public class J2DArea extends JFrame {
     private transient JButton pasteCompositeToolbarButton;
     private transient JButton parallelogramBlackToolbarButton;
     private transient JButton parallelogramTextureToolbarButton;
-    private transient JButton parallelepipedToolbarButton;
+    private transient JButton rectangularPrismToolbarButton;
     private transient JButton pasteFromOpenDoorToolbarButton;
     private transient JButton pasteFromClosedDoorToolbarButton;
     private transient JButton pasteFromNightLightToolbarButton;
@@ -318,7 +318,7 @@ public class J2DArea extends JFrame {
                         g2.drawPolygon(parallelogram);
                     }
                 }
-                paintParallelepipedPreview(g2);
+                paintRectangularPrismPreview(g2);
                 if (movingRectangle != null) {
                     g2.drawRect(movingRectangle.x, movingRectangle.y, movingRectangle.width, movingRectangle.height);
                 }
@@ -506,7 +506,7 @@ public class J2DArea extends JFrame {
                     return;
                 }
                 if (!painting && searchMapEditMode == SearchMapEditMode.NONE && !editingBlackParallelogram && !editingTextureParallelogram
-                        && !editingParallelepiped
+                        && !editingRectangularPrism
                         && objectToMove == null
                     && selectedWallGroup == null
                     && !hasSelectedSearchMapCells()
@@ -1527,8 +1527,8 @@ public class J2DArea extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                editingParallelepiped = false;
-                parallelepipedBasis = null;
+                editingRectangularPrism = false;
+                rectangularPrismBasis = null;
                 editingBlackParallelogram = true;
                 painting = false;
                 repaint();
@@ -1549,8 +1549,8 @@ public class J2DArea extends JFrame {
             
             @Override
             public void actionPerformed(ActionEvent e) {
-                editingParallelepiped = false;
-                parallelepipedBasis = null;
+                editingRectangularPrism = false;
+                rectangularPrismBasis = null;
                 editingTextureParallelogram = true;
                 painting = false;
                 repaint();
@@ -1564,8 +1564,8 @@ public class J2DArea extends JFrame {
         parallelogramTextureMenuItem.setText("Filled Parallelogram");
         insertMenu.add(parallelogramTextureMenuItem);
 
-        JButton parallelepipedButton = new JButton(new AbstractAction(null,
-                new ImageIcon(createParallelepipedIcon())) {
+        JButton rectangularPrismButton = new JButton(new AbstractAction(null,
+                new ImageIcon(createRectangularPrismIcon())) {
 
             private static final long serialVersionUID = 1L;
 
@@ -1573,19 +1573,19 @@ public class J2DArea extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 editingBlackParallelogram = false;
                 editingTextureParallelogram = false;
-                editingParallelepiped = true;
-                parallelepipedBasis = null;
+                editingRectangularPrism = true;
+                rectangularPrismBasis = null;
                 painting = false;
                 repaint();
             }
         });
-        parallelepipedButton.setMaximumSize(BUTTON_SIZE);
-        parallelepipedButton.setToolTipText("Draw a parallelepiped, then choose texture-mapped furniture");
-        configureToolbarButton(parallelepipedButton);
-        parallelepipedToolbarButton = parallelepipedButton;
-        JMenuItem parallelepipedMenuItem = new JMenuItem(parallelepipedButton.getAction());
-        parallelepipedMenuItem.setText("Parallelepiped Furniture");
-        insertMenu.add(parallelepipedMenuItem);
+        rectangularPrismButton.setMaximumSize(BUTTON_SIZE);
+        rectangularPrismButton.setToolTipText("Draw a rectangular prism, then choose texture-mapped furniture");
+        configureToolbarButton(rectangularPrismButton);
+        rectangularPrismToolbarButton = rectangularPrismButton;
+        JMenuItem rectangularPrismMenuItem = new JMenuItem(rectangularPrismButton.getAction());
+        rectangularPrismMenuItem.setText("Rectangular Prism Furniture");
+        insertMenu.add(rectangularPrismMenuItem);
 
         JButton pasteFromOpenDoorButton = new JButton(new AbstractAction(null, new ImageIcon(getClass().getResource("/icons/opened_door.png"))) {
             
@@ -2071,7 +2071,7 @@ public class J2DArea extends JFrame {
         menubar.add(pasteCompositeToolbarButton);
         menubar.add(parallelogramBlackToolbarButton);
         menubar.add(parallelogramTextureToolbarButton);
-        menubar.add(parallelepipedToolbarButton);
+        menubar.add(rectangularPrismToolbarButton);
         menubar.add(pasteFromOpenDoorToolbarButton);
         menubar.add(pasteFromClosedDoorToolbarButton);
         menubar.add(pasteFromNightLightToolbarButton);
@@ -2111,7 +2111,7 @@ public class J2DArea extends JFrame {
         buildOnlyToolbarButtons.add(pasteCompositeToolbarButton);
         buildOnlyToolbarButtons.add(parallelogramBlackToolbarButton);
         buildOnlyToolbarButtons.add(parallelogramTextureToolbarButton);
-        buildOnlyToolbarButtons.add(parallelepipedToolbarButton);
+        buildOnlyToolbarButtons.add(rectangularPrismToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromOpenDoorToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromClosedDoorToolbarButton);
         buildOnlyToolbarButtons.add(pasteFromNightLightToolbarButton);
@@ -2843,8 +2843,8 @@ public class J2DArea extends JFrame {
             panel.repaint();
             return;
         }
-        if (editingParallelepiped) {
-            handleParallelepipedClick(scaledEvent, panel);
+        if (editingRectangularPrism) {
+            handleRectangularPrismClick(scaledEvent, panel);
         } else if (editingBlackParallelogram || editingTextureParallelogram) {
             if (parallelograms.isEmpty() || parallelograms.get(parallelograms.size() - 1).npoints == 4) {
                 Polygon parallelogram = new Polygon();
@@ -2923,56 +2923,60 @@ public class J2DArea extends JFrame {
         panel.repaint();
     }
 
-    private void handleParallelepipedClick(MouseEvent event, JPanel panel) {
+    /**
+     * A rectangular prism stands upright, so once its basis is closed only the height of
+     * the extrusion follows the pointer: the sideways drift of that last motion is thrown
+     * away, both here and in the preview, and the solid is always a right prism.
+     */
+    private void handleRectangularPrismClick(MouseEvent event, JPanel panel) {
         if (SwingUtilities.isRightMouseButton(event) || event.isPopupTrigger()) {
-            editingParallelepiped = false;
-            parallelepipedBasis = null;
+            editingRectangularPrism = false;
+            rectangularPrismBasis = null;
             return;
         }
-        if (parallelepipedBasis == null) {
-            parallelepipedBasis = new Polygon();
-            parallelepipedBasis.addPoint(event.getX(), event.getY());
+        if (rectangularPrismBasis == null) {
+            rectangularPrismBasis = new Polygon();
+            rectangularPrismBasis.addPoint(event.getX(), event.getY());
             return;
         }
-        if (parallelepipedBasis.npoints < 3) {
-            parallelepipedBasis.addPoint(event.getX(), event.getY());
-            if (parallelepipedBasis.npoints == 3) {
-                parallelepipedBasis.addPoint(
-                    parallelepipedBasis.xpoints[0] + parallelepipedBasis.xpoints[2] - parallelepipedBasis.xpoints[1],
-                    parallelepipedBasis.ypoints[0] + parallelepipedBasis.ypoints[2] - parallelepipedBasis.ypoints[1]);
+        if (rectangularPrismBasis.npoints < 3) {
+            rectangularPrismBasis.addPoint(event.getX(), event.getY());
+            if (rectangularPrismBasis.npoints == 3) {
+                rectangularPrismBasis.addPoint(
+                    rectangularPrismBasis.xpoints[0] + rectangularPrismBasis.xpoints[2] - rectangularPrismBasis.xpoints[1],
+                    rectangularPrismBasis.ypoints[0] + rectangularPrismBasis.ypoints[2] - rectangularPrismBasis.ypoints[1]);
             }
             return;
         }
 
-        Polygon completedBasis = new Polygon(parallelepipedBasis.xpoints,
-            parallelepipedBasis.ypoints, parallelepipedBasis.npoints);
-        int dx = event.getX() - completedBasis.xpoints[2];
-        int dy = event.getY() - completedBasis.ypoints[2];
-        editingParallelepiped = false;
-        parallelepipedBasis = null;
+        Polygon completedBasis = new Polygon(rectangularPrismBasis.xpoints,
+            rectangularPrismBasis.ypoints, rectangularPrismBasis.npoints);
+        editingRectangularPrism = false;
+        rectangularPrismBasis = null;
         panel.repaint();
-        fillCompletedParallelepiped(completedBasis, dx, dy);
+        fillCompletedRectangularPrism(completedBasis,
+            0, event.getY() - completedBasis.ypoints[2]);
     }
 
-    private void paintParallelepipedPreview(Graphics2D graphics) {
-        if (!editingParallelepiped || parallelepipedBasis == null) return;
+    private void paintRectangularPrismPreview(Graphics2D graphics) {
+        if (!editingRectangularPrism || rectangularPrismBasis == null) return;
         graphics.setStroke(new BasicStroke(1.5f));
         graphics.setColor(Color.GREEN);
-        if (parallelepipedBasis.npoints < 3) {
-            Polygon draft = new Polygon(parallelepipedBasis.xpoints,
-                parallelepipedBasis.ypoints, parallelepipedBasis.npoints);
+        if (rectangularPrismBasis.npoints < 3) {
+            Polygon draft = new Polygon(rectangularPrismBasis.xpoints,
+                rectangularPrismBasis.ypoints, rectangularPrismBasis.npoints);
             draft.addPoint(mousePosition.x, mousePosition.y);
             graphics.drawPolyline(draft.xpoints, draft.ypoints, draft.npoints);
             return;
         }
 
-        int dx = mousePosition.x - parallelepipedBasis.xpoints[2];
-        int dy = mousePosition.y - parallelepipedBasis.ypoints[2];
-        Polygon opposite = ParallelepipedGenerator.translatedFace(parallelepipedBasis, dx, dy);
+        // Upright, so only the height of the pointer counts; see handleRectangularPrismClick.
+        int height = mousePosition.y - rectangularPrismBasis.ypoints[2];
+        Polygon opposite = RectangularPrismGenerator.translatedFace(rectangularPrismBasis, 0, height);
         graphics.setColor(new Color(112, 70, 35));
         graphics.fillPolygon(opposite);
         int faceIndex = 0;
-        for (Polygon face : ParallelepipedGenerator.visibleConnectingFaces(parallelepipedBasis, dx, dy)) {
+        for (Polygon face : RectangularPrismGenerator.visibleConnectingFaces(rectangularPrismBasis, 0, height)) {
             graphics.setColor(faceIndex++ == 0
                 ? new Color(68, 39, 23) : new Color(88, 51, 27));
             graphics.fillPolygon(face);
@@ -3059,18 +3063,18 @@ public class J2DArea extends JFrame {
     }
 
     /** Finalizes the projected solid as one ordinary, movable furniture object. */
-    private void fillCompletedParallelepiped(Polygon basis, int dx, int dy) {
-        ParallelepipedGenerator.Furniture furniture = chooseParallelepipedFurniture();
+    private void fillCompletedRectangularPrism(Polygon basis, int dx, int dy) {
+        RectangularPrismGenerator.Furniture furniture = chooseRectangularPrismFurniture();
         if (furniture == null) return;
-        Rectangle bounds = ParallelepipedGenerator.bounds(basis, dx, dy);
-        BufferedImage image = ParallelepipedGenerator.generate(furniture, basis, dx, dy);
+        Rectangle bounds = RectangularPrismGenerator.bounds(basis, dx, dy);
+        BufferedImage image = RectangularPrismGenerator.generate(furniture, basis, dx, dy);
         PastedObject pastedFurniture = new PastedObject(new Point(bounds.x, bounds.y), new ExportableImage(image));
         pastedFurniture.setStacking(PastedObjectStacking.OBJECT);
         pastedObjects.add(pastedFurniture);
         recordHistoryState();
     }
 
-    private ParallelepipedGenerator.Furniture chooseParallelepipedFurniture() {
+    private RectangularPrismGenerator.Furniture chooseRectangularPrismFurniture() {
         List<RadialMenuDialog.Option> options = Arrays.asList(
             new RadialMenuDialog.Option("BOOKCASE", "Build shelves into the projected solid",
                 J2DArea::paintBookcaseSymbol),
@@ -3090,16 +3094,16 @@ public class J2DArea extends JFrame {
                 J2DArea::paintStairsUpSymbol),
             new RadialMenuDialog.Option("STAIRS DOWN", "Sink a stairwell, guarded on every side but its entrance",
                 J2DArea::paintStairsDownSymbol));
-        int choice = RadialMenuDialog.choose(this, "Build Parallelepiped", options, null);
-        if (choice == 0) return ParallelepipedGenerator.Furniture.BOOKCASE;
-        if (choice == 1) return ParallelepipedGenerator.Furniture.CHEST;
-        if (choice == 2) return ParallelepipedGenerator.Furniture.WARDROBE;
-        if (choice == 3) return ParallelepipedGenerator.Furniture.DRESSER;
-        if (choice == 4) return ParallelepipedGenerator.Furniture.SINGLE_BED;
-        if (choice == 5) return ParallelepipedGenerator.Furniture.DOUBLE_BED;
-        if (choice == 6) return ParallelepipedGenerator.Furniture.BUNK_BED;
-        if (choice == 7) return ParallelepipedGenerator.Furniture.STAIRS_UP;
-        if (choice == 8) return ParallelepipedGenerator.Furniture.STAIRS_DOWN;
+        int choice = RadialMenuDialog.choose(this, "Build Rectangular Prism", options, null);
+        if (choice == 0) return RectangularPrismGenerator.Furniture.BOOKCASE;
+        if (choice == 1) return RectangularPrismGenerator.Furniture.CHEST;
+        if (choice == 2) return RectangularPrismGenerator.Furniture.WARDROBE;
+        if (choice == 3) return RectangularPrismGenerator.Furniture.DRESSER;
+        if (choice == 4) return RectangularPrismGenerator.Furniture.SINGLE_BED;
+        if (choice == 5) return RectangularPrismGenerator.Furniture.DOUBLE_BED;
+        if (choice == 6) return RectangularPrismGenerator.Furniture.BUNK_BED;
+        if (choice == 7) return RectangularPrismGenerator.Furniture.STAIRS_UP;
+        if (choice == 8) return RectangularPrismGenerator.Furniture.STAIRS_DOWN;
         return null;
     }
 
@@ -3233,7 +3237,7 @@ public class J2DArea extends JFrame {
         }
     }
 
-    /** A lidded wooden box for the parallelepiped furniture selector. */
+    /** A lidded wooden box for the rectangular prism furniture selector. */
     private static void paintChestSymbol(Graphics2D graphics, int size, Color color) {
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         graphics.setColor(color);
@@ -3345,7 +3349,7 @@ public class J2DArea extends JFrame {
         graphics.drawLine(cx, baseY, cx, cy);
     }
 
-    private static BufferedImage createParallelepipedIcon() {
+    private static BufferedImage createRectangularPrismIcon() {
         BufferedImage icon = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = icon.createGraphics();
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);

@@ -36,8 +36,8 @@ Implemented now:
 - Randomized geometric carpets for drawn parallelograms, symmetric about both their axes, with field patterns, border motifs, medallion sizes and dye sets that can each be pinned or left to the seed, woven on a knot grid with fringe, pile and wear
 - Generated fills stack the way a room does: floors under everything, carpets over the floors and under whatever stands on them
 - A reusable radial selector, drawn as a lit compass, used for the parallelogram fill choice in place of a message box
-- Stairs sunk into a drawn parallelogram: the flight comes down the long axis toward the viewer, and the wall of the shaft laid bare beside it deepens step by step, which is what carries the descent. The parallelepiped tool paints the same flight on the bottom face of a prism and rails the sides of the prism round it
-- A parallelepiped furniture tool: draw a parallelogram basis, shape its extrusion with a live mouse preview, then choose a BG1-inspired texture-mapped bookcase, chest, wardrobe, dresser, single bed, double bed, bunk bed, or a staircase running up or down from a dedicated radial selector
+- Stairs sunk into a drawn parallelogram: the flight comes down the long axis toward the viewer, and the wall of the shaft laid bare beside it deepens step by step, which is what carries the descent. The rectangular prism tool paints the same flight on the bottom face of a prism and rails the sides of the prism round it
+- A rectangular prism furniture tool: draw a parallelogram basis, then pull its height with a live mouse preview, the last motion being vertical only so the solid is always a right prism, then choose a BG1-inspired texture-mapped bookcase, chest, wardrobe, dresser, single bed, double bed, bunk bed, or a staircase running up or down from a dedicated radial selector
 - Extraction-area rectangle selection can now be sent through a single Nano Banana 2 cleanup-and-extract flow: it opens in a persistent editor window where you can run background removal and red-mask cleanup in either order before exporting the current preview as a transparent-background image
 
 Partially implemented:
@@ -108,10 +108,10 @@ Wood floor workflow:
 
 Boards run along one of the two edges you drew, their ends are cut parallel to the other edge, and the pattern is anchored to the canvas, so several parallelograms drawn the same way carry the same boards across without a joint. The settings are kept as the defaults for the next parallelogram of the session.
 
-Parallelepiped furniture workflow:
+Rectangular prism furniture workflow:
 
-1. Choose the cuboid toolbar button or `Insert -> Parallelepiped Furniture`, then click three corners exactly as for a parallelogram.
-2. Move the pointer away from the third corner to preview the four connecting faces and opposite face in real time.
+1. Choose the cuboid toolbar button or `Insert -> Rectangular Prism Furniture`, then click three corners exactly as for a parallelogram.
+2. Move the pointer away from the third corner to preview the four connecting faces and opposite face in real time. Only the height of that motion counts: the prism stands upright whatever sideways drift the pointer has.
 3. Click to fix the extrusion, then choose `BOOKCASE`, `CHEST`, `WARDROBE`, `DRESSER`, `SINGLE BED`, `DOUBLE BED`, `BUNK BED`, `STAIRS UP` or `STAIRS DOWN` on the radial selector. `STAIRS UP` builds an open eight-step flight climbing away from the viewer, with its risers facing you, a closed stringer under the treads and a raking handrail on balusters down each side. `STAIRS DOWN` builds the head of a flight instead, so the prism is the guard rather than the stair: its side faces stand as a balustrade round the opening, save the short face at the far end of the run, which is the one the flight is entered by. The flight itself is the one the parallelogram tool draws, painted on the bottom face of the prism, so a guarded stairwell and a bare one are the same stair and only the guard round it differs. Both run the long axis of the footprint whichever corner the basis was started from. The result is pasted as one movable object; right-click cancels while drawing.
 
 Bricks and floor tiles use the same directional, canvas-anchored layout. Bricks

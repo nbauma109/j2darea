@@ -10,7 +10,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-public class ParallelepipedGeneratorTest {
+public class RectangularPrismGeneratorTest {
 
     private static Polygon basis() {
         return new Polygon(
@@ -21,7 +21,7 @@ public class ParallelepipedGeneratorTest {
 
     @Test
     public void oppositeFaceIsBasisTranslatedByMouseVector() {
-        Polygon opposite = ParallelepipedGenerator.translatedFace(basis(), 25, -35);
+        Polygon opposite = RectangularPrismGenerator.translatedFace(basis(), 25, -35);
 
         assertEquals(4, opposite.npoints);
         assertEquals(45, opposite.xpoints[0]);
@@ -33,14 +33,14 @@ public class ParallelepipedGeneratorTest {
     @Test
     public void boundsContainBothFacesForEitherExtrusionDirection() {
         assertEquals(new Rectangle(20, 15, 135, 105),
-            ParallelepipedGenerator.bounds(basis(), 25, -35));
+            RectangularPrismGenerator.bounds(basis(), 25, -35));
         assertEquals(new Rectangle(-10, 50, 140, 90),
-            ParallelepipedGenerator.bounds(basis(), -30, 20));
+            RectangularPrismGenerator.bounds(basis(), -30, 20));
     }
 
     @Test
     public void furnitureFrontIsTheLowerBroadConnectingFace() {
-        Polygon front = ParallelepipedGenerator.furnitureFront(basis(), 25, -35);
+        Polygon front = RectangularPrismGenerator.furnitureFront(basis(), 25, -35);
 
         assertEquals(4, front.npoints);
         assertEquals(130, front.xpoints[0]);
@@ -53,7 +53,7 @@ public class ParallelepipedGeneratorTest {
 
     @Test
     public void onlyTheTwoViewerFacingSidePlanesAreVisible() {
-        List<Polygon> visible = ParallelepipedGenerator.visibleConnectingFaces(basis(), 25, -35);
+        List<Polygon> visible = RectangularPrismGenerator.visibleConnectingFaces(basis(), 25, -35);
 
         assertEquals(2, visible.size());
         assertEquals(130, visible.get(0).xpoints[0]);
@@ -62,8 +62,8 @@ public class ParallelepipedGeneratorTest {
 
     @Test
     public void furnitureTextureIsMappedUprightOnTheFrontPlane() {
-        Polygon front = ParallelepipedGenerator.furnitureFront(basis(), 25, -35);
-        Polygon upright = ParallelepipedGenerator.uprightFace(front);
+        Polygon front = RectangularPrismGenerator.furnitureFront(basis(), 25, -35);
+        Polygon upright = RectangularPrismGenerator.uprightFace(front);
 
         assertEquals(4, upright.npoints);
         assertTrue(upright.ypoints[0] + upright.ypoints[1]
@@ -73,8 +73,8 @@ public class ParallelepipedGeneratorTest {
 
     @Test
     public void bothFurnitureChoicesProduceVisibleTransparentImages() {
-        for (ParallelepipedGenerator.Furniture furniture : ParallelepipedGenerator.Furniture.values()) {
-            BufferedImage image = ParallelepipedGenerator.generate(furniture, basis(), 25, -35);
+        for (RectangularPrismGenerator.Furniture furniture : RectangularPrismGenerator.Furniture.values()) {
+            BufferedImage image = RectangularPrismGenerator.generate(furniture, basis(), 25, -35);
             assertEquals(135, image.getWidth());
             assertEquals(105, image.getHeight());
             assertTrue(countVisiblePixels(image) > 1000);
@@ -87,11 +87,11 @@ public class ParallelepipedGeneratorTest {
     public void bunkBedKeepsTheOpenGapBetweenSleepingPlatformsTransparent() {
         int dx = 0;
         int dy = -200;
-        Polygon front = ParallelepipedGenerator.uprightFace(
-            ParallelepipedGenerator.furnitureFront(basis(), dx, dy));
-        Rectangle bounds = ParallelepipedGenerator.bounds(basis(), dx, dy);
-        BufferedImage image = ParallelepipedGenerator.generate(
-            ParallelepipedGenerator.Furniture.BUNK_BED, basis(), dx, dy);
+        Polygon front = RectangularPrismGenerator.uprightFace(
+            RectangularPrismGenerator.furnitureFront(basis(), dx, dy));
+        Rectangle bounds = RectangularPrismGenerator.bounds(basis(), dx, dy);
+        BufferedImage image = RectangularPrismGenerator.generate(
+            RectangularPrismGenerator.Furniture.BUNK_BED, basis(), dx, dy);
         int centerX = (front.xpoints[0] + front.xpoints[1] + front.xpoints[2] + front.xpoints[3]) / 4 - bounds.x;
         int centerY = (front.ypoints[0] + front.ypoints[1] + front.ypoints[2] + front.ypoints[3]) / 4 - bounds.y;
 
@@ -101,7 +101,7 @@ public class ParallelepipedGeneratorTest {
     @Test
     public void bunkSectionsKeepAllFourPrismCornerAnchors() {
         for (int[] extrusion : new int[][] { {0, -200}, {25, -80}, {-30, 120} }) {
-            Polygon top = ParallelepipedGenerator.bunkSection(basis(), extrusion[0], extrusion[1],
+            Polygon top = RectangularPrismGenerator.bunkSection(basis(), extrusion[0], extrusion[1],
                 0, 0, 1, 1, 1);
             for (int i = 0; i < 4; i++) {
                 assertEquals(basis().xpoints[i] + extrusion[0], top.xpoints[i]);
@@ -114,8 +114,8 @@ public class ParallelepipedGeneratorTest {
     public void beddingFacesShortEndRegardlessOfStartingCornerAndWinding() {
         Polygon rectangle = new Polygon(new int[] {80, 170, 290, 200},
             new int[] {210, 178, 258, 290}, 4);
-        BufferedImage expected = ParallelepipedGenerator.generate(
-            ParallelepipedGenerator.Furniture.BUNK_BED, rectangle, 0, -155);
+        BufferedImage expected = RectangularPrismGenerator.generate(
+            RectangularPrismGenerator.Furniture.BUNK_BED, rectangle, 0, -155);
         for (int start = 0; start < 4; start++) {
             for (int direction : new int[] {-1, 1}) {
                 Polygon reordered = new Polygon();
@@ -123,11 +123,11 @@ public class ParallelepipedGeneratorTest {
                     int index = (start + direction * i + 4) % 4;
                     reordered.addPoint(rectangle.xpoints[index], rectangle.ypoints[index]);
                 }
-                Polygon oriented = ParallelepipedGenerator.orientedLongRunBasis(reordered);
+                Polygon oriented = RectangularPrismGenerator.orientedLongRunBasis(reordered);
                 assertEquals(80, oriented.xpoints[0]);
                 assertEquals(170, oriented.xpoints[1]);
-                BufferedImage actual = ParallelepipedGenerator.generate(
-                    ParallelepipedGenerator.Furniture.BUNK_BED, reordered, 0, -155);
+                BufferedImage actual = RectangularPrismGenerator.generate(
+                    RectangularPrismGenerator.Furniture.BUNK_BED, reordered, 0, -155);
                 for (int y = 0; y < expected.getHeight(); y++) {
                     for (int x = 0; x < expected.getWidth(); x++) {
                         assertEquals(expected.getRGB(x, y), actual.getRGB(x, y));
@@ -142,11 +142,11 @@ public class ParallelepipedGeneratorTest {
         Polygon basis = basis();
         int dx = 25;
         int dy = -160;
-        Rectangle prism = ParallelepipedGenerator.bounds(basis, dx, dy);
-        BufferedImage up = ParallelepipedGenerator.generate(
-            ParallelepipedGenerator.Furniture.STAIRS_UP, basis, dx, dy);
-        BufferedImage down = ParallelepipedGenerator.generate(
-            ParallelepipedGenerator.Furniture.STAIRS_DOWN, basis, dx, dy);
+        Rectangle prism = RectangularPrismGenerator.bounds(basis, dx, dy);
+        BufferedImage up = RectangularPrismGenerator.generate(
+            RectangularPrismGenerator.Furniture.STAIRS_UP, basis, dx, dy);
+        BufferedImage down = RectangularPrismGenerator.generate(
+            RectangularPrismGenerator.Furniture.STAIRS_DOWN, basis, dx, dy);
 
         assertEquals(prism.width, up.getWidth());
         assertEquals(prism.height, up.getHeight());
@@ -159,10 +159,10 @@ public class ParallelepipedGeneratorTest {
     public void stairsRunTheLongFootprintAxisRegardlessOfStartingCornerAndWinding() {
         Polygon rectangle = new Polygon(new int[] {80, 170, 290, 200},
             new int[] {210, 178, 258, 290}, 4);
-        for (ParallelepipedGenerator.Furniture flight : new ParallelepipedGenerator.Furniture[] {
-                ParallelepipedGenerator.Furniture.STAIRS_UP,
-                ParallelepipedGenerator.Furniture.STAIRS_DOWN }) {
-            BufferedImage expected = ParallelepipedGenerator.generate(flight, rectangle, 0, -155);
+        for (RectangularPrismGenerator.Furniture flight : new RectangularPrismGenerator.Furniture[] {
+                RectangularPrismGenerator.Furniture.STAIRS_UP,
+                RectangularPrismGenerator.Furniture.STAIRS_DOWN }) {
+            BufferedImage expected = RectangularPrismGenerator.generate(flight, rectangle, 0, -155);
             for (int start = 0; start < 4; start++) {
                 for (int direction : new int[] {-1, 1}) {
                     Polygon reordered = new Polygon();
@@ -171,7 +171,7 @@ public class ParallelepipedGeneratorTest {
                         reordered.addPoint(rectangle.xpoints[index], rectangle.ypoints[index]);
                     }
                     assertTrue(flight + " turned when the basis was drawn from corner " + start,
-                        !differ(expected, ParallelepipedGenerator.generate(flight, reordered, 0, -155)));
+                        !differ(expected, RectangularPrismGenerator.generate(flight, reordered, 0, -155)));
                 }
             }
         }
@@ -189,8 +189,8 @@ public class ParallelepipedGeneratorTest {
                     int index = (start + direction * i + 4) % 4;
                     reordered.addPoint(rectangle.xpoints[index], rectangle.ypoints[index]);
                 }
-                Polygon oriented = ParallelepipedGenerator.orientedLongRunBasis(reordered);
-                int access = ParallelepipedGenerator.stairWellAccessEdge(oriented, dx, dy);
+                Polygon oriented = RectangularPrismGenerator.orientedLongRunBasis(reordered);
+                int access = RectangularPrismGenerator.stairWellAccessEdge(oriented, dx, dy);
                 int other = access == 0 ? 2 : 0;
 
                 assertTrue("the guard opens on an end of the run, never on a side of it",
@@ -208,11 +208,11 @@ public class ParallelepipedGeneratorTest {
         Polygon rectangle = wellBasis();
         int dx = 0;
         int dy = -70;
-        Polygon oriented = ParallelepipedGenerator.orientedLongRunBasis(rectangle);
-        int access = ParallelepipedGenerator.stairWellAccessEdge(oriented, dx, dy);
-        Rectangle bounds = ParallelepipedGenerator.bounds(rectangle, dx, dy);
-        BufferedImage well = ParallelepipedGenerator.generate(
-            ParallelepipedGenerator.Furniture.STAIRS_DOWN, rectangle, dx, dy);
+        Polygon oriented = RectangularPrismGenerator.orientedLongRunBasis(rectangle);
+        int access = RectangularPrismGenerator.stairWellAccessEdge(oriented, dx, dy);
+        Rectangle bounds = RectangularPrismGenerator.bounds(rectangle, dx, dy);
+        BufferedImage well = RectangularPrismGenerator.generate(
+            RectangularPrismGenerator.Furniture.STAIRS_DOWN, rectangle, dx, dy);
 
         // The flight is the one a bare parallelogram gets, laid on the bottom face.
         assertEquals(255, alphaAt(well, bounds, oriented, dx, dy, 0.5, 0.5, 0d));

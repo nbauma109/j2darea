@@ -17,8 +17,8 @@ import java.util.List;
 
 import javax.imageio.ImageIO;
 
-/** Maps BG1-inspired raster furniture textures onto a projected parallelepiped. */
-public final class ParallelepipedGenerator {
+/** Maps BG1-inspired raster furniture textures onto a projected rectangular prism. */
+public final class RectangularPrismGenerator {
 
     public enum Furniture {
         BOOKCASE,
@@ -40,7 +40,7 @@ public final class ParallelepipedGenerator {
     private static final BufferedImage SINGLE_BED_TOP = loadTexture("/furniture/single-bed-top.png", new Color(63, 67, 48));
     private static final BufferedImage DOUBLE_BED_TOP = loadTexture("/furniture/double-bed-top.png", new Color(88, 39, 31));
 
-    private ParallelepipedGenerator() { }
+    private RectangularPrismGenerator() { }
 
     /** The four translated corners opposite the drawn basis. */
     static Polygon translatedFace(Polygon basis, int dx, int dy) {
@@ -603,7 +603,7 @@ public final class ParallelepipedGenerator {
     }
 
     private static BufferedImage loadTexture(String path, Color fallback) {
-        try (InputStream input = ParallelepipedGenerator.class.getResourceAsStream(path)) {
+        try (InputStream input = RectangularPrismGenerator.class.getResourceAsStream(path)) {
             BufferedImage image = input != null ? ImageIO.read(input) : null;
             if (image != null) return image;
         } catch (IOException ex) {

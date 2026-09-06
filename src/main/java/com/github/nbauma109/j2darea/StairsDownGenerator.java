@@ -58,7 +58,7 @@ public final class StairsDownGenerator {
     }
 
     /**
-     * Paints the flight into {@code footprint}, clipped to it. The parallelepiped tool
+     * Paints the flight into {@code footprint}, clipped to it. The rectangular prism tool
      * calls this for the bottom face of a prism, which is why it is kept apart from
      * {@link #generate(Polygon)}.
      */
@@ -102,7 +102,7 @@ public final class StairsDownGenerator {
      * The flight is then the same whichever corner the shape was started from.
      */
     static Polygon headOfRun(Polygon parallelogram) {
-        Polygon oriented = ParallelepipedGenerator.orientedLongRunBasis(parallelogram);
+        Polygon oriented = RectangularPrismGenerator.orientedLongRunBasis(parallelogram);
         if (midY(oriented, 0, 1) >= midY(oriented, 2, 3)) return oriented;
         // The long axis points at the viewer, so the shape has to be read from its other end.
         Polygon flipped = new Polygon();
