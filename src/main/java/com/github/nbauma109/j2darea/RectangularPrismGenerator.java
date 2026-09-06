@@ -4,11 +4,14 @@ import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.LinearGradientPaint;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
+import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -166,8 +169,21 @@ public final class RectangularPrismGenerator {
         }
 
         if (isStairs(furniture)) {
+            // Rounded timber corners must stay inside the exact drawn prism silhouette.
+            Area silhouette = new Area(basis);
+            silhouette.add(new Area(translatedFace(basis, dx, dy)));
+            for (int edge = 0; edge < 4; edge++) {
+                silhouette.add(new Area(connectingFace(basis, edge, dx, dy)));
+            }
+            graphics.clip(silhouette);
             paintStairs(graphics, furniture, basis, dx, dy);
             graphics.dispose();
+            // Java2D clips at pixel centres; enforce the footprint at integer map coordinates too.
+            for (int y = 0; y < image.getHeight(); y++) {
+                for (int x = 0; x < image.getWidth(); x++) {
+                    if (!silhouette.contains(x + bounds.x, y + bounds.y)) image.setRGB(x, y, 0);
+                }
+            }
             makeVisiblePixelsOpaque(image);
             return image;
         }
@@ -278,15 +294,15 @@ public final class RectangularPrismGenerator {
         return quad;
     }
 
-    private static final int STAIR_STEPS = 8;
+    private static final int STAIR_STEPS = 10;
     /** Handrail height above the flight line, as a fraction of the extrusion. */
-    private static final double STAIR_RAIL_RISE = 0.22;
-    private static final double STAIR_RAIL_THICK = 0.05;
+    private static final double STAIR_RAIL_RISE = 0.26;
+    private static final double STAIR_RAIL_THICK = 0.026;
     /** Width of a handrail, a baluster and a newel post, as a fraction of the footprint. */
-    private static final double STAIR_RAIL_WIDTH = 0.07;
-    private static final double STAIR_BALUSTER = 0.035;
+    private static final double STAIR_RAIL_WIDTH = 0.05;
+    private static final double STAIR_BALUSTER = 0.025;
     /** Balustrade proportions on a prism side face: where the top rail starts, and the bay count. */
-    private static final double STAIR_GUARD_TOP = 0.8;
+    private static final double STAIR_GUARD_TOP = 0.88;
     private static final int STAIR_GUARD_BAYS = 4;
 
     /**
@@ -359,11 +375,11 @@ public final class RectangularPrismGenerator {
         double run = 1d / STAIR_STEPS;
         // The stringer goes down first: the steps then overdraw all of it but the raking edge.
         double u = nearIsLeft ? 0d : 1d;
-        mapTexture(graphics, AGED_OAK, stairQuad(basis, dx, dy, new double[][] {
+        paintStairWood(graphics, stairQuad(basis, dx, dy, new double[][] {
             { u, stairRun(1d, nearIsZero), stairLine(1d) },
             { u, stairRun(0d, nearIsZero), 0d },
             { u, stairRun(0d, nearIsZero), 0d },
-            { u, stairRun(1d, nearIsZero), 0d } }), 58);
+            { u, stairRun(1d, nearIsZero), 0d } }), 100);
         // Deepest step first, so each nearer riser overdraws the tread behind it.
         for (int step = STAIR_STEPS - 1; step >= 0; step--) {
             double s0 = step * run;
@@ -371,7 +387,11 @@ public final class RectangularPrismGenerator {
             // A hair of extra depth below each tread closes the seam against the step in front.
             double under = Math.max(0d, stairLine(s0) - 0.006);
             stairBox(graphics, basis, dx, dy, 0d, stairRun(s0, nearIsZero), 1d,
-                stairRun(s0 + run, nearIsZero), under, tread, 4, 58);
+                stairRun(s0 + run, nearIsZero), under, tread, 12 + step * 2, 116 + step * 2, step);
+            // A solid nosing catches the light and casts a narrow shadow over the riser.
+            stairBox(graphics, basis, dx, dy, 0d, stairRun(s0, nearIsZero), 1d,
+                stairRun(s0 + run * 0.16, nearIsZero), Math.max(under, tread - 0.009), tread,
+                18 + step * 2, 64 + step * 2, step);
         }
     }
 
@@ -409,29 +429,29 @@ public final class RectangularPrismGenerator {
     private static void paintGuardRail(Graphics2D graphics, Polygon basis, int dx, int dy, int edge) {
         for (int bay = 0; bay <= STAIR_GUARD_BAYS; bay++) {
             boolean newel = bay == 0 || bay == STAIR_GUARD_BAYS;
-            double width = newel ? 0.06 : 0.03;
+            double width = newel ? 0.045 : 0.022;
             double centre = bay / (double) STAIR_GUARD_BAYS;
             double t0 = Math.max(0d, Math.min(1d - width, centre - width / 2));
-            mapTexture(graphics, AGED_OAK, uprightFace(guardQuad(basis, dx, dy, edge,
-                t0, 0d, t0 + width, newel ? 1d : STAIR_GUARD_TOP)), newel ? 16 : 26);
+            guardTimber(graphics, basis, dx, dy, edge, t0, t0 + width,
+                newel ? 0.045 : 0.025, 0d, newel ? 1d : STAIR_GUARD_TOP, 42);
+            if (newel) {
+                // Squared end caps and collars interrupt the otherwise plain, slender posts.
+                guardTimber(graphics, basis, dx, dy, edge, t0, t0 + width, 0.05, 0.95, 1d, 20);
+                guardTimber(graphics, basis, dx, dy, edge, t0, t0 + width, 0.05, 0.78, 0.82, 32);
+            }
         }
-        mapTexture(graphics, AGED_OAK, uprightFace(guardQuad(basis, dx, dy, edge,
-            0d, STAIR_GUARD_TOP, 1d, 1d)), 6);
+        guardTimber(graphics, basis, dx, dy, edge, 0d, 1d, 0.025, 0.08, 0.115, 66);
+        guardTimber(graphics, basis, dx, dy, edge, 0d, 1d, 0.04, STAIR_GUARD_TOP, 0.96, 32);
     }
 
-    /** A quad on the side face standing on basis edge {@code edge}: t runs along it, h up the extrusion. */
-    private static Polygon guardQuad(Polygon basis, int dx, int dy, int edge,
-            double t0, double h0, double t1, double h1) {
-        int next = (edge + 1) % 4;
-        double ex = basis.xpoints[next] - basis.xpoints[edge];
-        double ey = basis.ypoints[next] - basis.ypoints[edge];
-        double[][] corners = { { t0, h1 }, { t1, h1 }, { t1, h0 }, { t0, h0 } };
-        Polygon quad = new Polygon();
-        for (double[] c : corners) {
-            quad.addPoint((int) Math.round(basis.xpoints[edge] + c[0] * ex + c[1] * dx),
-                (int) Math.round(basis.ypoints[edge] + c[0] * ey + c[1] * dy));
-        }
-        return quad;
+    /** Give the guard a top and two visible sides, with all thickness inside the footprint. */
+    private static void guardTimber(Graphics2D graphics, Polygon basis, int dx, int dy, int edge,
+            double t0, double t1, double depth, double h0, double h1, int shade) {
+        double u0 = edge == 0 ? t0 : edge == 1 ? 1d - depth : edge == 2 ? 1d - t1 : 0d;
+        double u1 = edge == 0 ? t1 : edge == 1 ? 1d : edge == 2 ? 1d - t0 : depth;
+        double v0 = edge == 0 ? 0d : edge == 1 ? t0 : edge == 2 ? 1d - depth : 1d - t1;
+        double v1 = edge == 0 ? depth : edge == 1 ? t1 : edge == 2 ? 1d : 1d - t0;
+        stairBox(graphics, basis, dx, dy, u0, v0, u1, v1, h0, h1, Math.max(0, shade - 24), shade);
     }
 
     /** A raking handrail on balusters along one side, running the whole flight. */
@@ -451,6 +471,11 @@ public final class RectangularPrismGenerator {
             stairBox(graphics, basis, dx, dy, centre - half, stairRun(s, nearIsZero),
                 centre + half, stairRun(s + 2 * half, nearIsZero), foot,
                 newel ? head + STAIR_RAIL_THICK : head, 20, 46);
+            if (newel) {
+                stairBox(graphics, basis, dx, dy, centre - half, stairRun(s, nearIsZero),
+                    centre + half, stairRun(s + 2 * half, nearIsZero),
+                    head, head + STAIR_RAIL_THICK, 8, 24);
+            }
         }
         double nearTop = stairLine(0d) + STAIR_RAIL_RISE;
         double farTop = stairLine(1d) + STAIR_RAIL_RISE;
@@ -458,12 +483,14 @@ public final class RectangularPrismGenerator {
         double far = stairRun(1d, nearIsZero);
         // The outward face of the rail and its upper surface; the inner face never faces the viewer.
         double outer = left ? u0 : u1;
-        mapTexture(graphics, AGED_OAK, uprightFace(stairQuad(basis, dx, dy, new double[][] {
+        paintStairWood(graphics, uprightFace(stairQuad(basis, dx, dy, new double[][] {
             { outer, near, nearTop }, { outer, far, farTop },
             { outer, far, farTop - STAIR_RAIL_THICK }, { outer, near, nearTop - STAIR_RAIL_THICK } })), 34);
-        mapTexture(graphics, AGED_OAK, stairQuad(basis, dx, dy, new double[][] {
+        Polygon railTop = stairQuad(basis, dx, dy, new double[][] {
             { u0, near, nearTop }, { u1, near, nearTop },
-            { u1, far, farTop }, { u0, far, farTop } }), 12);
+            { u1, far, farTop }, { u0, far, farTop } });
+        paintStairWood(graphics, railTop, 4);
+        bevelStairFace(graphics, railTop, 66);
     }
 
     /** Projects a normalized point: {@code u} across the width, {@code v} along the run, {@code h} up the extrusion. */
@@ -488,14 +515,103 @@ public final class RectangularPrismGenerator {
     /** An axis-aligned box in normalized space; paints its top and the two viewer-facing sides. */
     private static void stairBox(Graphics2D graphics, Polygon basis, int dx, int dy,
             double u0, double v0, double u1, double v1, double h0, double h1, int topShade, int sideShade) {
+        stairBox(graphics, basis, dx, dy, u0, v0, u1, v1, h0, h1, topShade, sideShade, 0);
+    }
+
+    private static void stairBox(Graphics2D graphics, Polygon basis, int dx, int dy,
+            double u0, double v0, double u1, double v1, double h0, double h1,
+            int topShade, int sideShade, int board) {
         Polygon bottom = bunkSection(basis, dx, dy, u0, v0, u1, v1, h0);
         Polygon top = bunkSection(basis, dx, dy, u0, v0, u1, v1, h1);
         int riseX = top.xpoints[0] - bottom.xpoints[0];
         int riseY = top.ypoints[0] - bottom.ypoints[0];
         for (Polygon side : visibleConnectingFaces(bottom, riseX, riseY)) {
-            mapTexture(graphics, AGED_OAK, uprightFace(side), sideShade);
+            Polygon face = uprightFace(side);
+            paintStairWood(graphics, face, sideShade, board);
         }
-        mapTexture(graphics, AGED_OAK, top, topShade);
+        if (u1 - u0 > 0.5 && Math.abs(v1 - v0) > 0.04) {
+            paintStairTread(graphics, top, topShade, board);
+        } else {
+            paintStairWood(graphics, top, topShade, board);
+            bevelStairFace(graphics, top, 24);
+        }
+    }
+
+    /** One board per component: the full furniture texture contains ten board seams. */
+    private static final BufferedImage[] STAIR_WOOD = stairBoards();
+
+    private static BufferedImage[] stairBoards() {
+        int width = AGED_OAK.getWidth();
+        int height = AGED_OAK.getHeight();
+        int x = width / 32;
+        BufferedImage[] boards = new BufferedImage[10];
+        for (int board = 0; board < boards.length; board++) {
+            int y = (int) (height * (board + 0.3) / boards.length);
+            boards[board] = AGED_OAK.getSubimage(x, y, Math.max(1, width - 2 * x),
+                Math.min(height - y, Math.max(1, height / 24)));
+        }
+        return boards;
+    }
+
+    /** Muted timber like the worn, dimly lit wood in the area-art references. */
+    static void paintStairWood(Graphics2D graphics, Polygon face, int shade) {
+        paintStairWood(graphics, face, shade, 0);
+    }
+
+    private static void paintStairWood(Graphics2D graphics, Polygon face, int shade, int board) {
+        Graphics2D timber = (Graphics2D) graphics.create();
+        timber.clip(face);
+        // Rounded quads need not be exact parallelograms. The affine texture can miss
+        // a few edge pixels, so start with opaque timber before adding translucent washes.
+        timber.setColor(new Color(64, 44, 28));
+        timber.fillPolygon(face);
+        mapTexture(timber, STAIR_WOOD[Math.floorMod(board, STAIR_WOOD.length)], face, 0);
+        timber.setColor(new Color(125, 113, 88, 66));
+        timber.fillPolygon(face);
+        timber.setColor(new Color(12, 10, 7, Math.min(255, shade)));
+        timber.fillPolygon(face);
+        timber.dispose();
+    }
+
+    /** Broad, softly worn centres; the tread ends stay dark against the stringers. */
+    static void paintStairTread(Graphics2D graphics, Polygon face, int shade) {
+        paintStairTread(graphics, face, shade, 0);
+    }
+
+    static void paintStairTread(Graphics2D graphics, Polygon face, int shade, int board) {
+        paintStairWood(graphics, face, shade, board);
+        Point2D left = new Point2D.Double((face.xpoints[0] + face.xpoints[3]) / 2d,
+            (face.ypoints[0] + face.ypoints[3]) / 2d);
+        Point2D right = new Point2D.Double((face.xpoints[1] + face.xpoints[2]) / 2d,
+            (face.ypoints[1] + face.ypoints[2]) / 2d);
+        if (left.distanceSq(right) < 1d) return;
+        Graphics2D wear = (Graphics2D) graphics.create();
+        wear.clip(face);
+        int light = Math.max(0, 58 - shade / 2);
+        float centre = 0.46f + Math.floorMod(board * 3, 5) * 0.02f;
+        wear.setPaint(new LinearGradientPaint(left, right, new float[] {0f, 0.18f, centre, 0.82f, 1f},
+            new Color[] {new Color(17, 13, 8, 80), new Color(150, 135, 104, light / 2),
+                new Color(169, 153, 122, light), new Color(150, 135, 104, light / 2), new Color(17, 13, 8, 80)}));
+        wear.fillPolygon(face);
+        wear.dispose();
+        bevelStairFace(graphics, face, Math.max(0, 38 - shade / 4));
+    }
+
+    /** Soft edge wear across the face, without one-pixel highlight strokes on its outline. */
+    static void bevelStairFace(Graphics2D graphics, Polygon face, int light) {
+        Point2D front = new Point2D.Double((face.xpoints[0] + face.xpoints[1]) / 2d,
+            (face.ypoints[0] + face.ypoints[1]) / 2d);
+        Point2D back = new Point2D.Double((face.xpoints[2] + face.xpoints[3]) / 2d,
+            (face.ypoints[2] + face.ypoints[3]) / 2d);
+        if (front.distanceSq(back) < 1d) return;
+        Graphics2D detail = (Graphics2D) graphics.create();
+        detail.clip(face);
+        detail.setComposite(AlphaComposite.SrcAtop);
+        detail.setPaint(new LinearGradientPaint(front, back, new float[] {0f, 0.22f, 0.78f, 1f},
+            new Color[] {new Color(159, 139, 105, light / 3), new Color(159, 139, 105, 0),
+                new Color(18, 14, 9, 0), new Color(18, 14, 9, 44)}));
+        detail.fillPolygon(face);
+        detail.dispose();
     }
 
     /** Posts follow all four extrusion edges; the decks span the actual basis. */

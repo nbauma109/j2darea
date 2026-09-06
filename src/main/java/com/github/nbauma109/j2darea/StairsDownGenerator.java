@@ -1,18 +1,11 @@
 package com.github.nbauma109.j2darea;
 
-import java.awt.AlphaComposite;
-import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
-
-import javax.imageio.ImageIO;
 
 /**
  * A flight of stairs sunk into a drawn parallelogram, read from the head of the run.
@@ -34,9 +27,7 @@ import javax.imageio.ImageIO;
  */
 public final class StairsDownGenerator {
 
-    private static final BufferedImage AGED_OAK = loadTexture("/furniture/aged-oak.png", new Color(70, 42, 25));
-
-    private static final int STEPS = 6;
+    private static final int STEPS = 10;
     /** Rise over going: how much a step sinks for every tread it walks back up the run. */
     private static final double DROP = 0.9;
 
@@ -84,15 +75,27 @@ public final class StairsDownGenerator {
             double sunk = drop * step / STEPS;
             double next = drop * (step + 1) / STEPS;
             // Light falls in from the head of the flight, so a step takes less of it the lower it goes.
-            int fade = step * 84 / (STEPS - 1);
+            int fade = step * 220 / (STEPS - 1);
             // The wall of the shaft laid bare beside this tread. It hangs from the floor the
             // flight left down to the tread, so it deepens step by step, and that is the whole
             // of the depth: without it a flight of steps reads as a folded floor.
             mapTexture(graphics, quad(run, wall, near, 0d, wall, far, 0d, wall, far, sunk),
-                146 + fade / 3);
-            mapTexture(graphics, quad(run, 0d, near, sunk, 1d, near, sunk, 1d, far, sunk), 4 + fade);
-            mapTexture(graphics, quad(run, 0d, near, sunk, 1d, near, sunk, 1d, near, next), 92 + fade);
+                174 + fade / 3);
+            Polygon tread = quad(run, 0d, near, sunk, 1d, near, sunk, 1d, far, sunk);
+            RectangularPrismGenerator.paintStairTread(graphics, tread, 20 + fade, step);
+            Polygon riser = quad(run, 0d, near, sunk, 1d, near, sunk, 1d, near, next);
+            mapTexture(graphics, riser, 126 + fade);
+            // A lighter wooden lip separates each tread from the shaded riser below it.
+            Polygon nosing = quad(run, 0d, near, sunk, 1d, near, sunk,
+                1d, near, sunk + (next - sunk) * 0.12);
+            mapTexture(graphics, nosing, 36 + fade);
+            RectangularPrismGenerator.bevelStairFace(graphics, nosing, Math.max(0, 34 - fade / 4));
         }
+        // A narrow timber lining makes the cut in the floor legible beside the shaft wall.
+        double inner = wall == 0d ? 0.035 : 0.965;
+        Polygon rim = quad(run, wall, 0d, 0d, inner, 0d, 0d, inner, 1d, 0d);
+        mapTexture(graphics, rim, 24);
+        RectangularPrismGenerator.bevelStairFace(graphics, rim, 52);
         graphics.setClip(oldClip);
     }
 
@@ -137,38 +140,8 @@ public final class StairsDownGenerator {
         return quad;
     }
 
-    /** Affinely projects the whole texture into p0-p1-p2-p3, then shades it. */
     private static void mapTexture(Graphics2D graphics, Polygon face, int shadeAlpha) {
-        if (face.npoints < 4) return;
-        Shape oldClip = graphics.getClip();
-        graphics.clip(face);
-        graphics.drawImage(AGED_OAK, new AffineTransform(
-            (face.xpoints[1] - face.xpoints[0]) / (double) AGED_OAK.getWidth(),
-            (face.ypoints[1] - face.ypoints[0]) / (double) AGED_OAK.getWidth(),
-            (face.xpoints[3] - face.xpoints[0]) / (double) AGED_OAK.getHeight(),
-            (face.ypoints[3] - face.ypoints[0]) / (double) AGED_OAK.getHeight(),
-            face.xpoints[0], face.ypoints[0]), null);
-        if (shadeAlpha > 0) {
-            graphics.setComposite(AlphaComposite.SrcOver);
-            graphics.setColor(new Color(12, 8, 6, Math.min(255, shadeAlpha)));
-            graphics.fillPolygon(face);
-        }
-        graphics.setClip(oldClip);
-    }
-
-    private static BufferedImage loadTexture(String path, Color fallback) {
-        try (InputStream input = StairsDownGenerator.class.getResourceAsStream(path)) {
-            BufferedImage image = input != null ? ImageIO.read(input) : null;
-            if (image != null) return image;
-        } catch (IOException ex) {
-            // The solid fallback keeps project loading safe if a packaged resource is damaged.
-        }
-        BufferedImage image = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
-        Graphics2D graphics = image.createGraphics();
-        graphics.setColor(fallback);
-        graphics.fillRect(0, 0, 2, 2);
-        graphics.dispose();
-        return image;
+        RectangularPrismGenerator.paintStairWood(graphics, face, shadeAlpha);
     }
 
     private static void makeVisiblePixelsOpaque(BufferedImage image) {
