@@ -3093,7 +3093,9 @@ public class J2DArea extends JFrame {
             new RadialMenuDialog.Option("STAIRS UP", "Build a flight of stairs climbing away from the viewer",
                 J2DArea::paintStairsUpSymbol),
             new RadialMenuDialog.Option("STAIRS DOWN", "Sink a stairwell, guarded on every side but its entrance",
-                J2DArea::paintStairsDownSymbol));
+                J2DArea::paintStairsDownSymbol),
+            new RadialMenuDialog.Option("CRATE", "Board the solid up as a shipping crate",
+                J2DArea::paintCrateSymbol));
         int choice = RadialMenuDialog.choose(this, "Build Rectangular Prism", options, null);
         if (choice == 0) return RectangularPrismGenerator.Furniture.BOOKCASE;
         if (choice == 1) return RectangularPrismGenerator.Furniture.CHEST;
@@ -3104,6 +3106,7 @@ public class J2DArea extends JFrame {
         if (choice == 6) return RectangularPrismGenerator.Furniture.BUNK_BED;
         if (choice == 7) return RectangularPrismGenerator.Furniture.STAIRS_UP;
         if (choice == 8) return RectangularPrismGenerator.Furniture.STAIRS_DOWN;
+        if (choice == 9) return RectangularPrismGenerator.Furniture.CRATE;
         return null;
     }
 
@@ -3347,6 +3350,23 @@ public class J2DArea extends JFrame {
         int baseY = size / 2;
         graphics.drawLine(-size / 2, baseY, cx, baseY);
         graphics.drawLine(cx, baseY, cx, cy);
+    }
+
+    /** A boarded box seen head-on: a square frame with a diagonal brace. */
+    private static void paintCrateSymbol(Graphics2D graphics, int size, Color color) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int side = (size * 4) / 5;
+        int x = -side / 2;
+        int y = -side / 2;
+        graphics.drawRect(x, y, side, side);
+        graphics.drawLine(x, y + side, x + side, y);
+        int inset = side / 5;
+        graphics.drawLine(x + inset, y, x + inset, y + side);
+        graphics.drawLine(x + side - inset, y, x + side - inset, y + side);
+        graphics.drawLine(x, y + inset, x + side, y + inset);
+        graphics.drawLine(x, y + side - inset, x + side, y + side - inset);
     }
 
     private static BufferedImage createRectangularPrismIcon() {

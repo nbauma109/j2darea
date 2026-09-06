@@ -84,6 +84,39 @@ public class RectangularPrismGeneratorTest {
     }
 
     @Test
+    public void crateBoardsEveryFaceWithAFramedPanelDistinctFromAPlainBox() {
+        Polygon basis = basis();
+        BufferedImage crate = RectangularPrismGenerator.generate(
+            RectangularPrismGenerator.Furniture.CRATE, basis, 25, -35);
+        BufferedImage chest = RectangularPrismGenerator.generate(
+            RectangularPrismGenerator.Furniture.CHEST, basis, 25, -35);
+
+        assertEquals(chest.getWidth(), crate.getWidth());
+        assertEquals(chest.getHeight(), crate.getHeight());
+        int different = 0;
+        for (int y = 0; y < crate.getHeight(); y++) {
+            for (int x = 0; x < crate.getWidth(); x++) {
+                if (crate.getRGB(x, y) != chest.getRGB(x, y)) different++;
+            }
+        }
+        // The boarding is drawn over the whole solid, so it must reshade a large share of it.
+        assertTrue("the crate barely differs from a plain box", different > 2000);
+
+        // The frame, the sunk panel and the grooves give a boarded face several shade levels.
+        Polygon front = RectangularPrismGenerator.uprightFace(
+            RectangularPrismGenerator.furnitureFront(basis, 25, -35));
+        Rectangle bounds = RectangularPrismGenerator.bounds(basis, 25, -35);
+        java.util.Set<Integer> shades = new java.util.HashSet<Integer>();
+        for (int step = 1; step < 20; step++) {
+            int px = front.xpoints[0] + (front.xpoints[2] - front.xpoints[0]) * step / 20 - bounds.x;
+            int py = front.ypoints[0] + (front.ypoints[2] - front.ypoints[0]) * step / 20 - bounds.y;
+            if (px < 0 || py < 0 || px >= crate.getWidth() || py >= crate.getHeight()) continue;
+            shades.add((crate.getRGB(px, py) & 0xFF) / 8);
+        }
+        assertTrue("the boarded face has no relief", shades.size() >= 3);
+    }
+
+    @Test
     public void bunkBedKeepsTheOpenGapBetweenSleepingPlatformsTransparent() {
         int dx = 0;
         int dy = -200;

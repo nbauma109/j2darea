@@ -1,6 +1,7 @@
 package com.github.nbauma109.j2darea;
 
 import java.awt.AlphaComposite;
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
@@ -29,7 +30,8 @@ public final class RectangularPrismGenerator {
         DOUBLE_BED,
         BUNK_BED,
         STAIRS_UP,
-        STAIRS_DOWN
+        STAIRS_DOWN,
+        CRATE
     }
 
     private static final BufferedImage AGED_OAK = loadTexture("/furniture/aged-oak.png", new Color(70, 42, 25));
@@ -170,6 +172,13 @@ public final class RectangularPrismGenerator {
             return image;
         }
 
+        if (furniture == Furniture.CRATE) {
+            paintCrate(graphics, basis, dx, dy);
+            graphics.dispose();
+            makeVisiblePixelsOpaque(image);
+            return image;
+        }
+
         Polygon top = translatedFace(basis, dx, dy);
         Polygon front = furnitureFront(basis, dx, dy);
         List<TexturedFace> faces = new ArrayList<TexturedFace>();
@@ -196,6 +205,77 @@ public final class RectangularPrismGenerator {
 
     private static boolean isStairs(Furniture furniture) {
         return furniture == Furniture.STAIRS_UP || furniture == Furniture.STAIRS_DOWN;
+    }
+
+    /**
+     * A shipping crate: the plain box, with a plank frame nailed over every visible face.
+     * Each face is a recessed panel bordered by four rails and crossed by one diagonal
+     * brace; the rails and brace catch the light while the panel between them sits back.
+     */
+    private static void paintCrate(Graphics2D graphics, Polygon basis, int dx, int dy) {
+        List<TexturedFace> faces = new ArrayList<TexturedFace>();
+        for (Polygon side : visibleConnectingFaces(basis, dx, dy)) {
+            faces.add(new TexturedFace(uprightFace(side), 44));
+        }
+        faces.add(new TexturedFace(translatedFace(basis, dx, dy), 16));
+        faces.sort(Comparator.comparingDouble(face -> polygonCenterY(face.polygon)));
+        for (TexturedFace face : faces) paintCrateFace(graphics, face.polygon, face.shade);
+    }
+
+    /** One boarded face: a sunk panel, four framing rails, and a corner-to-corner brace. */
+    private static void paintCrateFace(Graphics2D graphics, Polygon face, int frameShade) {
+        if (face == null || face.npoints < 4) return;
+        double rail = 0.17;
+        double brace = 0.17;
+        // Frame boards first, over the whole face; the panel is then sunk into the middle.
+        mapTexture(graphics, AGED_OAK, face, frameShade);
+        mapTexture(graphics, AGED_OAK, faceBand(face, rail, rail, 1d - rail, 1d - rail), frameShade + 70);
+        // The diagonal brace lies back over the sunk panel, level with the frame again.
+        mapTexture(graphics, AGED_OAK, faceQuad(face,
+            brace, 1d, 0d, 1d - brace, 1d - brace, 0d, 1d, brace), frameShade + 8);
+        // Crisp grooves so the boards read at any size.
+        Shape oldClip = graphics.getClip();
+        graphics.clip(face);
+        graphics.setStroke(new BasicStroke(1f));
+        graphics.setColor(new Color(0, 0, 0, 90));
+        strokeFacePath(graphics, face, rail, rail, 1d - rail, rail, 1d - rail, 1d - rail, rail, 1d - rail, rail, rail);
+        strokeFacePath(graphics, face, brace, 1d, 1d, brace);
+        strokeFacePath(graphics, face, 0d, 1d - brace, 1d - brace, 0d);
+        graphics.setClip(oldClip);
+    }
+
+    /** Draws a polyline through a run of {@code (u, v)} pairs mapped into a face. */
+    private static void strokeFacePath(Graphics2D graphics, Polygon face, double... uv) {
+        for (int i = 0; i + 3 < uv.length; i += 2) {
+            int[] a = facePoint(face, uv[i], uv[i + 1]);
+            int[] b = facePoint(face, uv[i + 2], uv[i + 3]);
+            graphics.drawLine(a[0], a[1], b[0], b[1]);
+        }
+    }
+
+    /** Bilinear point inside a projected face: {@code u} along edge 0-1, {@code v} along edge 0-3. */
+    private static int[] facePoint(Polygon face, double u, double v) {
+        double x = face.xpoints[0] + u * (face.xpoints[1] - face.xpoints[0])
+            + v * (face.xpoints[3] - face.xpoints[0]);
+        double y = face.ypoints[0] + u * (face.ypoints[1] - face.ypoints[0])
+            + v * (face.ypoints[3] - face.ypoints[0]);
+        return new int[] { (int) Math.round(x), (int) Math.round(y) };
+    }
+
+    /** An axis-aligned sub-rectangle of a face, in its {@code (u, v)} coordinates. */
+    private static Polygon faceBand(Polygon face, double u0, double v0, double u1, double v1) {
+        return faceQuad(face, u0, v0, u1, v0, u1, v1, u0, v1);
+    }
+
+    /** A quad from four {@code (u, v)} pairs inside a face. */
+    private static Polygon faceQuad(Polygon face, double u0, double v0, double u1, double v1,
+            double u2, double v2, double u3, double v3) {
+        Polygon quad = new Polygon();
+        for (double[] c : new double[][] { { u0, v0 }, { u1, v1 }, { u2, v2 }, { u3, v3 } }) {
+            int[] p = facePoint(face, c[0], c[1]);
+            quad.addPoint(p[0], p[1]);
+        }
+        return quad;
     }
 
     private static final int STAIR_STEPS = 8;
