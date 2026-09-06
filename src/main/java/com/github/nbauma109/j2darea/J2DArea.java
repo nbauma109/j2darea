@@ -3373,19 +3373,23 @@ public class J2DArea extends JFrame {
         BufferedImage icon = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = icon.createGraphics();
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        graphics.setColor(new Color(87, 55, 31));
-        Polygon front = new Polygon(new int[] { 2, 10, 10, 2 }, new int[] { 6, 4, 12, 14 }, 4);
-        Polygon top = new Polygon(new int[] { 2, 6, 14, 10 }, new int[] { 6, 2, 0, 4 }, 4);
-        Polygon side = new Polygon(new int[] { 10, 14, 14, 10 }, new int[] { 4, 0, 8, 12 }, 4);
+        // Three readable isometric faces, with breathing room around the silhouette.
+        Polygon front = new Polygon(new int[] { 1, 9, 9, 1 }, new int[] { 5, 8, 14, 11 }, 4);
+        Polygon top = new Polygon(new int[] { 1, 6, 14, 9 }, new int[] { 5, 2, 5, 8 }, 4);
+        Polygon side = new Polygon(new int[] { 9, 14, 14, 9 }, new int[] { 8, 5, 11, 14 }, 4);
+        graphics.setColor(new Color(166, 111, 58));
         graphics.fillPolygon(front);
-        graphics.setColor(new Color(151, 102, 54));
+        graphics.setColor(new Color(229, 187, 119));
         graphics.fillPolygon(top);
-        graphics.setColor(new Color(112, 73, 39));
+        graphics.setColor(new Color(110, 70, 38));
         graphics.fillPolygon(side);
-        graphics.setColor(Color.BLACK);
-        graphics.drawPolygon(front);
-        graphics.drawPolygon(top);
-        graphics.drawPolygon(side);
+        graphics.setStroke(new BasicStroke(1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        graphics.setColor(new Color(66, 44, 28));
+        graphics.drawPolygon(new Polygon(new int[] { 1, 6, 14, 14, 9, 1 },
+            new int[] { 5, 2, 5, 11, 14, 11 }, 6));
+        graphics.drawLine(1, 5, 9, 8);
+        graphics.drawLine(9, 8, 14, 5);
+        graphics.drawLine(9, 8, 9, 14);
         graphics.dispose();
         return icon;
     }
